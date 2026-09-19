@@ -64,7 +64,8 @@ server/room.ts      Shared performance, deadlines, entrances, ending
 server/index.ts     Local/server hosting, SSE, protected controller actions
 src/audio.ts       Web Audio instruments, effect buses, clock scheduling
 src/Stage.tsx      Three.js stage, players, lights, crowd
-src/main.tsx       Audience controls and live decision console
+src/App.tsx        Audience controls and live decision console
+src/main.tsx       React entrypoint
 docs/             Original prompt, design history, research, architecture
 ```
 
