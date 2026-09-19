@@ -25,7 +25,7 @@ import {
 import { endingPressure } from '../shared/score.js';
 import { listeningState } from './listening.js';
 
-const choice = (
+export const choice = (
   instructions: string,
   values: readonly string[] | Record<string, string>,
 ): ChoiceQuestion => ({

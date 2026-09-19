@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { Room } from '../server/room.js';
 import { callJev, requestFor } from '../server/jev.js';
+import { phrasePlanRequest } from '../server/composer.js';
 import { roles } from '../shared/music.js';
 if (!process.env.OPENROUTER_API_KEY)
   throw new Error('Set OPENROUTER_API_KEY in the server environment.');
@@ -14,7 +15,9 @@ const room = new Room(
 const traces = await Promise.all(
   roles.map((role) =>
     callJev(
-      requestFor(role, room.view(), 4, process.env.JEV_MODEL || 'typesafe/jev-1.13'),
+      role === 'lights'
+        ? requestFor(role, room.view(), 4, process.env.JEV_MODEL || 'typesafe/jev-1.13')
+        : phrasePlanRequest(role, room.view(), 4, process.env.JEV_MODEL || 'typesafe/jev-1.13'),
       role,
       4,
       process.env.OPENROUTER_API_KEY!,

@@ -51,7 +51,9 @@ export default function App() {
   const [hostRequired, setHostRequired] = useState(false);
   const [controller, setController] = useState('');
   const [prompt, setPrompt] = useState('Somewhere between the last train and the sunrise');
-  const [mode, setMode] = useState<'live' | 'rehearsal'>('rehearsal');
+  const [chosenMode, setChosenMode] = useState<'live' | 'rehearsal' | null>(null);
+  const [healthReady, setHealthReady] = useState(false);
+  const mode = chosenMode ?? (liveAvailable ? 'live' : 'rehearsal');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sound, setSound] = useState(false);
@@ -67,6 +69,7 @@ export default function App() {
   const audio = useRef(new BandAudio());
   const stage = useRef<HTMLDivElement>(null);
   const running = !!room && room.status !== 'ended';
+  const effectiveMode = running ? room.mode : mode;
   const currentTime = now + offset;
   const frame: Frame | null = room?.frames.filter((f) => f.at <= currentTime).at(-1) ?? null;
   const activeFrame = running ? frame : null;
@@ -89,6 +92,7 @@ export default function App() {
         audio.current.sync(off);
         setLiveAvailable(data.liveAvailable);
         setHostRequired(data.hostAccessRequired);
+        setHealthReady(true);
       } catch {
         if (mounted) setConnected(false);
       }
@@ -273,6 +277,27 @@ export default function App() {
             {connected ? 'STAGE CONNECTED' : 'CONNECTING TO STAGE'}
           </div>
         </div>
+        <div
+          className={`generation-status ${effectiveMode === 'rehearsal' ? 'demo-status' : ''}`}
+          role="status"
+        >
+          <strong>
+            {!healthReady
+              ? 'CONNECTING TO THE BAND'
+              : effectiveMode === 'rehearsal'
+                ? 'DEMO · NO AI'
+                : 'LIVE JEV'}
+          </strong>
+          <span>
+            {!healthReady
+              ? 'Checking the connection…'
+              : effectiveMode === 'rehearsal'
+                ? '0 Jev requests. Procedural music; the title does not shape the composition.'
+                : running
+                  ? `${room.requests} API requests · Real Jev decisions, live as they happen.`
+                  : 'Your prompt sets the scene. Each player makes real Jev decisions as the jam unfolds.'}
+          </span>
+        </div>
         <div className={`performance-layout ${consoleOpen ? 'with-console' : ''}`}>
           <div className="performance-main">
             <div className="stage-wrap" ref={stage}>
@@ -292,7 +317,7 @@ export default function App() {
                   {running
                     ? room?.mode === 'live'
                       ? 'JEV LIVE'
-                      : 'OFFLINE REHEARSAL'
+                      : 'DEMO · NO AI'
                     : 'THE ROOM IS YOURS'}
                 </div>
                 <span className="stage-location">THE NEVERENDING ROOM / STAGE 01</span>
@@ -329,9 +354,13 @@ export default function App() {
               </div>
               {!running && (
                 <div className="stage-caption">
-                  NO TWO JAMS ALIKE.
+                  {mode === 'live' ? 'JEV CHOOSES. CODE PLAYS.' : 'INSTRUMENT DEMO. NO AI.'}
                   <br />
-                  <span>RECORDED NOTES. NEW IDEAS.</span>
+                  <span>
+                    {mode === 'live'
+                      ? 'RECORDED NOTES. LIVE DECISIONS.'
+                      : 'TRY LIVE JEV FOR PROMPT-DRIVEN MUSIC.'}
+                  </span>
                 </div>
               )}
             </div>
@@ -426,12 +455,18 @@ export default function App() {
                   {running ? 'NOW WANDERING' : 'GIVE THEM A PLACE TO BEGIN'}
                 </span>
                 <h2>
-                  {running ? 'The band takes it from here.' : 'What does tonight sound like?'}
+                  {(running ? room.mode : mode) === 'rehearsal'
+                    ? 'Try the instruments.'
+                    : running
+                      ? 'The band takes it from here.'
+                      : 'What does tonight sound like?'}
                 </h2>
                 <p>
-                  {running
-                    ? 'They listen to one another. The prompt is just the first spark.'
-                    : 'A title, a feeling, or a whole story. See where they take it.'}
+                  {(running ? room.mode : mode) === 'rehearsal'
+                    ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
+                    : running
+                      ? 'They listen to one another. The prompt is just the first spark.'
+                      : 'A title, a feeling, or a whole story. See where they take it.'}
                 </p>
               </div>
               <div className="prompt-form">
@@ -460,9 +495,10 @@ export default function App() {
                         <select
                           aria-label="Decision mode"
                           value={mode}
-                          onChange={(e) => setMode(e.target.value as typeof mode)}
+                          disabled={!healthReady}
+                          onChange={(e) => setChosenMode(e.target.value as typeof mode)}
                         >
-                          <option value="rehearsal">Offline rehearsal</option>
+                          <option value="rehearsal">Instrument demo · no AI</option>
                           <option value="live" disabled={!liveAvailable}>
                             Live Jev{!liveAvailable ? ' · host key needed' : ''}
                           </option>
@@ -471,11 +507,17 @@ export default function App() {
                       </label>
                       <button
                         className="start-button"
-                        disabled={busy || !connected || !prompt.trim()}
+                        disabled={
+                          busy ||
+                          !connected ||
+                          !healthReady ||
+                          (mode === 'live' && !liveAvailable) ||
+                          !prompt.trim()
+                        }
                         onClick={start}
                       >
                         <Play size={16} fill="currentColor" />
-                        {busy ? 'Opening the room…' : 'Let’s jam'}
+                        {busy ? 'Opening the room…' : mode === 'live' ? 'Let’s jam' : 'Play demo'}
                       </button>
                     </div>
                   </>
@@ -494,6 +536,28 @@ export default function App() {
                 )}
               </div>
             </section>
+            <details className="composition-contract">
+              <summary>What does Jev actually control?</summary>
+              <p>
+                Live Jev composes each phrase one attack at a time: exact pitches, time until the
+                next attack, held duration, velocity and articulation. Each decision sees its own
+                earlier notes. Keyboard chords and drum hits are chosen individually too. Creative
+                note choices sample Jev’s probabilities; the trace shows both the raw provider
+                answer and the applied choice.
+              </p>
+              <p>
+                Each player chooses a tonal intention, musical role and independent effects. Players
+                take turns revising phrases and hear only notes already played by peers. The harness
+                keeps time, enforces instrument limits and caps the jam at ten minutes. Live phrases
+                use no preset rhythm, voicing or drum pattern. Recorded samples are individual
+                notes.
+              </p>
+              <p>
+                The instrument demo makes no Jev calls and uses three built-in motifs with
+                procedural changes. Its title is not semantically interpreted. Open Under the hood
+                to inspect real requests and their results.
+              </p>
+            </details>
             {(error || room?.error) && (
               <div className="error-message" role="alert">
                 {error || room?.error}
@@ -502,9 +566,9 @@ export default function App() {
             <div className="below-note">
               <span>
                 <AudioLines size={15} />
-                {(mode === 'rehearsal' && !running) || room?.mode === 'rehearsal'
+                {effectiveMode === 'rehearsal'
                   ? 'Rehearsal is procedural. Switch to Live Jev for real model decisions.'
-                  : 'Jev writes the phrases. Recorded notes become a live performance.'}
+                  : 'Jev chooses the notes. The band listens, responds and plays.'}
               </span>
               <button className="text-button" onClick={() => setReduced(!reduced)}>
                 {reduced ? <Play size={13} /> : <Pause size={13} />}{' '}
@@ -631,7 +695,7 @@ export default function App() {
               Players enter one at a time, trade solos, propose new keys, and nudge the tempo. After
               five minutes, they look for a landing. Every jam ends by ten.
             </p>
-            <div className="about-label">OFFLINE REHEARSAL</div>
+            <div className="about-label">INSTRUMENT DEMO · NO AI</div>
             <p>
               Try the stage without an API key. This mode uses procedural decisions and makes no Jev
               calls. Live Jev is available when the host connects a server-side key.
@@ -662,7 +726,7 @@ function TraceCard({
   onToggle: () => void;
 }) {
   const p = personas[trace.role];
-  const choices = Object.entries(trace.answers)
+  const choices = Object.entries(trace.appliedAnswers ?? trace.answers)
     .filter(([key]) => !key.startsWith('note'))
     .slice(0, 5);
   return (
@@ -682,7 +746,9 @@ function TraceCard({
           {trace.error ||
             (trace.source === 'rehearsal'
               ? 'Procedural rehearsal decision'
-              : trace.answers.action?.choice || trace.answers.wash?.choice || 'Opening the room')}
+              : trace.answers.action?.choice ||
+                trace.answers.wash?.choice ||
+                (trace.answers.advance ? 'Composing the next attack' : 'Opening the room'))}
         </div>
         <div className="trace-chips">
           {choices.map(([key, answer]) => (
@@ -709,6 +775,8 @@ function TraceCard({
               {
                 request: trace.request,
                 response: trace.answers,
+                appliedChoices: trace.appliedAnswers ?? trace.answers,
+                selectionMethod: trace.selectionMethod ?? 'provider-choice',
                 providerId: trace.providerId ?? null,
                 requestSHA256: trace.requestHash,
                 source: trace.source,

@@ -39,10 +39,22 @@ export function listeningState(room: Snapshot, role: Role, now = Date.now()) {
           mode: frame.mode,
           players: heard.at(-1)?.players,
         }
-      : { bpm: room.baseBpm, rootPitchClass: 2, mode: 'dorian', players: [], opener: room.opener },
+      : {
+          bpm: room.baseBpm,
+          rootPitchClass: room.initialRoot ?? 2,
+          mode: room.initialMode ?? 'dorian',
+          players: [],
+          opener: room.opener,
+        },
     recent: heard,
     ownMemory: own
-      ? { decision: own.decision, solo: own.solo, consecutiveRepeats: own.repeated }
+      ? {
+          decision: own.decision,
+          notes: own.notes,
+          tonalIntent: own.tonalIntent,
+          solo: own.solo,
+          consecutiveRepeats: own.repeated,
+        }
       : null,
   };
 }

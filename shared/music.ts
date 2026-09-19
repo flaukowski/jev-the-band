@@ -190,6 +190,7 @@ export const noteSchema = z.object({
   patch: z.enum(patches).optional(),
   articulation: z.enum(articulations).optional(),
   bend: z.number().min(-2).max(2).optional(),
+  provenance: z.object({ traceId: z.string(), slot: z.string() }).optional(),
 });
 export type Note = z.infer<typeof noteSchema>;
 export interface Part {
@@ -201,6 +202,8 @@ export interface Part {
   source: 'jev' | 'rehearsal' | 'fallback';
   updatedAtFrame?: number;
   continued?: boolean;
+  phraseFormat?: 'events-v1';
+  tonalIntent?: { root: number; mode: string };
 }
 export interface Frame {
   id: number;
@@ -225,6 +228,8 @@ export interface Snapshot {
   endsAt: number;
   seed: number;
   baseBpm: number;
+  initialRoot?: number;
+  initialMode?: keyof typeof scales;
   opener: Musician;
   frame: Frame | null;
   frames: Frame[];
@@ -259,6 +264,8 @@ export interface Trace {
   latencyMs: number;
   request: JevRequest;
   answers: Record<string, Answer>;
+  appliedAnswers?: Record<string, Answer>;
+  selectionMethod?: 'seeded-model-distribution';
   requestHash: string;
   providerId?: string;
   cost: number | null;

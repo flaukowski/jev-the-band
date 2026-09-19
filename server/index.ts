@@ -122,7 +122,7 @@ app.post('/api/room', (req, res) => {
     parsed.data.mode,
     process.env.OPENROUTER_API_KEY || '',
     process.env.JEV_MODEL || 'typesafe/jev-1.13',
-    Math.max(5, Math.min(1200, Number(process.env.MAX_JEV_REQUESTS) || 1200)),
+    Math.max(15, Math.min(2000, Number(process.env.MAX_JEV_REQUESTS) || 2000)),
   );
   room.on('state', (state) => broadcast('state', { ...state, traces: [] }));
   room.on('trace', (trace) => broadcast('trace', trace));

@@ -1,6 +1,6 @@
 {
   "name": "jev-the-band",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Five decision models. One improvising band.",
@@ -16,6 +16,7 @@
     "check": "npm run test && npm run build",
     "smoke:live": "tsx scripts/smoke-live.ts",
     "smoke:performance": "tsx scripts/smoke-performance.ts",
+    "audit:prompts": "tsx scripts/audit-prompts.ts",
     "format": "prettier --write src server shared scripts tests *.json *.ts"
   },
   "dependencies": {

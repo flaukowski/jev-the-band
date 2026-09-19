@@ -8,11 +8,13 @@ import {
   type Decision,
   type Frame,
   type Musician,
+  type Part,
   type Snapshot,
   type Trace,
 } from '../shared/music.js';
 import { compile, endingPressure, nextRoot, nextTempo, rehearsal } from '../shared/score.js';
-import { bootstrapRequest, callJev, requestFor, toDecision, toLighting } from './jev.js';
+import { bootstrapRequest, callJev, requestFor, toLighting } from './jev.js';
+import { composePhrase, maxAttacks } from './composer.js';
 
 export class Room extends EventEmitter {
   state: Snapshot;
@@ -30,7 +32,7 @@ export class Room extends EventEmitter {
     mode: Snapshot['mode'],
     private apiKey: string,
     private model = 'typesafe/jev-1.13',
-    private maxRequests = 1200,
+    private maxRequests = 2000,
     private durationSeconds = 600,
   ) {
     super();
@@ -45,6 +47,8 @@ export class Room extends EventEmitter {
       endsAt: 0,
       seed,
       baseBpm: 96,
+      initialRoot: 2,
+      initialMode: 'dorian',
       opener: 'bass',
       frame: null,
       frames: [],
@@ -86,9 +90,11 @@ export class Room extends EventEmitter {
         this.state.baseBpm = Number(t.answers.bpm.choice);
         this.root = Number(t.answers.root.choice);
         this.scale = t.answers.mode.choice as Frame['mode'];
+        this.state.initialRoot = this.root;
+        this.state.initialMode = this.scale;
       }
       if (this.abort.signal.aborted) return;
-      this.state.startedAt = Date.now() + 2500;
+      this.state.startedAt = Date.now() + (this.state.mode === 'live' ? 7000 : 2500);
       this.state.endsAt = this.state.startedAt + this.durationSeconds * 1000;
       this.hardStop = setTimeout(() => this.stop(), this.state.endsAt - Date.now());
       await this.prepare(0, this.state.startedAt);
@@ -106,7 +112,10 @@ export class Room extends EventEmitter {
       .sort((a, b) => (this.due.get(a) ?? 0) - (this.due.get(b) ?? 0));
     const selected = index < 4 ? openingOrder[index] : eligible[0];
     const active = [...(selected ? [selected] : []), 'lights' as const];
-    if (this.state.mode === 'live' && this.state.requests + active.length > this.maxRequests) {
+    if (
+      this.state.mode === 'live' &&
+      this.state.requests + (selected ? maxAttacks + 2 : 1) > this.maxRequests
+    ) {
       this.stop('Jev request limit reached');
       return;
     }
@@ -116,27 +125,64 @@ export class Room extends EventEmitter {
       { d: Decision; source: 'jev' | 'rehearsal' | 'fallback' }
     >();
     let lighting = prior?.lighting ?? defaultLighting;
-    const traces = await Promise.all(
-      active.map(async (role) => {
-        const request = requestFor(role, frozen, index, this.model);
-        if (this.state.mode === 'live') {
-          this.state.requests++;
-          return callJev(request, role, index, this.apiKey, this.abort.signal);
-        }
-        return {
-          id: randomUUID(),
-          role,
-          frame: index,
-          at: Date.now(),
-          source: 'rehearsal',
-          latencyMs: 0,
-          request,
-          answers: {},
-          requestHash: createHash('sha256').update(JSON.stringify(request)).digest('hex'),
-          cost: null,
-        } satisfies Trace;
-      }),
-    );
+    const composed = new Map<Musician, Part>();
+    const traces = (
+      await Promise.all(
+        active.map(async (role) => {
+          const request = requestFor(role, frozen, index, this.model);
+          if (this.state.mode === 'live') {
+            if (role !== 'lights') {
+              const calls: Trace[] = [];
+              try {
+                const part = await composePhrase(
+                  role,
+                  frozen,
+                  index,
+                  this.model,
+                  async (eventRequest) => {
+                    this.state.requests++;
+                    const trace = await callJev(
+                      eventRequest,
+                      role,
+                      index,
+                      this.apiKey,
+                      this.abort.signal,
+                    );
+                    calls.push(trace);
+                    return trace;
+                  },
+                );
+                composed.set(role, part);
+              } catch {
+                // A phrase is atomic: never perform half of a failed or incomplete composition.
+                for (const trace of calls)
+                  if (trace.source === 'jev') {
+                    trace.source = 'fallback';
+                    trace.error = 'Incomplete phrase; response not applied';
+                  }
+              }
+              return calls;
+            }
+            this.state.requests++;
+            return [await callJev(request, role, index, this.apiKey, this.abort.signal)];
+          }
+          return [
+            {
+              id: randomUUID(),
+              role,
+              frame: index,
+              at: Date.now(),
+              source: 'rehearsal',
+              latencyMs: 0,
+              request,
+              answers: {},
+              requestHash: createHash('sha256').update(JSON.stringify(request)).digest('hex'),
+              cost: null,
+            } satisfies Trace,
+          ];
+        }),
+      )
+    ).flat();
     if (this.abort.signal.aborted) {
       for (const trace of traces) this.trace(trace);
       this.publish();
@@ -161,29 +207,42 @@ export class Room extends EventEmitter {
           };
         continue;
       }
-      const previous = prior?.parts.find((p) => p.role === trace.role);
+    }
+    if (selected) {
+      const source =
+        this.state.mode === 'rehearsal'
+          ? 'rehearsal'
+          : composed.has(selected) && !missedDeadline
+            ? 'jev'
+            : 'fallback';
+      const previous = prior?.parts.find((p) => p.role === selected);
       const d =
-        trace.source === 'jev'
-          ? toDecision(trace.answers)
-          : trace.source === 'rehearsal'
-            ? rehearsal(trace.role, index, this.state.seed, prior)
+        source === 'jev'
+          ? composed.get(selected)!.decision
+          : source === 'rehearsal'
+            ? rehearsal(selected, index, this.state.seed, prior)
             : {
-                ...(previous?.decision ?? rehearsal(trace.role, 0, this.state.seed, prior)),
+                ...(previous?.decision ?? rehearsal(selected, 0, this.state.seed, prior)),
                 action: previous ? ('hold' as const) : ('rest' as const),
                 tempo: 'stay' as const,
                 harmony: 'stay' as const,
                 ending: false,
               };
-      decisions.set(trace.role, { d, source: trace.source });
+      decisions.set(selected, { d, source });
       this.due.set(
-        trace.role,
-        index +
-          { brief: 3, settle: 4, patient: 6 }[d.commitment] +
-          ((this.state.seed + index + musicians.indexOf(trace.role)) % 2),
+        selected,
+        this.state.mode === 'live'
+          ? index + 1
+          : index +
+              { brief: 3, settle: 4, patient: 6 }[d.commitment] +
+              ((this.state.seed + index + musicians.indexOf(selected)) % 2),
       );
-      if (trace.source !== 'fallback') this.votes.set(trace.role, { d, frame: index });
+      if (source !== 'fallback') this.votes.set(selected, { d, frame: index });
     }
-    this.failures = traces.every((t) => t.source === 'fallback') ? this.failures + 1 : 0;
+    this.failures =
+      this.state.mode === 'live' && selected && (!composed.has(selected) || missedDeadline)
+        ? this.failures + 1
+        : 0;
     if (this.failures >= 3) {
       this.stop('Decision service unavailable for three phrases');
       return;
@@ -210,6 +269,32 @@ export class Room extends EventEmitter {
     }
     const parts = [...decisions].map(([role, { d, source }]) => {
       const previous = prior?.parts.find((p) => p.role === role);
+      if (this.state.mode === 'live') {
+        if (role === selected && source === 'jev')
+          return {
+            ...composed.get(role)!,
+            updatedAtFrame: index,
+            continued: false,
+          };
+        if (previous)
+          return {
+            ...previous,
+            source: role === selected ? ('fallback' as const) : previous.source,
+            continued: true,
+            repeated: previous.repeated + 1,
+            // Preserve played notes exactly; a new shared tonic is context for future compositions.
+            notes: structuredClone(previous.notes),
+          };
+        return {
+          role,
+          decision: d,
+          notes: [],
+          solo: false,
+          repeated: 0,
+          source: 'fallback' as const,
+          continued: false,
+        };
+      }
       if (previous && role !== selected && !ending) {
         const shift = root - (prior?.root ?? root);
         return {
@@ -272,7 +357,13 @@ export class Room extends EventEmitter {
             this.stop('Unable to prepare the next phrase'),
           );
         },
-        Math.max(0, at + durationMs - 2300 - Date.now()),
+        Math.max(
+          0,
+          at +
+            durationMs -
+            (this.state.mode === 'live' ? Math.min(6000, durationMs - 700) : 2300) -
+            Date.now(),
+        ),
       );
   }
   stop(error?: string) {

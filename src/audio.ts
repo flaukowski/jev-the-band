@@ -5,10 +5,7 @@ import { SampleBank } from './samples';
 
 interface Bus {
   input: GainNode;
-  dry: GainNode;
-  distortion: WaveShaperNode;
-  driveInput: GainNode;
-  drive: GainNode;
+  distortion: AudioWorkletNode;
   filter: BiquadFilterNode;
   wah: GainNode;
   delay: DelayNode;
@@ -27,6 +24,7 @@ interface Bus {
 export class BandAudio {
   context?: AudioContext;
   private master?: GainNode;
+  private initializing?: Promise<void>;
   private buses = new Map<Musician, Bus>();
   private frames: Frame[] = [];
   private seen = new Set<string>();
@@ -78,7 +76,8 @@ export class BandAudio {
     ) as Record<Musician, number>;
   }
   async enable() {
-    if (!this.context) this.init();
+    if (!this.context) this.initializing = this.init();
+    await this.initializing;
     await this.context!.resume();
     await this.samples.load(this.context!);
     this.enabled = true;
@@ -129,8 +128,9 @@ export class BandAudio {
     window.clearInterval(this.timer);
     void this.context?.close();
   }
-  private init() {
+  private async init() {
     const c = (this.context = new AudioContext({ latencyHint: 'interactive' }));
+    await c.audioWorklet.addModule(new URL('./drive-processor.js', import.meta.url));
     const master = (this.master = c.createGain());
     master.gain.value = 0;
     const compressor = c.createDynamicsCompressor();
@@ -156,15 +156,7 @@ export class BandAudio {
     }
     musicians.forEach((role, index) => {
       const input = c.createGain();
-      const dry = c.createGain();
-      const drive = c.createGain();
-      const distortion = c.createWaveShaper();
-      const driveInput = c.createGain();
-      driveInput.gain.value = 1;
-      const curve = new Float32Array(2048);
-      for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh((i / 1024 - 1) * 3) * 0.6;
-      distortion.curve = curve;
-      distortion.oversample = '2x';
+      const distortion = new AudioWorkletNode(c, 'level-drive');
       const filter = c.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.value = 12000;
@@ -190,10 +182,7 @@ export class BandAudio {
       level.gain.value = role === 'keys' ? 0.47 : role === 'drums' ? 0.7 : 0.7;
       const pan = c.createStereoPanner();
       pan.pan.value = [-0.4, 0.08, 0.4, 0][index];
-      input.connect(dry).connect(filter);
-      input.connect(driveInput).connect(distortion).connect(drive).connect(filter);
-      dry.gain.value = 1;
-      drive.gain.value = 0;
+      input.connect(distortion).connect(filter);
       const body = c.createBiquadFilter();
       body.type = 'peaking';
       body.frequency.value = 280;
@@ -225,13 +214,16 @@ export class BandAudio {
       tone.connect(delay).connect(echo).connect(level);
       tone.connect(reverb).connect(wet).connect(level);
       tone.connect(chorusDelay).connect(chorus).connect(level);
-      level.connect(fader).connect(pan).connect(meter).connect(master);
+      const channelCompressor = c.createDynamicsCompressor();
+      channelCompressor.threshold.value = -16;
+      channelCompressor.knee.value = 10;
+      channelCompressor.ratio.value = 3;
+      channelCompressor.attack.value = 0.006;
+      channelCompressor.release.value = 0.12;
+      level.connect(channelCompressor).connect(fader).connect(pan).connect(meter).connect(master);
       this.buses.set(role, {
         input,
-        dry,
         distortion,
-        driveInput,
-        drive,
         filter,
         wah,
         delay,
@@ -292,9 +284,8 @@ export class BandAudio {
           : 0.87
         : 1;
     bus.level.gain.setTargetAtTime((part.role === 'keys' ? 0.47 : 0.7) * focus, at, 0.15);
-    bus.dry.gain.setTargetAtTime(e.drive ? 0.25 : 1, at, 0.06);
-    bus.driveInput.gain.setTargetAtTime(0.8 + this.mix[part.role].drive * 9, at, 0.06);
-    bus.drive.gain.setTargetAtTime(e.drive ? 0.65 : 0, at, 0.06);
+    bus.distortion.parameters.get('enabled')!.setTargetAtTime(e.drive ? 1 : 0, at, 0.03);
+    bus.distortion.parameters.get('amount')!.setTargetAtTime(this.mix[part.role].drive, at, 0.03);
     bus.filter.frequency.setTargetAtTime(e.wah ? 1700 : 12000, at, 0.08);
     bus.wah.gain.setTargetAtTime(e.wah ? 1300 : 0, at, 0.08);
     bus.echo.gain.setTargetAtTime(e.delay ? 0.24 : 0, at, 0.06);

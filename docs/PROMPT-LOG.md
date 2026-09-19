@@ -39,3 +39,42 @@ Can you also scour the web for a better guitar e bass and keyboard samples / rig
 
 I’d love more especially for the guitar, distortion, envelope filter, pitch bend, more melodic phrases etc.  there’s gotta be something that sounds more convincingly like a real e guitar and e bass? Keys and drums are okay but could also be better
 ```
+
+## 2026-09-19 — Prompt influence and composition provenance
+
+```text
+the prompt doesn't seem to do anything. Two prompts with absolutely completely different themes produced basically identical IDENTICAL jams. Is jev just picking licks from a premade list? how is this possible?&#x20;
+
+The tonal variation is better now, but I'm curious why:
+
+"the grieving pastor decides to burn it all down"
+
+and
+
+"saturday after nursery rhymes" produce basically identical grooves?
+
+How can jev decide actually the notes, the modes, etc on a per insturment basis, how much of this is really being generated on the fly with jev vs. just premade loops?
+```
+
+## 2026-09-19 — Live-mode listening clarification
+
+```text
+nvm i was running rehearsal! not live jev !!! this is better
+```
+
+## 2026-09-19 — Reject preset live arrangements; require actual note composition
+
+```text
+Live Jev chooses the opening tempo, tonic and shared mode, then each player’s eight scale-degree anchors, rhythm family, development, dynamics, effects and role. Those anchors are individual model choices, not a lookup of complete licks.
+The current score compiler still supplies twelve rhythm patterns, note lengths, registers, chord voicings, drum backbeats, motif transformations and the ending rule. Players share one mode; they do not yet compose arbitrary note events or choose independent modes. Recorded samples contain single instrument notes, not backing loops.
+The instrument demo makes no Jev calls and uses three built-in motifs with procedural changes. Its title is not semantically interpreted. Open Under the hood to inspect real requests and their results.
+
+^^^
+This is not at all what I had envisioned. jev needs to make actual phrase by phrase note decision, my live jev smoke test produced nothing but a 10 second loop endlessly with basically no variation, that's not at all the app spec
+```
+
+## 2026-09-19 — Distortion gain
+
+```text
+distortion increases the level too much, we need to turn down the distortion level or add some dynamic range compression to keep a more even mix
+```

@@ -46,8 +46,8 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   console.log('Recorded voices ready');
   await page.getByLabel('Decision mode').selectOption('rehearsal');
   await page.getByLabel('Jam title or description').fill('Lanterns on the river');
-  await page.getByRole('button', { name: 'Let’s jam' }).click();
-  await expect(page.getByText('OFFLINE REHEARSAL', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Play demo' }).click();
+  await expect(page.getByText('DEMO · NO AI', { exact: true }).first()).toBeVisible();
   await expect
     .poll(
       async () => {
@@ -121,8 +121,8 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   await expect(page.locator('.trace-detail pre')).toContainText('requestSHA256');
   await page.screenshot({ path: 'artifacts/stage-desktop.png', fullPage: true });
   await page.getByRole('button', { name: 'End jam', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Let’s jam' })).toBeVisible();
-  await expect(second.getByRole('button', { name: 'Let’s jam' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play demo' })).toBeVisible();
+  await expect(second.getByRole('button', { name: /Let’s jam|Play demo/ })).toBeVisible();
   await second.close();
   await page.getByRole('button', { name: 'Close decision console' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
