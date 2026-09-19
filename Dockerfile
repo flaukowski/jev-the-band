@@ -13,7 +13,7 @@ WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4310
 COPY --from=build /app/package.json /app/package-lock.json ./
 # tsx is the small runtime compiler; dev dependencies are retained in this prototype image.
-RUN npm ci
+RUN npm ci --include=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
 COPY --from=build /app/shared ./shared
