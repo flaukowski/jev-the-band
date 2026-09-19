@@ -4,7 +4,7 @@
 
 Four musicians improvise through independent Jev decision calls. A fifth shapes the lighting. They share musical state, react to one another, and play through a common audio clock. No prerecorded songs; no text model pretending to be Jev.
 
-This is a working, local prototype, with an explicit **offline rehearsal** mode and a **live Jev** mode. The audio is original synthesis rather than a sampled concert band. Musical taste still needs listening sessions and iteration.
+This is a working local prototype with **offline rehearsal** and **live Jev** modes. Recorded guitar, fingered bass, piano and drum accents play original generated phrases through independent effects rigs. Some keyboard and drum voices remain synthesized. Musical taste still needs listening sessions and iteration.
 
 ## Run it
 
@@ -39,11 +39,14 @@ Open **http://127.0.0.1:4310**. The server serves both the compiled stage and it
 | Lux | Stage lighting | Listen to density, momentum, soloists, and silence |
 
 - Jev chooses an opener, tempo, tonic, and mode; the opener plays alone before the others join across subsequent phrases.
-- Musicians choose eight motif scale degrees, one of six rhythmic shapes, density, dynamics, role, tempo/harmony proposals, and applicable effects or hand patches.
+- Only one musician revises a phrase at a time. Each sees only notes already played, with a reaction delay, plus private memory of its own part.
+- Musicians choose motif anchors, development, articulation, swing, commitment, twelve rhythmic shapes (including 32nds and tuplets), dynamics, tempo/harmony proposals, effects and hand patches.
 - Notes compile into a declarative two-bar score. Validation enforces timing bounds and a five-note simultaneous limit for each keyboard hand.
 - Tempo changes gradually within ±10% of its starting value. Key changes require matching proposals from two musicians and four phrases between changes.
 - Solos are independent; two or more musicians can step forward together. Choosing support ends a solo.
-- Guitar and bass have drive, auto-wah, delay, and reverb. Effects are real Web Audio signal paths.
+- Every player has a separate distortion, auto-wah, envelope filter, chorus, tremolo, delay and reverb rig. Jev controls it unless a listener overrides a pedal.
+- The soundboard provides level, mute, isolation solo, pan, tone, drive amount and actual signal meters. Musical soloists are labeled LEAD in the desk; listening SOLO does not change their decisions.
+- Camera presets, orbit, zoom, reset and solo following complement animations synchronized to performed notes.
 - Lux combines 12 washes, 12 beam arrangements, and 8 laser choices. These are stylized virtual presets, with smooth transitions and no strobe.
 - After five minutes, increasing ending pressure asks the musicians to resolve. Two ending votes can land the jam. The server imposes a ten-minute ceiling and schedules a final tonic phrase before it.
 - One shared room broadcasts score events to all viewers. Audience count does not multiply Jev calls.
@@ -59,10 +62,15 @@ Every decision is labeled `jev`, `rehearsal`, or `fallback`. On a failed/late re
 ```text
 shared/music.ts     Types, schemas, personas, lighting vocabulary
 shared/score.ts     Declarative score compiler and musical constraints
+shared/mixer.ts     Listening mix and isolated effect override rules
+server/listening.ts Causal symbolic hearing; no peer future notes
 server/jev.ts       Typed Jev requests, strict response validation, provenance
 server/room.ts      Shared performance, deadlines, entrances, ending
 server/index.ts     Local/server hosting, SSE, protected controller actions
 src/audio.ts       Web Audio instruments, effect buses, clock scheduling
+src/samples.ts     Recorded voices, dynamics and alternate takes
+src/Mixer.tsx      Soundboard and independent player pedalboards
+public/samples/   162 recordings, integrity manifest and license credits
 src/Stage.tsx      Three.js stage, players, lights, crowd
 src/App.tsx        Audience controls and live decision console
 src/main.tsx       React entrypoint
@@ -93,5 +101,7 @@ Browser verification launches Chromium muted and checks the actual master signal
 - [Next steps](docs/ROADMAP.md)
 
 The current prototype is not publicly deployed. Use a separate production key before opening a public room. Credentials belong in the server environment, never a `VITE_` variable. No application startup code reads credentials from another project. The optional import script requires an explicit source path and refuses to overwrite an existing `.env`.
+
+Recorded instruments load on **Enable sound** (about 11 MB). The soundboard reports readiness or an explicit synthesis fallback if files fail to load. Recordings are bundled locally; playback does not depend on a third-party sample CDN. See [sample attribution and licenses](public/samples/CREDITS.md). With ffmpeg installed, `node scripts/fetch-samples.mjs` rebuilds the pinned sample subset; normal installation does not need ffmpeg.
 
 MIT licensed. Independent project; no affiliation with TypeSafe or Phish is implied. Musical personas are original, not impersonations of real performers.

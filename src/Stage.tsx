@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   defaultLighting,
   hash,
@@ -29,15 +30,25 @@ export function Stage({
   playing,
   reduced,
   onSelect,
+  serverOffset,
+  loadingAudio,
 }: {
   frame: Frame | null;
   playing: boolean;
   reduced: boolean;
   onSelect: (role: Role) => void;
+  serverOffset: number;
+  loadingAudio: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const live = useRef({ frame, playing, reduced, onSelect });
-  live.current = { frame, playing, reduced, onSelect };
+  const [view, setView] = useState('wide');
+  const [follow, setFollow] = useState(false);
+  const controlsApi = useRef<{
+    view: (name: string) => void;
+    zoom: (factor: number) => void;
+  } | null>(null);
+  const live = useRef({ frame, playing, reduced, onSelect, serverOffset, follow, loadingAudio });
+  live.current = { frame, playing, reduced, onSelect, serverOffset, follow, loadingAudio };
   useEffect(() => {
     const container = host.current!;
     let renderer: THREE.WebGLRenderer;
@@ -51,15 +62,36 @@ export function Stage({
       container.dataset.unavailable = 'true';
       return;
     }
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.4));
     renderer.setClearColor(0x101311);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const gl = renderer.getContext();
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    const softwareRenderer =
+      debug &&
+      /swiftshader|llvmpipe|software/i.test(String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)));
+    if (softwareRenderer) renderer.setPixelRatio(0.85);
     container.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x101311, 0.022);
     const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 100);
     camera.position.set(15, 13.5, 23);
     camera.lookAt(0, 1, 0);
+    const orbit = new OrbitControls(camera, renderer.domElement);
+    orbit.target.set(0, 1, 0);
+    orbit.enableDamping = true;
+    orbit.dampingFactor = 0.075;
+    orbit.minDistance = 3;
+    orbit.maxDistance = 48;
+    orbit.maxPolarAngle = Math.PI * 0.48;
+    const cameraGoal = camera.position.clone();
+    const targetGoal = orbit.target.clone();
+    let movingCamera = false;
+    orbit.addEventListener('start', () => {
+      movingCamera = false;
+      setFollow(false);
+      setView('free');
+    });
     scene.add(new THREE.AmbientLight(0x8ea594, 1.35));
     const key = new THREE.DirectionalLight(0xffe4b6, 2.8);
     key.position.set(3, 12, 8);
@@ -141,6 +173,9 @@ export function Stage({
     }
     const performers: Record<string, THREE.Group> = {};
     const arms: THREE.Group[] = [];
+    const rightArms: THREE.Mesh[] = [];
+    const cymbals: THREE.Mesh[] = [];
+    const keyboardKeys: { mesh: THREE.Mesh; y: number; index: number; hand: string }[] = [];
     const hitTargets: THREE.Object3D[] = [];
     const positions = {
       guitar: [-4.6, 0.3],
@@ -148,6 +183,38 @@ export function Stage({
       keys: [4.3, -0.2],
       drums: [1.1, -3.2],
     };
+    function cameraView(name: string) {
+      const musician = positions[name as keyof typeof positions];
+      if (musician) {
+        cameraGoal.set(musician[0] + 3.3, 3.4, musician[1] + 6);
+        targetGoal.set(musician[0], 1.2, musician[1]);
+      } else {
+        const small = container.clientWidth < 650;
+        cameraGoal.set(
+          ...((name === 'front'
+            ? [0, 4.5, 19]
+            : name === 'overhead'
+              ? [0, 27, 2]
+              : small
+                ? [18, 17, 29]
+                : [15, 13.5, 23]) as [number, number, number]),
+        );
+        targetGoal.set(0, 1, 0);
+      }
+      movingCamera = true;
+      container.dataset.camera = name;
+    }
+    controlsApi.current = {
+      view: cameraView,
+      zoom: (factor) => {
+        movingCamera = false;
+        const offset = camera.position.clone().sub(orbit.target).multiplyScalar(factor);
+        offset.setLength(Math.max(orbit.minDistance, Math.min(orbit.maxDistance, offset.length())));
+        camera.position.copy(orbit.target).add(offset);
+        orbit.update();
+      },
+    };
+    cameraView('wide');
     for (const role of musicians) {
       const [x, z] = positions[role];
       const group = new THREE.Group();
@@ -173,6 +240,11 @@ export function Stage({
       arms.push(arm);
       const rightArm = box(group, 0.15, 0.6, 0.18, shirt, 0.36, 1.28, 0.2);
       rightArm.rotation.x = -0.6;
+      rightArms.push(rightArm);
+      if (role === 'drums') {
+        box(arm, 0.025, 0.65, 0.025, wood, 0, -0.45, 0.32).rotation.x = -0.8;
+        box(rightArm, 0.025, 0.65, 0.025, wood, 0, -0.35, 0.18).rotation.x = -0.8;
+      }
       if (role === 'guitar' || role === 'bass') {
         const instrument = new THREE.Group();
         instrument.position.set(0.04, 1.03, 0.37);
@@ -194,8 +266,8 @@ export function Stage({
       if (role === 'keys') {
         for (const y of [1.15, 1.5]) {
           box(scene, 2.2, 0.15, 0.72, dark, x, y, z + 0.65);
-          for (let k = 0; k < 22; k++)
-            box(
+          for (let k = 0; k < 22; k++) {
+            const key = box(
               scene,
               0.085,
               0.02,
@@ -205,6 +277,13 @@ export function Stage({
               y + 0.09,
               z + 0.83,
             );
+            keyboardKeys.push({
+              mesh: key,
+              y: y + 0.09,
+              index: k,
+              hand: y < 1.3 ? 'left' : 'right',
+            });
+          }
         }
         for (const dx of [-0.75, 0.75]) box(scene, 0.06, 1.15, 0.07, metal, x + dx, 0.57, z + 0.65);
       }
@@ -223,7 +302,7 @@ export function Stage({
           [0.4, -0.4],
         ]) {
           cylinder(scene, 0.025, 1.7, metal, x + dx, 0.85, z + dz);
-          cylinder(scene, 0.52, 0.025, mat(0xcfad60, 0.3), x + dx, 1.7, z + dz);
+          cymbals.push(cylinder(scene, 0.52, 0.025, mat(0xcfad60, 0.3), x + dx, 1.7, z + dz));
         }
       }
       group.traverse((obj) => {
@@ -335,13 +414,19 @@ export function Stage({
         h = container.clientHeight;
       renderer.setSize(w, h);
       camera.aspect = w / h;
-      camera.position.set(w < 650 ? 18 : 15, w < 650 ? 17 : 13.5, w < 650 ? 29 : 23);
       camera.updateProjectionMatrix();
     });
     resize.observe(container);
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    let downX = 0,
+      downY = 0;
+    const pressed = (e: PointerEvent) => {
+      downX = e.clientX;
+      downY = e.clientY;
+    };
     const clicked = (e: PointerEvent) => {
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return;
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -352,13 +437,37 @@ export function Stage({
       if (hit) live.current.onSelect(hit.object.userData.role);
     };
     renderer.domElement.addEventListener('pointerup', clicked);
+    renderer.domElement.addEventListener('pointerdown', pressed);
     let raf = 0;
     const start = performance.now();
+    let followed = '';
+    let lastDraw = 0;
     function draw(now: number) {
-      const { frame, playing, reduced } = live.current;
+      raf = requestAnimationFrame(draw);
+      // Leave CPU time for audio decoding/scheduling, including software WebGL renderers.
+      const interval = live.current.loadingAudio ? 1000 : 1000 / (softwareRenderer ? 10 : 30);
+      if (document.hidden || now - lastDraw < interval) return;
+      lastDraw = now;
+      const { frame, playing, reduced, serverOffset, follow } = live.current;
       const lighting = frame?.lighting ?? defaultLighting;
       const t = reduced ? 0 : (now - start) / 1000;
-      const beat = ((t * (frame?.bpm ?? 96)) / 60) * Math.PI * 2;
+      const musicalBeat = frame
+        ? Math.max(0, ((Date.now() + serverOffset - frame.at) * frame.bpm) / 60000)
+        : t * 1.6;
+      const beat = (reduced ? 0 : musicalBeat) * Math.PI * 2;
+      const soloist = frame?.parts.find((p) => p.solo)?.role ?? 'wide';
+      if (follow && followed !== soloist) {
+        cameraView(soloist);
+        setView(soloist);
+        followed = soloist;
+      }
+      if (!follow) followed = '';
+      if (movingCamera) {
+        camera.position.lerp(cameraGoal, reduced ? 1 : 0.055);
+        orbit.target.lerp(targetGoal, reduced ? 1 : 0.055);
+        if (camera.position.distanceTo(cameraGoal) < 0.01) movingCamera = false;
+      }
+      orbit.update();
       const color = new THREE.Color(washColors[lighting.wash] ?? 0xc4df8d);
       const recipe = hash(lighting.beam) % 11;
       musicians.forEach((role, i) => {
@@ -366,13 +475,48 @@ export function Stage({
         const complexity = p ? Math.min(1, p.notes.length / 40) : 0;
         const energy =
           playing && p?.notes.length ? (p.solo ? 0.06 : 0.018 + complexity * 0.015) : 0.006;
-        performers[role].rotation.z = Math.sin(beat / 2 + i) * energy;
-        arms[i].rotation.x = playing
-          ? Math.sin(beat * (p?.solo ? 2 : 1) + i) * (0.06 + complexity * 0.1)
-          : 0;
+        const recent =
+          p?.notes.filter((n) => musicalBeat >= n.beat && musicalBeat - n.beat < 0.65) ?? [];
+        const impulse =
+          playing && !reduced
+            ? recent.reduce(
+                (v, n) => Math.max(v, n.velocity * Math.exp(-(musicalBeat - n.beat) * 9)),
+                0,
+              )
+            : 0;
+        performers[role].rotation.z = reduced ? 0 : Math.sin(beat / 2 + i) * energy;
+        performers[role].position.y = reduced ? 0 : impulse * (role === 'drums' ? 0.016 : 0.03);
+        arms[i].rotation.x =
+          role === 'drums' ? -impulse * 0.9 : role === 'keys' ? -impulse * 0.3 : -impulse * 0.15;
+        rightArms[i].rotation.x = -0.6 - impulse * (role === 'drums' ? 1.1 : 0.55);
+        if (role === 'guitar' || role === 'bass') {
+          const pitch = recent.at(-1)?.midi ?? 60;
+          arms[i].rotation.z = playing && !reduced ? (pitch - 60) * 0.008 : 0;
+        }
+        if (role === 'drums')
+          cymbals.forEach((c, k) => {
+            c.rotation.z = reduced ? 0 : impulse * Math.sin(t * 22 + k) * 0.09;
+          });
+      });
+      const keysPart = frame?.parts.find((p) => p.role === 'keys');
+      keyboardKeys.forEach((k) => {
+        const pressed =
+          playing &&
+          !reduced &&
+          keysPart?.notes.some(
+            (n) =>
+              n.hand === k.hand &&
+              n.midi % 22 === k.index &&
+              musicalBeat >= n.beat &&
+              musicalBeat < n.beat + n.duration,
+          );
+        k.mesh.position.y = k.y - (pressed ? 0.025 : 0);
+        (k.mesh.material as THREE.MeshStandardMaterial).emissive.setHex(pressed ? 0x684ca1 : 0);
       });
       crowd.forEach((person) => {
-        person.rotation.z = Math.sin(beat / 2 + person.userData.phase) * (playing ? 0.04 : 0.01);
+        person.rotation.z = reduced
+          ? 0
+          : Math.sin(beat / 2 + person.userData.phase) * (playing ? 0.04 : 0.01);
       });
       beams.forEach((beam, i) => {
         beam.material.color.lerp(color, 0.04);
@@ -400,12 +544,14 @@ export function Stage({
         line.rotation.z = Math.sin(t * 0.14 + i * 0.2) * 0.07;
       });
       renderer.render(scene, camera);
-      raf = requestAnimationFrame(draw);
     }
     raf = requestAnimationFrame(draw);
     return () => {
       cancelAnimationFrame(raf);
       resize.disconnect();
+      orbit.dispose();
+      controlsApi.current = null;
+      renderer.domElement.removeEventListener('pointerdown', pressed);
       renderer.domElement.removeEventListener('pointerup', clicked);
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
@@ -419,12 +565,48 @@ export function Stage({
     };
   }, []);
   return (
-    <div
-      ref={host}
-      className="stage-canvas"
-      role="img"
-      aria-label="High-angle concert stage with four animated musicians, a JEV the band banner, lighting rigs, and a dancing audience"
-    >
+    <div ref={host} className="stage-canvas" aria-label="Interactive concert stage">
+      <div className="camera-desk" aria-label="Camera controls">
+        <select
+          aria-label="Camera view"
+          value={view}
+          onChange={(e) => {
+            setView(e.target.value);
+            setFollow(false);
+            controlsApi.current?.view(e.target.value);
+          }}
+        >
+          <option value="wide">Balcony</option>
+          <option value="front">Front row</option>
+          <option value="overhead">Overhead</option>
+          {musicians.map((r) => (
+            <option key={r} value={r}>
+              {personas[r].name} cam
+            </option>
+          ))}
+          {view === 'free' && <option value="free">Free camera</option>}
+        </select>
+        <button aria-label="Zoom in" onClick={() => controlsApi.current?.zoom(0.85)}>
+          +
+        </button>
+        <button aria-label="Zoom out" onClick={() => controlsApi.current?.zoom(1.18)}>
+          −
+        </button>
+        <button
+          aria-label="Reset camera"
+          onClick={() => {
+            setView('wide');
+            setFollow(false);
+            controlsApi.current?.view('wide');
+          }}
+        >
+          ↺
+        </button>
+        <button aria-pressed={follow} onClick={() => setFollow(!follow)}>
+          Follow solo
+        </button>
+        <span>Drag to orbit · scroll to zoom</span>
+      </div>
       <div className="stage-fallback">
         The stage needs WebGL. The music and decision console still work.
       </div>

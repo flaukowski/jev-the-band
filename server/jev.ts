@@ -1,6 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   actions,
+  articulations,
+  developments,
+  fxNames,
   defaultDecision,
   lightRecipes,
   lightingSchema,
@@ -20,6 +23,7 @@ import {
   type Trace,
 } from '../shared/music.js';
 import { endingPressure } from '../shared/score.js';
+import { listeningState } from './listening.js';
 
 const choice = (
   instructions: string,
@@ -32,7 +36,6 @@ const choice = (
     : (values as Record<string, string>),
 });
 export function requestFor(role: Role, room: Snapshot, phrase: number, model: string): JevRequest {
-  const frame = room.frame;
   const elapsed = Math.max(0, (Date.now() - room.startedAt) / 1000);
   const state = {
     persona: personas[role],
@@ -41,31 +44,8 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
     endingPressure: endingPressure(elapsed),
     seedPrompt: phrase < 4 ? room.prompt : undefined,
     brief:
-      'Original instrumental jam band. Listen to the other players. Shared 4/4 clock, two-bar phrases. Make one interesting change at a time. Silence is musical. No need to change everything. Repetition builds a motif but after three repeats offer a small development. Two simultaneous soloists may trade phrases; avoid everyone getting dense. Decisions within this request are simultaneous: each note chooses against the same shared state.',
-    music: frame
-      ? {
-          bpm: frame.bpm,
-          rootPitchClass: frame.root,
-          mode: frame.mode,
-          chapter: frame.chapter,
-          players: frame.parts.map((p) => ({
-            role: p.role,
-            decision: p.decision,
-            solo: p.solo,
-            consecutiveRepeats: p.repeated,
-            notes: p.notes.slice(0, 48),
-          })),
-          lighting: frame.lighting,
-        }
-      : { bpm: room.baseBpm, rootPitchClass: 2, mode: 'dorian', players: [], opener: room.opener },
-    recent: room.frames
-      .slice(-4)
-      .map((f) => ({
-        phrase: f.id,
-        bpm: f.bpm,
-        root: f.root,
-        moves: f.parts.map((p) => `${p.role}:${p.decision.action}/${p.decision.rhythm}`),
-      })),
+      "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
+    ...listeningState(room, role),
   };
   if (role === 'lights')
     return {
@@ -87,7 +67,7 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
     };
   const questions: Record<string, ChoiceQuestion> = {
     action: choice(
-      'What will you do in the next two bars? hold keeps your motif; vary/develop replace it; solo steps forward; support ends a solo; space opens the texture; rest leaves silence; resolve lands on the tonic. Respond to the band, not just the opening prompt.',
+      'What will you play? hold repeats; vary/develop transform your own motif; solo steps forward with a melodic voice; support ends your solo; space breathes; rest is silence; resolve lands. Respond only to what you have heard.',
       actions,
     ),
     rhythm: choice('Choose the rhythmic shape of your next phrase.', {
@@ -97,7 +77,30 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
       sparse: 'Four separated gestures',
       sustain: 'Two long whole-note gestures',
       clave: 'Interlocking 3-2-like syncopated accents',
+      lyrical: 'Singable question and answer, varied note lengths and breaths',
+      thirty_seconds: 'Longer anchors with a short 32nd-note run at the end',
+      triplets: 'Triplet gestures between spacious anchors',
+      quintuplets: 'Five evenly spaced notes per beat, used as short bursts',
+      sextuplets: 'A six-note flourish followed by a landing',
+      broken: 'Uneven sixteenth-note syncopation and rests',
     }),
+    development: choice(
+      'How does your private previous motif become this one? Prefer small changes; new_theme is a deliberate departure. answer retains the first four anchors and replaces the ending.',
+      developments,
+    ),
+    articulation: choice(
+      'Choose how notes speak. Bend and slide are expressive guitar gestures; legato connects, staccato leaves air.',
+      articulations,
+    ),
+    swing: choice('Swing straight subdivisions; tuplets keep their own spacing.', [
+      'straight',
+      'light',
+      'deep',
+    ]),
+    commitment: choice(
+      'How long should your idea settle before another decision? Brief is about 3 phrases; settle 4; patient 6, with independent scheduling.',
+      ['brief', 'settle', 'patient'],
+    ),
     density: choice('Choose note density; complement the other players.', [
       'low',
       'medium',
@@ -134,9 +137,11 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
     );
     questions.right = choice('Choose right-hand keyboard; may differ from left.', patches);
   }
-  if (role === 'guitar' || role === 'bass')
-    for (const effect of ['drive', 'wah', 'delay', 'reverb'])
-      questions[effect] = choice(`Turn ${effect} on or off for your instrument.`, ['off', 'on']);
+  for (const effect of fxNames)
+    questions[effect] = choice(
+      `Turn ${effect} on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.`,
+      ['off', 'on'],
+    );
   return { model, state, questions };
 }
 export function bootstrapRequest(prompt: string, model: string): JevRequest {
@@ -210,13 +215,17 @@ export function toDecision(answers: Record<string, Answer>): Decision {
     'harmony',
     'left',
     'right',
+    'development',
+    'articulation',
+    'swing',
+    'commitment',
   ] as const)
     if (answers[field]) (d as unknown as Record<string, unknown>)[field] = answers[field].choice;
   d.degrees = d.degrees.map((v, i) =>
     answers[`note${i}`] ? Number(answers[`note${i}`].choice) : v,
   );
   d.ending = answers.ending?.choice === 'end';
-  for (const effect of ['drive', 'wah', 'delay', 'reverb'] as const)
+  for (const effect of fxNames)
     if (answers[effect]) d.effects[effect] = answers[effect].choice === 'on';
   return d;
 }

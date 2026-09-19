@@ -21,7 +21,28 @@ const onsets: Record<Rhythm, number[]> = {
   sparse: [0, 2.5, 4, 6.5],
   sustain: [0, 4],
   clave: [0, 1.5, 3, 4, 5, 6.5],
+  lyrical: [0, 0.5, 1.25, 2, 4.25, 4.75, 5.5, 6.25],
+  thirty_seconds: [0, 1.5, 2, 4, 5.5, ...Array.from({ length: 8 }, (_, i) => 6 + i / 8), 7.25],
+  triplets: [0, 1, 4, 5, ...[2, 6].flatMap((b) => [b, b + 1 / 3, b + 2 / 3]), 7],
+  quintuplets: [
+    0,
+    1.5,
+    4,
+    5,
+    ...[2, 6].flatMap((b) => Array.from({ length: 5 }, (_, i) => b + i / 5)),
+    7,
+  ],
+  sextuplets: [0, 2, 4, ...Array.from({ length: 6 }, (_, i) => 6 + i / 6), 7],
+  broken: [0, 0.75, 1.75, 3.25, 4.5, 5.25, 5.75, 7.25],
 };
+export function rhythmBeats(rhythm: Rhythm, swing: Decision['swing'] = 'straight'): number[] {
+  const tuplets = ['triplets', 'quintuplets', 'sextuplets', 'thirty_seconds'].includes(rhythm);
+  return [...onsets[rhythm]]
+    .sort((a, b) => a - b)
+    .map((b) =>
+      !tuplets && b % 1 === 0.5 ? b + { straight: 0, light: 0.055, deep: 0.14 }[swing] : b,
+    );
+}
 export function validateNotes(notes: Note[], role: Musician): void {
   if (notes.length > 128) throw new Error('Phrase exceeds note ceiling');
   for (const n of notes) {
@@ -54,7 +75,8 @@ export function compile(
   previous?: Part,
 ): Part {
   const d = decisionSchema.parse(input);
-  const solo = d.action === 'solo' || (d.action === 'hold' && !!previous?.solo);
+  const solo =
+    d.action === 'solo' || (['hold', 'vary', 'develop'].includes(d.action) && !!previous?.solo);
   const repeated = d.action === 'hold' ? (previous?.repeated ?? 0) + 1 : 0;
   const part: Part = { role, decision: d, solo, repeated, notes: [], source: 'rehearsal' };
   if (d.action === 'rest' || (d.action === 'hold' && previous?.notes.length === 0)) return part;
@@ -63,6 +85,27 @@ export function compile(
     d.degrees = [...previous.decision.degrees];
     d.rhythm = previous.decision.rhythm;
     d.density = previous.decision.density;
+    d.articulation = previous.decision.articulation;
+    d.swing = previous.decision.swing;
+  } else if (previous && d.development !== 'new_theme' && d.action !== 'resolve') {
+    const old = previous.decision.degrees;
+    d.degrees = old.map((v, i) => {
+      switch (d.development) {
+        case 'repeat':
+          return v;
+        case 'answer':
+          return i < 4 ? v : d.degrees[i];
+        case 'sequence_up':
+          return Math.min(7, v + 1);
+        case 'sequence_down':
+          return Math.max(0, v - 1);
+        case 'invert':
+          return clamp(old[0] * 2 - v, 0, 7);
+        case 'fragment':
+          return old[i % 3];
+      }
+      return v;
+    });
   }
   const rng = random(seed);
   const vel = { soft: 0.4, warm: 0.6, bold: 0.78 }[d.dynamic] * (solo ? 1.1 : 1);
@@ -78,6 +121,10 @@ export function compile(
       midi,
       duration: Math.min(duration, 8 - beat),
       velocity: clamp(velocity, 0.1, 0.95),
+      articulation: d.articulation,
+      ...(role === 'guitar' && solo && d.articulation === 'bend' && duration > 0.4
+        ? { bend: 1 }
+        : {}),
       ...(hand ? { hand, patch: d[hand] } : {}),
     });
   const scale = scales[mode];
@@ -95,34 +142,66 @@ export function compile(
       for (const beat of [1, 3, 5, 7]) emit(beat, 38, 0.22, vel * 0.9);
       if (d.rhythm === 'offbeat' || d.rhythm === 'clave')
         for (const beat of [1.75, 4.75, 6.5]) emit(beat, 36, 0.22, vel * 0.65);
-      if (d.action === 'develop' || solo)
-        for (const [i, beat] of [6, 6.5, 7, 7.5].entries())
-          emit(beat, [45, 47, 50, 38][i], 0.3, vel);
+      for (const beat of [2.75, 5.75]) emit(beat, 38, 0.09, vel * 0.24);
+      if (
+        d.action === 'develop' ||
+        solo ||
+        ['triplets', 'quintuplets', 'sextuplets', 'thirty_seconds'].includes(d.rhythm)
+      )
+        for (const [i, beat] of rhythmBeats(d.rhythm, d.swing)
+          .filter((b) => b >= 6)
+          .entries())
+          emit(beat, [45, 47, 50, 38][i % 4], 0.12, vel * (i % 3 ? 0.65 : 0.95));
     }
   } else {
-    const rhythm = d.action === 'space' || d.action === 'resolve' ? 'sustain' : d.rhythm;
-    let beats = onsets[rhythm];
+    const rhythm =
+      d.action === 'space' || d.action === 'resolve'
+        ? 'sustain'
+        : solo && ['pocket', 'flow', 'offbeat'].includes(d.rhythm)
+          ? 'lyrical'
+          : d.rhythm;
+    let beats = rhythmBeats(rhythm, d.swing);
     if (d.density === 'low' && rhythm !== 'sustain') beats = beats.filter((_, i) => i % 2 === 0);
-    if (solo && beats.length < 8) beats = onsets.flow;
-    const octave = role === 'bass' ? 36 : role === 'guitar' ? 60 : 60;
+    // A short run is punctuation. Step between anchors rather than endlessly arpeggiating.
+    const octave = role === 'bass' ? (solo ? 48 : 36) : role === 'guitar' ? (solo ? 60 : 48) : 60;
+    let lastDegree = d.degrees[0];
     beats.forEach((beat, i) => {
-      const degree = d.action === 'resolve' ? 0 : d.degrees[i % 8];
-      const requestedDuration =
-        rhythm === 'sustain' ? 3.7 : rhythm === 'sparse' ? 1.25 : role === 'bass' ? 0.4 : 0.34;
-      const duration =
-        role === 'keys'
-          ? Math.min(requestedDuration, (beats[i + 1] ?? 8) - beat - 0.08)
-          : requestedDuration;
+      const gap = (beats[i + 1] ?? 8) - beat;
+      let degree = d.action === 'resolve' ? 0 : d.degrees[i % 8];
+      if (solo && i && beat - beats[i - 1] <= 0.34)
+        degree = clamp(lastDegree + (degree >= lastDegree ? 1 : -1), 0, 7);
+      lastDegree = degree;
+      const gate =
+        d.articulation === 'staccato'
+          ? 0.42
+          : d.articulation === 'legato'
+            ? 0.96
+            : solo
+              ? 0.82
+              : 0.68;
+      const duration = Math.max(
+        0.045,
+        Math.min(gap - 0.012, rhythm === 'sustain' ? 3.7 : gap * gate),
+      );
       emit(
         beat,
         pitch(degree, octave),
         duration,
-        vel * (0.9 + rng() * 0.1),
+        vel * (i % 4 === 0 ? 1 : 0.76 + rng() * 0.18),
         role === 'keys' ? 'right' : undefined,
       );
       if (role === 'keys' && !solo && (rhythm === 'sustain' || i % 2 === 0)) {
         for (const extra of [2, 4])
           emit(beat, pitch((degree + extra) % 7, 60), duration, vel * 0.6, 'right');
+      }
+      if (role === 'guitar' && !solo && i % 2 === 0 && gap >= 0.45) {
+        // Low, lightly staggered double stops give accompaniment body and leave the lead register open.
+        emit(
+          beat + 0.018,
+          pitch((degree + 4) % 7, octave),
+          Math.max(0.04, duration - 0.018),
+          vel * 0.5,
+        );
       }
     });
     if (role === 'keys')
@@ -174,19 +253,39 @@ export function rehearsal(
 ): Decision {
   const rng = random(seed + frame * 31 + musicians.indexOf(role) * 197);
   const d = defaultDecision();
-  const arc = Math.floor(frame / 6) % 5;
+  const arc = Math.floor((frame + musicians.indexOf(role) * 5) / 7) % 5;
   d.action = ['vary', 'develop', 'solo', 'space', 'support'][arc] as Decision['action'];
-  if (d.action === 'solo' && role !== (frame % 2 ? 'keys' : 'guitar')) d.action = 'support';
-  if (frame % 4 === 1) d.action = 'hold';
-  d.rhythm = (['pocket', 'offbeat', 'flow', 'sustain', 'clave'] as const)[arc];
+  if (d.action === 'solo' && role === 'drums') d.action = 'develop';
+  if (frame > 3 && frame % 7 === 1) d.action = 'hold';
+  d.rhythm = (['pocket', 'broken', 'lyrical', 'sustain', 'clave'] as const)[arc];
+  if (d.action === 'solo' && frame % 3) d.rhythm = frame % 2 ? 'triplets' : 'thirty_seconds';
   d.density = arc === 3 ? 'low' : arc === 2 ? 'high' : 'medium';
   d.dynamic = arc === 3 ? 'soft' : arc === 2 ? 'bold' : 'warm';
-  d.degrees = Array.from({ length: 8 }, (_, i) => (i === 0 ? 0 : Math.floor(rng() * 7)));
+  const motifs = [
+    [0, 2, 3, 2, 0, 2, 4, 2],
+    [4, 4, 3, 2, 4, 5, 3, 0],
+    [0, 1, 2, 4, 2, 1, 0, 0],
+  ];
+  d.degrees = [...motifs[Math.floor(rng() * motifs.length)]];
+  d.development =
+    frame % 11 === 0
+      ? 'new_theme'
+      : (['answer', 'sequence_up', 'fragment'][frame % 3] as Decision['development']);
+  d.articulation = d.action === 'solo' ? 'bend' : 'natural';
+  d.commitment = role === 'bass' ? 'patient' : role === 'guitar' ? 'brief' : 'settle';
   d.tempo = arc === 2 ? 'push' : arc === 3 ? 'ease' : 'stay';
   d.harmony = frame % 12 === 0 && frame > 0 ? 'up_fourth' : 'stay';
   d.left = 'rhodes';
   d.right = arc === 3 ? 'pad' : arc === 2 ? 'organ' : 'rhodes';
-  d.effects = { drive: arc === 2, wah: arc === 1, delay: arc === 3, reverb: true };
+  d.effects = {
+    drive: arc === 2,
+    wah: false,
+    envelope: arc === 1,
+    chorus: role === 'keys',
+    tremolo: false,
+    delay: arc === 3,
+    reverb: true,
+  };
   if (previous?.parts.some((p) => p.decision.action === 'space') && rng() > 0.6) d.action = 'space';
   return d;
 }

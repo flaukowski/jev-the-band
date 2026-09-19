@@ -5,6 +5,7 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   context,
   request,
 }) => {
+  test.setTimeout(150000);
   await request.post('/api/room/stop');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -35,13 +36,18 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
     } as typeof original;
   });
   await page.goto('/');
+  console.log('Stage loaded');
   await expect(page.getByText('STAGE CONNECTED', { exact: true })).toBeVisible();
   await expect(page.locator('canvas')).toBeVisible();
+  await page.getByRole('button', { name: 'Enable sound' }).click();
+  await expect(page.getByTestId('sample-status')).toHaveText('162 recorded samples ready', {
+    timeout: 30000,
+  });
+  console.log('Recorded voices ready');
   await page.getByLabel('Decision mode').selectOption('rehearsal');
   await page.getByLabel('Jam title or description').fill('Lanterns on the river');
   await page.getByRole('button', { name: 'Let’s jam' }).click();
   await expect(page.getByText('OFFLINE REHEARSAL', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Enable sound' }).click();
   await expect
     .poll(
       async () => {
@@ -51,14 +57,15 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
       { timeout: 25000 },
     )
     .toBe(4);
-  const second = await context.newPage();
-  await second.goto('/');
-  await expect(second.getByText('Lanterns on the river', { exact: true }).first()).toBeVisible();
   const snapshot = await (await request.get('/api/room')).json();
+  console.log('Four musicians entered');
   expect(snapshot.requests).toBe(0);
   expect(snapshot.frames.map((f: { parts: unknown[] }) => f.parts.length).slice(0, 4)).toEqual([
     1, 2, 3, 4,
   ]);
+  const second = await context.newPage();
+  await second.goto('/');
+  await expect(second.getByText('Lanterns on the river', { exact: true }).first()).toBeVisible();
   await expect
     .poll(
       () =>
@@ -72,6 +79,42 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
     Math.max(...(window as unknown as { audioPeaks: number[] }).audioPeaks),
   );
   expect(peak).toBeLessThan(1);
+  await page.getByRole('button', { name: 'Solo MOSS in mix', exact: true }).click();
+  await expect
+    .poll(async () =>
+      Number(await page.getByRole('meter', { name: 'ROOK signal' }).getAttribute('aria-valuenow')),
+    )
+    .toBe(-60);
+  await expect
+    .poll(
+      async () =>
+        Number(
+          await page.getByRole('meter', { name: 'MOSS signal' }).getAttribute('aria-valuenow'),
+        ),
+      { timeout: 7000 },
+    )
+    .toBeGreaterThan(-50);
+  await page.getByRole('button', { name: 'Mute MOSS', exact: true }).click();
+  await expect
+    .poll(async () =>
+      Number(await page.getByRole('meter', { name: 'MOSS signal' }).getAttribute('aria-valuenow')),
+    )
+    .toBe(-60);
+  await page.getByRole('button', { name: 'Reset mix' }).click();
+  await page.getByLabel('ROOK Distortion', { exact: true }).selectOption('on');
+  await page.getByLabel('ROOK Envelope', { exact: true }).selectOption('on');
+  await page
+    .getByRole('article', { name: 'MOSS mixer' })
+    .getByRole('button', { name: 'Effects rig' })
+    .click();
+  await expect(page.getByLabel('MOSS Distortion', { exact: true })).toHaveValue('auto');
+  await expect(page.getByLabel('MOSS Envelope', { exact: true })).toHaveValue('auto');
+  await page.getByRole('button', { name: 'Reset mix' }).click();
+  await page.getByLabel('Camera view').selectOption('front');
+  await expect(page.locator('.stage-canvas')).toHaveAttribute('data-camera', 'front');
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset camera', exact: true }).click();
+  await expect(page.locator('.stage-canvas')).toHaveAttribute('data-camera', 'wide');
   await page.getByRole('button', { name: 'Under the hood' }).click();
   await expect(page.getByRole('complementary', { name: 'Live decision console' })).toBeVisible();
   await page.locator('.trace-summary').first().click();

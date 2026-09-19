@@ -5,7 +5,6 @@ import {
   hash,
   lightRecipes,
   musicians,
-  roles,
   type Decision,
   type Frame,
   type Musician,
@@ -24,6 +23,8 @@ export class Room extends EventEmitter {
   private root = 2;
   private scale: Frame['mode'] = 'dorian';
   private failures = 0;
+  private due = new Map<Musician, number>();
+  private votes = new Map<Musician, { d: Decision; frame: number }>();
   constructor(
     prompt: string,
     mode: Snapshot['mode'],
@@ -99,7 +100,12 @@ export class Room extends EventEmitter {
     if (this.abort.signal.aborted) return;
     const prior = this.state.frame;
     const openingOrder = [this.state.opener, ...musicians.filter((r) => r !== this.state.opener)];
-    const active = roles.filter((role) => role === 'lights' || index >= openingOrder.indexOf(role));
+    // Independent commitments, a fair oldest-due queue, and at most ONE new musical idea.
+    const eligible = musicians
+      .filter((r) => (this.due.get(r) ?? 0) <= index)
+      .sort((a, b) => (this.due.get(a) ?? 0) - (this.due.get(b) ?? 0));
+    const selected = index < 4 ? openingOrder[index] : eligible[0];
+    const active = [...(selected ? [selected] : []), 'lights' as const];
     if (this.state.mode === 'live' && this.state.requests + active.length > this.maxRequests) {
       this.stop('Jev request limit reached');
       return;
@@ -169,6 +175,13 @@ export class Room extends EventEmitter {
                 ending: false,
               };
       decisions.set(trace.role, { d, source: trace.source });
+      this.due.set(
+        trace.role,
+        index +
+          { brief: 3, settle: 4, patient: 6 }[d.commitment] +
+          ((this.state.seed + index + musicians.indexOf(trace.role)) % 2),
+      );
+      if (trace.source !== 'fallback') this.votes.set(trace.role, { d, frame: index });
     }
     this.failures = traces.every((t) => t.source === 'fallback') ? this.failures + 1 : 0;
     if (this.failures >= 3) {
@@ -176,16 +189,39 @@ export class Room extends EventEmitter {
       return;
     }
     const ds = [...decisions.values()].map((v) => v.d);
+    const recentVotes = [...this.votes.values()]
+      .filter((v) => index - v.frame <= 6)
+      .map((v) => v.d);
     const bpm = nextTempo(prior?.bpm ?? this.state.baseBpm, this.state.baseBpm, ds);
-    const root = nextRoot(this.root, ds, index, this.lastKeyChange);
-    if (root !== this.root) this.lastKeyChange = index;
+    const root = nextRoot(this.root, recentVotes, index, this.lastKeyChange);
+    if (root !== this.root) {
+      this.lastKeyChange = index;
+      this.votes.clear();
+    }
     this.root = root;
     const durationMs = (8 * 60000) / bpm;
     const pressure = endingPressure((at - this.state.startedAt) / 1000);
     const ending =
       at + durationMs * 2 >= this.state.endsAt ||
-      (pressure > 0 && ds.filter((d) => d.ending).length >= 2);
+      (pressure > 0 && recentVotes.filter((d) => d.ending).length >= 2);
+    for (const old of prior?.parts ?? []) {
+      if (!decisions.has(old.role))
+        decisions.set(old.role, { d: { ...old.decision, action: 'hold' }, source: old.source });
+    }
     const parts = [...decisions].map(([role, { d, source }]) => {
+      const previous = prior?.parts.find((p) => p.role === role);
+      if (previous && role !== selected && !ending) {
+        const shift = root - (prior?.root ?? root);
+        return {
+          ...previous,
+          continued: true,
+          repeated: previous.repeated + 1,
+          notes: previous.notes.map((n) => ({
+            ...n,
+            midi: role === 'drums' ? n.midi : n.midi + shift,
+          })),
+        };
+      }
       const part = compile(
         role,
         ending ? { ...d, action: 'resolve', dynamic: 'soft', rhythm: 'sustain' } : d,
@@ -195,6 +231,8 @@ export class Room extends EventEmitter {
         prior?.parts.find((p) => p.role === role),
       );
       part.source = source;
+      part.updatedAtFrame = index;
+      part.continued = false;
       return part;
     });
     const frame: Frame = {
@@ -207,6 +245,7 @@ export class Room extends EventEmitter {
       parts,
       lighting,
       ending,
+      decisionRole: selected,
       chapter: ending
         ? 'The landing'
         : index < 4

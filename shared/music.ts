@@ -45,7 +45,15 @@ export const personas: Record<
   },
 };
 export const patches = ['piano', 'rhodes', 'organ', 'analog', 'pad', 'bell'] as const;
-export const fxNames = ['drive', 'wah', 'delay', 'reverb'] as const;
+export const fxNames = [
+  'drive',
+  'wah',
+  'envelope',
+  'chorus',
+  'tremolo',
+  'delay',
+  'reverb',
+] as const;
 export type Patch = (typeof patches)[number];
 export type Effects = Record<(typeof fxNames)[number], boolean>;
 export const actions = [
@@ -59,7 +67,30 @@ export const actions = [
   'resolve',
 ] as const;
 export type Action = (typeof actions)[number];
-export const rhythms = ['pocket', 'offbeat', 'flow', 'sparse', 'sustain', 'clave'] as const;
+export const rhythms = [
+  'pocket',
+  'offbeat',
+  'flow',
+  'sparse',
+  'sustain',
+  'clave',
+  'lyrical',
+  'thirty_seconds',
+  'triplets',
+  'quintuplets',
+  'sextuplets',
+  'broken',
+] as const;
+export const developments = [
+  'repeat',
+  'answer',
+  'sequence_up',
+  'sequence_down',
+  'invert',
+  'fragment',
+  'new_theme',
+] as const;
+export const articulations = ['natural', 'legato', 'staccato', 'bend', 'slide'] as const;
 export type Rhythm = (typeof rhythms)[number];
 export const modes = ['dorian', 'mixolydian', 'minor', 'major'] as const;
 export const scales = {
@@ -139,8 +170,15 @@ export const decisionSchema = z.object({
     wah: z.boolean(),
     delay: z.boolean(),
     reverb: z.boolean(),
+    envelope: z.boolean().default(false),
+    chorus: z.boolean().default(false),
+    tremolo: z.boolean().default(false),
   }),
   ending: z.boolean(),
+  development: z.enum(developments).default('answer'),
+  articulation: z.enum(articulations).default('natural'),
+  swing: z.enum(['straight', 'light', 'deep']).default('light'),
+  commitment: z.enum(['brief', 'settle', 'patient']).default('settle'),
 });
 export type Decision = z.infer<typeof decisionSchema>;
 export const noteSchema = z.object({
@@ -150,6 +188,8 @@ export const noteSchema = z.object({
   velocity: z.number().positive().max(1),
   hand: z.enum(['left', 'right']).optional(),
   patch: z.enum(patches).optional(),
+  articulation: z.enum(articulations).optional(),
+  bend: z.number().min(-2).max(2).optional(),
 });
 export type Note = z.infer<typeof noteSchema>;
 export interface Part {
@@ -159,6 +199,8 @@ export interface Part {
   solo: boolean;
   repeated: number;
   source: 'jev' | 'rehearsal' | 'fallback';
+  updatedAtFrame?: number;
+  continued?: boolean;
 }
 export interface Frame {
   id: number;
@@ -171,6 +213,7 @@ export interface Frame {
   lighting: Lighting;
   chapter: string;
   ending: boolean;
+  decisionRole?: Musician;
 }
 export interface Snapshot {
   id: string;
@@ -232,8 +275,20 @@ export function defaultDecision(): Decision {
     harmony: 'stay',
     left: 'rhodes',
     right: 'rhodes',
-    effects: { drive: false, wah: false, delay: false, reverb: true },
+    effects: {
+      drive: false,
+      wah: false,
+      delay: false,
+      reverb: true,
+      envelope: false,
+      chorus: false,
+      tremolo: false,
+    },
     ending: false,
+    development: 'answer',
+    articulation: 'natural',
+    swing: 'light',
+    commitment: 'settle',
   };
 }
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));

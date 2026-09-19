@@ -2,6 +2,8 @@
 
 These are proposed directions, not extra commitments or approved changes to the founding requirements. Record user reactions and accepted choices in the prompt/decision logs.
 
+**2026-09-19 update:** the first revision now delivers causal listening, independent phrase commitments, own-motif transformations, swing/tuplets/32nds, sampled guitar/bass/piano/drum accents, guitar articulation, independent visible pedalboards, local soundboard controls, note-driven animation and camera navigation. The dated decision log lists the twelve delivered additions. Items below describe further depth; basic versions of several are now implemented.
+
 ## Next: listen, remember, answer
 
 1. **Motif memory:** retain a small named motif ledger; let a player quote another player's phrase, answer it, invert it, or bring it back much later. Jev chooses these transformations; code performs them exactly.

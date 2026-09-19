@@ -24,3 +24,19 @@ The initial live smoke made exactly five calls. All validated successfully: guit
 ## Implications
 
 Jev fits the decision layer. The central design challenge is the musical grammar and the feedback loop. Richer candidate choices can improve expression, but a bigger vocabulary alone does not ensure taste. Prefer measuring motif continuity, response to peers, excessive density, stalled repetition, and transition quality in recorded listening sessions. Keep the model pin and question-schema version in future durable recordings so experiments remain attributable.
+
+## 2026-09-19 — Recorded instruments and expressive rigs
+
+The user's listening feedback triggered a primary-source search for recorded guitar, bass and keyboards with licenses permitting redistribution in the future open-source repository.
+
+| Source | Finding and decision |
+|---|---|
+| [Karoryfer free libraries](https://shop.karoryfer.com/pages/free-samples) | The publisher now identifies its free libraries as CC0 (except its unrelated voice-bank product). Chosen for direct guitar/bass sourcing. |
+| [Black And Green Guitars](https://shop.karoryfer.com/pages/free-black-and-green-guitars) / [source](https://github.com/sfzinstruments/karoryfer.black-and-green-guitars) | Recorded hollowbody guitars with plucks, staccato and other articulations. Selected green plucks at two dynamics/two takes, plus staccato and hammer-on notes. Read SFZ pitch centers rather than guessing filenames. |
+| [Black And Blue Basses](https://shop.karoryfer.com/pages/free-black-and-blue-basses) / [source](https://github.com/sfzinstruments/karoryfer.black-and-blue-basses) | Fingered hollowbody and picked solidbody bass recordings. Selected the darkblack fingered set for a warm pocket, with two dynamics/two takes. |
+| [tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments) / [source credits](https://github.com/nbrosowsky/tonejs-instruments/blob/master/sample-source-info.txt) | Convenient edited recordings under CC BY 3.0. Used a small piano subset, credited to Versilian Studios and Nicholaus P. Brosowsky. Direct Karoryfer sources offer richer guitar articulations than this collection. |
+| [Versilian Community Sample Library](https://versilian-studios.com/vcsl/) / [source](https://github.com/sgossner/VCSL) | Publisher permits software redistribution under CC0. Selected acoustic snare, hi-hat, tom and cymbal accents. [VCSL Keys](https://versilian-studios.com/vcsl-keys/) is a further piano expansion candidate, not bundled in full. |
+| [Web Audio source detune](https://developer.mozilla.org/en-US/docs/Web/API/AudioBufferSourceNode/detune) / [filters](https://developer.mozilla.org/en-US/docs/Web/API/BiquadFilterNode) | Individual sampled voices can carry bend, slide and delayed vibrato; filters shape the amp body, cabinet and velocity envelope. |
+| [Three.js OrbitControls](https://threejs.org/docs/pages/OrbitControls.html) | Standard orbit, pan and zoom control; integrated with presets, drag-aware picking and optional solo follow. |
+
+The chosen compact sampler is an engineering choice, not a listening-certified equivalence to a real player or a commercial guitar library. Full libraries offer many more velocity layers, release noises, fret/string choices and articulations. The app keeps explicit voice limits and short sample loading; later comparisons should use identical phrases and blind listening. Every bundled file's source commit, original/derived SHA-256 and license appears in the [sample manifest](../public/samples/manifest.json), with [credits and conversion details](../public/samples/CREDITS.md).

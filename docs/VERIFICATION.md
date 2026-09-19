@@ -1,5 +1,18 @@
 # Verification — 2026-09-19
 
+## Revision 0.2 — independent listening, recorded instruments and sound desk
+
+- **21 deterministic tests pass**, including exact peer-note retention across independently scheduled changes; exclusion of future notes, private peer plans and future note durations; 32nd/tuplet spacing; solo motif continuity; mixer mute/solo precedence; independent effect overrides; all 162 sample hashes/licenses; and the simulated ten-minute ending.
+- TypeScript and production build pass. Vite still reports its Three.js chunk-size advisory and upstream Zod annotation warnings.
+- **162 recorded samples**, **11,293,066 compressed bytes**, all with upstream commit pins and original/derived SHA-256. An isolated muted-browser audio probe decoded the whole bank in approximately **2.67 seconds** on this machine; this is not a network/device performance guarantee.
+- Full rendered-browser scenario passed in **35.9 seconds**: samples ready, one-to-four entrances, two spectators sharing a rehearsal, post-fader solo/mute measurements, independent guitar/bass effect settings, camera preset/zoom/reset, trace inspection, shared stop and mobile width. **0 page errors**, **0 rehearsal API calls**, master peak **0.34294** (below clipping). No audible playback through speakers.
+- A short integrated real-Jev run produced **5 frames / 11 calls**, all four players, **0 fallbacks**, a final landing, and **$0.002092062** reported cost. This is a small live sample; it does not validate a full ten-minute model performance or musical taste.
+- Desktop and 390 px mobile screenshots inspected. The camera/caption overlap discovered in the mobile review was corrected.
+- Chromium's default Windows SwiftShader path caused severe CPU contention and test stalls. Verification now explicitly uses Windows D3D11; the app also caps software rendering at 10 fps, normal rendering at 30 fps, and reduces scene rendering during sample loading. This does not establish smooth playback on every software-rendered machine.
+- Final idle-stage review found Vite had cached an empty Stage module during a formatter's transient file write. The development watcher now waits 200 ms for writes to settle. Reopened preview renders the stage; caption spacing, mobile overflow and front camera were rechecked after recovery. This is a development-server fix; the production build was unaffected.
+
+The original pass below is preserved as historical evidence. Guitar/bass/piano/drum realism now comes from recordings; some voices remain synthesized. No human listening certification or public deployment is claimed.
+
 ## Passed
 
 - TypeScript validation and production Vite build.

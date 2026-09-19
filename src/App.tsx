@@ -31,6 +31,7 @@ import {
   type Trace,
 } from '../shared/music';
 import { BandAudio } from './audio';
+import { Mixer } from './Mixer';
 import './styles.css';
 
 const Stage = lazy(() => import('./Stage').then((module) => ({ default: module.Stage })));
@@ -54,6 +55,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sound, setSound] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
   const [volume, setVolume] = useState(0.6);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [selected, setSelected] = useState<Role | 'all'>('all');
@@ -162,10 +164,13 @@ export default function App() {
       setSound(false);
     } else {
       try {
+        setAudioLoading(true);
         await audio.current.enable();
         setSound(true);
       } catch {
         setError('Audio could not start. Try the sound button again.');
+      } finally {
+        setAudioLoading(false);
       }
     }
   }
@@ -277,6 +282,8 @@ export default function App() {
                   playing={running && !!frame}
                   reduced={reduced}
                   onSelect={selectRole}
+                  serverOffset={offset}
+                  loadingAudio={audioLoading}
                 />
               </Suspense>
               <div className="stage-top">
@@ -311,16 +318,20 @@ export default function App() {
                   </span>
                   <p>{running ? room?.title : 'Four musicians. One lighting artist. All ears.'}</p>
                 </div>
-                <button className={`sound-pill ${sound ? 'sound-on' : ''}`} onClick={toggleAudio}>
+                <button
+                  className={`sound-pill ${sound ? 'sound-on' : ''}`}
+                  onClick={toggleAudio}
+                  disabled={audioLoading}
+                >
                   {sound ? <Volume2 size={17} /> : <VolumeX size={17} />}
-                  {sound ? 'Sound on' : 'Enable sound'}
+                  {audioLoading ? 'Loading instruments…' : sound ? 'Sound on' : 'Enable sound'}
                 </button>
               </div>
               {!running && (
                 <div className="stage-caption">
-                  NOTHING PRERECORDED.
+                  NO TWO JAMS ALIKE.
                   <br />
-                  <span>EVERY PHRASE IS A NEW DECISION.</span>
+                  <span>RECORDED NOTES. NEW IDEAS.</span>
                 </div>
               )}
             </div>
@@ -387,7 +398,7 @@ export default function App() {
                         {lit
                           ? role === 'lights'
                             ? activeFrame?.lighting.wash
-                            : part?.decision.action === 'hold'
+                            : part?.continued || part?.decision.action === 'hold'
                               ? 'Holding the thread'
                               : part?.decision.action
                           : 'Waiting for a spark'}
@@ -408,6 +419,7 @@ export default function App() {
                 );
               })}
             </section>
+            <Mixer audio={audio.current} frame={activeFrame} />
             <section className="prompt-panel">
               <div className="prompt-label">
                 <span className="eyebrow">
@@ -492,7 +504,7 @@ export default function App() {
                 <AudioLines size={15} />
                 {(mode === 'rehearsal' && !running) || room?.mode === 'rehearsal'
                   ? 'Rehearsal is procedural. Switch to Live Jev for real model decisions.'
-                  : 'Jev chooses. The instruments play. Nothing prerecorded.'}
+                  : 'Jev writes the phrases. Recorded notes become a live performance.'}
               </span>
               <button className="text-button" onClick={() => setReduced(!reduced)}>
                 {reduced ? <Play size={13} /> : <Pause size={13} />}{' '}
@@ -607,12 +619,13 @@ export default function App() {
             </h2>
             <p>
               Rook, Moss, June, and Kit choose musical gestures through separate Jev decision calls.
-              Lux listens to the same evolving score and shapes the lights.
+              Lux reacts to music already played and shapes the lights.
             </p>
             <p>
-              Jev receives notes and musical state as text, rather than hearing audio. It chooses
-              scale degrees, rhythms, dynamics, effects, and its next move. A shared clock turns
-              those choices into original synthesized sound.
+              Jev receives a delayed record of notes already played, never a peer’s unplayed score.
+              One musician can revise a phrase at a time; the others keep playing while they listen.
+              Recorded guitar, bass and piano notes bring their choices to life, with a separate
+              effects rig for each player.
             </p>
             <p>
               Players enter one at a time, trade solos, propose new keys, and nudge the tempo. After
@@ -623,6 +636,9 @@ export default function App() {
               Try the stage without an API key. This mode uses procedural decisions and makes no Jev
               calls. Live Jev is available when the host connects a server-side key.
             </p>
+            <a href="/samples/CREDITS.md" target="_blank" rel="noreferrer">
+              Instrument recordings & credits <ArrowUpRight size={16} />
+            </a>
             <a
               href="https://typesafe.ai/blog/introducing-system-one-models-and-jev"
               target="_blank"
