@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Preserve the verbatim founding prompt's original trailing space.
+docs/ORIGINAL-PROMPT.md whitespace=-blank-at-eol
