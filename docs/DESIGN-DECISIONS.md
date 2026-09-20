@@ -282,3 +282,9 @@ The release audition temporarily capped the room at 480 attempts, then restored 
 **Fixes.** June's hands now decide play-versus-rest by total probability mass, and a comping texture does not offer a left-hand rest when that hand has been silent for two beats. Bass and drum features last one phrase and stay in the rotation. Heard context drops its oldest frames above 40 KB. `choice()` copies option tables so no rule can edit a shared constant.
 
 **Implementation assumptions, not user requirements:** every patience, probability, pressure constant, gain value and the 55% sketch trigger are first guesses to be tuned by listening.
+
+## 2026-09-20 — Disclosed provider fallback
+
+**User request:** keep OpenRouter as a fallback for the direct TypeSafe key. This supersedes the v0.6 rule that a selected provider never fails over.
+
+When both keys are configured, the other provider is the room's fallback unless `JEV_FALLBACK=0`. A room switches at most once: immediately on HTTP 401, 402 or 403, which waiting cannot cure, or after two consecutive phrases without any Jev response, or when the opening request fails. The whole room moves; requests already in flight fail and are disclosed as fallback traces, and the refused provider is not retried. The switch, its reason and frame are published as `providerSwitch`, and every trace continues to name the provider and endpoint that answered it. Each provider only ever receives its own key and its own model ID. Without a second key nothing changes: three failed phrases still stop the jam. Production currently has only the TypeSafe key, so it has no fallback until an OpenRouter key is added there.

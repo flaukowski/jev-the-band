@@ -262,6 +262,8 @@ export interface Frame {
 }
 export interface Snapshot {
   provider?: JevProvider;
+  /** Set when the room moved to its fallback decision provider mid-jam. */
+  providerSwitch?: { from: JevProvider; to: JevProvider; reason: string; atFrame: number };
   setlist?: import('./setlist.js').ThemeCue[];
   themeId?: string;
   themeStartedAt?: number;

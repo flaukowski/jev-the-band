@@ -280,3 +280,60 @@ test('a bass or drum feature never drops that player out of the rotation', async
   assert.ok(updates.bass.size >= 3, `bass composed ${updates.bass.size} times`);
   assert.ok(updates.drums.size >= 3, `drums composed ${updates.drums.size} times`);
 });
+
+test('a refused provider hands the whole room to the configured fallback once, and every trace says who answered', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000000 });
+  const seen: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: unknown, init: RequestInit) => {
+    seen.push(String(url));
+    if (String(url).includes('typesafe.ai')) return new Response('{}', { status: 402 });
+    const request = JSON.parse(init.body as string);
+    assert.equal(request.model, 'typesafe/jev-1.13', 'the fallback uses its own model id');
+    assert.equal((init.headers as Record<string, string>).Authorization, 'Bearer or-key');
+    const trace = fixture(request, 'guitar', { opener: 'bass', bpm: '96' });
+    return new Response(JSON.stringify({ answers: trace.answers, usage: { cost: 0 } }));
+  });
+  const room = new Room('Fallback', 'live', 'ts-key', 'jev-1.13.0', 6000, 600, {
+    provider: 'typesafe',
+    fallback: { provider: 'openrouter', apiKey: 'or-key', model: 'typesafe/jev-1.13' },
+  });
+  await room.start();
+  for (let second = 0; second < 20; second++) {
+    t.mock.timers.tick(1000);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  room.stop();
+  assert.deepEqual(
+    { from: room.state.providerSwitch?.from, to: room.state.providerSwitch?.to },
+    { from: 'typesafe', to: 'openrouter' },
+  );
+  assert.match(room.state.providerSwitch!.reason, /HTTP 402/);
+  assert.equal(
+    seen.filter((u) => u.includes('typesafe.ai')).length,
+    1,
+    'no retries against the refused provider',
+  );
+  const accepted = room.state.traces.filter((trace) => trace.source === 'jev');
+  assert.ok(accepted.length > 5 && accepted.every((trace) => trace.provider === 'openrouter'));
+  assert.ok(
+    room.state.frames.some((f) => f.parts.some((p) => p.source === 'jev' && p.notes.length)),
+  );
+  assert.ok(!JSON.stringify(room.view()).includes('or-key'), 'no credential in room state');
+});
+
+test('fallback configuration needs both keys and can be switched off', async () => {
+  const { jevConfig } = await import('../server/provider.js');
+  const both = { TYPESAFE_API_KEY: 'a', OPENROUTER_API_KEY: 'b' };
+  assert.deepEqual(jevConfig(both).fallback, {
+    provider: 'openrouter',
+    apiKey: 'b',
+    model: 'typesafe/jev-1.13',
+  });
+  assert.deepEqual(jevConfig({ ...both, JEV_PROVIDER: 'openrouter' }).fallback, {
+    provider: 'typesafe',
+    apiKey: 'a',
+    model: 'jev-1.13.0',
+  });
+  assert.equal(jevConfig({ ...both, JEV_FALLBACK: '0' }).fallback, undefined);
+  assert.equal(jevConfig({ TYPESAFE_API_KEY: 'a' }).fallback, undefined);
+});

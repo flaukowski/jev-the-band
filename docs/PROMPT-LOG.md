@@ -300,3 +300,15 @@ we are getting close! we need to give the jev's a way to sort of get bored after
 ```
 
 The audit, the decisions it led to and the live evidence are in [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) and [MUSICAL-ARCHITECTURE.md](MUSICAL-ARCHITECTURE.md) under v0.7.
+
+## 2026-09-20 — Pull request and provider fallback
+
+```text
+Yep, PR onto master, i reupped the typesafe key but nice to have openrouter as a fall back
+```
+
+```text
+sure
+```
+
+The repository's default branch is `main`, so the pull request targets it. "sure" answers the offer to add an automatic, disclosed switch to the other decision provider in the same pull request.

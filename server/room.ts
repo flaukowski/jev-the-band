@@ -39,10 +39,26 @@ export class Room extends EventEmitter {
   private engineerMix = defaultEngineerMix();
   private measurement?: { levels: ChannelLevels; at: number };
   private sketchesRequested = 0;
+  private get provider(): JevProvider {
+    return this.state.provider ?? this.options.provider ?? 'openrouter';
+  }
+  /**
+   * Move the whole room to the configured fallback provider, once. Requests already in flight
+   * fail and are disclosed as fallbacks; every later trace names the provider that answered it.
+   */
+  private failover(reason: string, atFrame: number): boolean {
+    const next = this.options.fallback;
+    if (!next || this.state.providerSwitch) return false;
+    this.state.providerSwitch = { from: this.provider, to: next.provider, reason, atFrame };
+    this.state.provider = next.provider;
+    this.apiKey = next.apiKey;
+    this.model = next.model;
+    this.failures = 0;
+    return true;
+  }
   /** Off-clock: ask the arranger for a solo arc ahead of time. Late or failed sketches are simply unused. */
   private requestSketch(role: Musician) {
-    const key =
-      this.options.directorApiKey ?? (this.options.provider === 'typesafe' ? '' : this.apiKey);
+    const key = this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey);
     if (!this.options.directorModel || !key || this.sketchesRequested >= 6) return;
     if (this.state.soloSketches?.[role]) return;
     this.sketchesRequested++;
@@ -81,7 +97,7 @@ export class Room extends EventEmitter {
       void directJam(
         prompt,
         this.options.directorModel,
-        this.options.directorApiKey ?? (this.options.provider === 'typesafe' ? '' : this.apiKey),
+        this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey),
         this.options.recentOpeners,
         this.abort.signal,
       ).then((report) => {
@@ -111,6 +127,7 @@ export class Room extends EventEmitter {
       directorModel?: string;
       directorApiKey?: string;
       recentOpeners?: Musician[];
+      fallback?: { provider: JevProvider; apiKey: string; model: string };
     } = {},
   ) {
     super();
@@ -152,7 +169,7 @@ export class Room extends EventEmitter {
     }
     this.emit('trace', t);
   }
-  async start() {
+  async start(): Promise<void> {
     try {
       if (this.state.mode === 'live') {
         if (this.options.directorModel) {
@@ -161,8 +178,7 @@ export class Room extends EventEmitter {
           this.state.director = await directJam(
             this.state.prompt,
             this.options.directorModel,
-            this.options.directorApiKey ??
-              (this.options.provider === 'typesafe' ? '' : this.apiKey),
+            this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey),
             this.options.recentOpeners,
             this.abort.signal,
           );
@@ -181,9 +197,13 @@ export class Room extends EventEmitter {
           -1,
           this.apiKey,
           this.abort.signal,
-          this.options.provider,
+          this.provider,
         );
         this.trace(t);
+        if (t.source !== 'jev' && this.failover(t.error ?? 'Opening request failed', -1)) {
+          this.publish();
+          return this.start();
+        }
         if (t.source !== 'jev') throw new Error(t.error ?? 'Could not start Jev');
         this.state.opener = t.answers.opener.choice as Musician;
         this.state.baseBpm = Number(t.answers.bpm.choice);
@@ -332,7 +352,7 @@ export class Room extends EventEmitter {
                 index,
                 this.apiKey,
                 phraseSignal,
-                this.options.provider,
+                this.provider,
               ),
             ];
           }
@@ -354,7 +374,7 @@ export class Room extends EventEmitter {
                       index,
                       this.apiKey,
                       phraseSignal,
-                      this.options.provider,
+                      this.provider,
                     );
                     calls.push(trace);
                     return trace;
@@ -373,9 +393,7 @@ export class Room extends EventEmitter {
               return calls;
             }
             this.state.requests++;
-            return [
-              await callJev(request, role, index, this.apiKey, phraseSignal, this.options.provider),
-            ];
+            return [await callJev(request, role, index, this.apiKey, phraseSignal, this.provider)];
           }
           return [
             {
@@ -475,6 +493,11 @@ export class Room extends EventEmitter {
       ![...decisions.values()].some((d) => d.source === 'jev')
         ? this.failures + 1
         : 0;
+    // Rejected credentials or an exhausted balance will not recover by waiting; two silent
+    // phrases in a row are reason enough as well.
+    const refused = traces.find((t) => /HTTP (401|402|403)/.test(t.error ?? ''));
+    if (this.state.mode === 'live' && (refused || this.failures >= 2))
+      this.failover(refused?.error ?? 'Two phrases without a Jev response', index);
     if (this.failures >= 3) {
       this.stop('Decision service unavailable for three phrases');
       return;
