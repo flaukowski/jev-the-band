@@ -511,8 +511,10 @@ export function createStage(
     applySize();
     debugStats.build = performance.now() - initStart;
     // Compile every shader off the main thread before the first frame.
-    await renderer.compileAsync(scene, camera).catch(() => undefined);
-    await venue.wall.precompile(renderer).catch(() => undefined);
+    await Promise.all([
+      renderer.compileAsync(scene, camera).catch(() => undefined),
+      venue.wall.precompile(renderer).catch(() => undefined),
+    ]);
     debugStats.compile = performance.now() - initStart - debugStats.build;
     if (!disposed) raf = requestAnimationFrame(draw);
   }

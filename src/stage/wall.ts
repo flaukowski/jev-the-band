@@ -579,12 +579,14 @@ export class Wall {
    * They are large, and compiling them inside a frame would stall audio decoding.
    */
   async precompile(renderer: THREE.WebGLRenderer) {
-    for (const kind of Object.keys(pictures) as PictureKind[]) {
-      this.painterQuad.material = this.painters[kind];
-      await renderer.compileAsync(this.painterScene, this.camera);
+    // One throwaway scene holding every program, so the driver can build them side by side.
+    const all = new THREE.Scene();
+    for (const material of [...Object.values(this.painters), this.trailMaterial, this.material]) {
+      const quad = new THREE.Mesh(this.quad.geometry, material);
+      quad.frustumCulled = false;
+      all.add(quad);
     }
-    await renderer.compileAsync(this.trailScene, this.camera);
-    await renderer.compileAsync(this.scene, this.camera);
+    await renderer.compileAsync(all, this.camera);
   }
 
   /** A musician's note pushes the wall from their side of the stage. */
