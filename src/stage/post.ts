@@ -160,7 +160,8 @@ export class PostChain {
     this.composer.setPixelRatio(pixelRatio);
     this.composer.setSize(width, height);
   }
-  update(sig: Signals, dt: number, trip: number) {
+  /** `night` is 1 under a dark sky; daylight lifts every surface, so the glow is pulled back. */
+  update(sig: Signals, dt: number, trip: number, night = 1) {
     // A moving camera would drag trails across everything, so tracers yield to camera motion.
     const moved =
       this.camera.position.distanceTo(this.lastCamera) +
@@ -188,7 +189,9 @@ export class PostChain {
     c.uPulse.value = fx.tremolo * 0.035 * Math.sin(sig.time * Math.PI * 2 * 1.8) * live;
     c.uSaturation.value = 1.05 + fx.drive * 0.2 + sig.energy * 0.1;
     c.uVignette.value = 0.55 - sig.energy * 0.15;
-    this.bloom.strength = 0.45 + fx.reverb * 0.3 * live + sig.energy * 0.18;
+    this.bloom.strength =
+      (0.45 + fx.reverb * 0.3 * live + sig.energy * 0.18) * (0.35 + 0.65 * night);
+    this.bloom.threshold = 1 + (1 - night) * 0.6;
     this.bloom.radius = 0.55 + fx.reverb * 0.3;
   }
   render(dt: number) {

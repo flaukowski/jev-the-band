@@ -239,7 +239,7 @@ abstract class StringPlayer implements Performer {
     this.cable = new Cable(scene, jack, ampIn, 1.5, 0x0b0b0c, stagePositions[role][1] + 0.012);
     this.attention = new Attention(seed, role);
     this.stomp = new Stomp(this.pedals);
-    this.character.handL.curl = 0.95;
+    this.character.handL.curl = 0.9;
     this.character.handR.curl = bass ? 0.6 : 1.05;
   }
 
@@ -276,16 +276,19 @@ abstract class StringPlayer implements Performer {
     }
     const vibrato = solo * p.sustain * Math.sin(t * 36) * 0.0035;
     inst.localPoint(inst.fretX(this.fretNumber), this.string, 0, _a);
-    _a.y += p.bend * 0.012 + vibrato - 0.052;
-    _a.z -= 0.045;
+    // The wrist hangs under the neck's treble edge and just proud of the fretboard, so the fingers
+    // come up around the front of the neck and curl back down onto the strings, as a player's do.
+    _a.y += p.bend * 0.012 + vibrato - 0.105;
+    _a.z += 0.035;
     intoRoot(ch, inst.group, _a);
     if (this.fret.lengthSq() === 0) this.fret.copy(_a);
     dampV(this.fret, _a, p.solo ? 26 : 18, dt);
     ch.target.handL.copy(this.fret);
-    ch.aim.L.set(-0.12, 1, 0.25);
+    ch.aim.L.set(-0.1, 1, 0.35);
     intoRoot(ch, inst.group, ch.aim.L, true);
     ch.aim.weightL = 0.92;
-    ch.palm.L.set(0.25, 0.2, 1);
+    // Palm toward the neck (and the player), thumb toward the headstock.
+    ch.palm.L.set(0, 0.3, -1);
     intoRoot(ch, inst.group, ch.palm.L, true);
     ch.pole.elbowL.set(0.55, -0.9, -0.35);
     const finger = ((this.fretNumber % 4) + 4) % 4;

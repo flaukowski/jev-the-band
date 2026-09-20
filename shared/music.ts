@@ -160,13 +160,44 @@ export const lightRecipes = {
     'slow spiral',
     'off',
   ],
+  /** What Lux projects on the wall behind the band. Any of these can also be laid over another. */
+  visual: [
+    'liquid light',
+    'jev logo',
+    'piano roll',
+    'band camera',
+    'graphic eq',
+    'radial spectrum',
+    'plasma trails',
+    'mandala',
+    'decision stream',
+  ],
+  /** Procedural sky and weather over the festival field. */
+  sky: [
+    'starry night',
+    'sunrise',
+    'high noon',
+    'sunset',
+    'rain',
+    'snow',
+    'meteor shower',
+    'alien abduction',
+  ],
 } as const;
+export type WallVisual = (typeof lightRecipes.visual)[number];
+export type WallOverlay = WallVisual | 'none';
+export type Sky = (typeof lightRecipes.sky)[number];
+export const wallOverlays = [...lightRecipes.visual, 'none'] as const;
 export const lightingSchema = z.object({
   wash: z.enum(lightRecipes.wash),
   beam: z.enum(lightRecipes.beam),
   laser: z.enum(lightRecipes.laser),
   intensity: z.number().min(0).max(1),
   motion: z.number().min(0).max(1),
+  // Added in v0.7. Optional so earlier frames and saved traces still validate.
+  visual: z.enum(lightRecipes.visual).optional(),
+  overlay: z.enum(wallOverlays).optional(),
+  sky: z.enum(lightRecipes.sky).optional(),
 });
 export type Lighting = z.infer<typeof lightingSchema>;
 export const defaultLighting: Lighting = {
@@ -175,6 +206,9 @@ export const defaultLighting: Lighting = {
   laser: 'off',
   intensity: 0.55,
   motion: 0.3,
+  visual: 'liquid light',
+  overlay: 'none',
+  sky: 'starry night',
 };
 export const decisionSchema = z.object({
   action: z.enum(actions),
