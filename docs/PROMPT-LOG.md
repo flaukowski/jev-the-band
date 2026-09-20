@@ -236,3 +236,11 @@ read the spec and create a gorgeously upgrade visual pattern for this app. more 
 ## 2026-09-20 — Authorized visual integration
 
 The user authorized this separate task to review and safely merge Claude's visual PR against the latest remote `main`, preserving v0.5 and subsequent musical changes. Work is restricted to an isolated checkout; the canonical checkout and its previews on ports 5178/4310 must remain untouched. Public deployment, repository visibility changes and computer restarts are not authorized.
+
+## 2026-09-20 — Project README and MIT license
+
+```text
+Make sure readme discusses project and add license mit or w/e
+```
+
+The README describes the musical concept, personas, real decision composition, controls, setup and hosting. The existing root MIT license is retained, package metadata now declares MIT, and the deployed image includes the license. Instrument samples retain their separately documented CC0/CC-BY terms.

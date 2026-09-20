@@ -5,9 +5,11 @@ import { composePhrase } from '../server/composer.js';
 import { callJev } from '../server/jev.js';
 import { defaultLighting, fxNames, type Trace, type Part } from '../shared/music.js';
 import { validateNotes } from '../shared/score.js';
+import { jevConfig } from '../server/provider.js';
+const config = jevConfig();
 
 // Explicit paid diagnostic: three isolated compositions, at most 28 calls. Never touches the audience room.
-if (!process.env.OPENROUTER_API_KEY) throw new Error('Set the server key first.');
+if (!config.apiKey) throw new Error('Set the selected Jev provider key first.');
 const room = new Room(
   'A warm C major soul-funk pocket. Guitar plays full rhythmic strummed chords, not a solo. Keys comp with two-handed Rhodes chords. Drums establish a steady danceable hi-hat pulse and backbeat throughout both bars. Make generous use of tasteful pedal combinations: envelope filter and drive on guitar, chorus and reverb on keys, a touch of dub echo. Land somewhere satisfying; groove, not endless tension.',
   'live',
@@ -20,18 +22,12 @@ const traces: Trace[] = [],
   parts: Part[] = [];
 for (const role of ['guitar', 'keys', 'drums'] as const) {
   try {
-    const part = await composePhrase(
-      role,
-      room.view(),
-      0,
-      process.env.JEV_MODEL || 'typesafe/jev-1.13',
-      async (request) => {
-        if (traces.length >= 28) throw new Error('Audit request cap');
-        const trace = await callJev(request, role, 0, process.env.OPENROUTER_API_KEY!);
-        traces.push(trace);
-        return trace;
-      },
-    );
+    const part = await composePhrase(role, room.view(), 0, config.model, async (request) => {
+      if (traces.length >= 28) throw new Error('Audit request cap');
+      const trace = await callJev(request, role, 0, config.apiKey, undefined, config.provider);
+      traces.push(trace);
+      return trace;
+    });
     validateNotes(part.notes, role);
     parts.push(part);
     // Make previous test phrases entirely past before another instrument hears them.

@@ -1,9 +1,10 @@
 {
   "name": "jev-the-band",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Six decision personas. One evolving live band.",
+  "license": "MIT",
   "engines": {
     "node": ">=22"
   },
@@ -21,7 +22,8 @@
     "audit:director": "tsx scripts/audit-director.ts",
     "format": "prettier --write src server shared scripts tests *.json *.ts",
     "audit:solos": "tsx scripts/audit-solos.ts",
-    "generate:audience": "tsx scripts/generate-audience.ts"
+    "generate:audience": "tsx scripts/generate-audience.ts",
+    "promote:audience": "tsx scripts/promote-audience.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.0",

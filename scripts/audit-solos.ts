@@ -4,9 +4,11 @@ import { composePhrase } from '../server/composer.js';
 import { callJev } from '../server/jev.js';
 import { Room } from '../server/room.js';
 import { defaultLighting, type Part, type Trace } from '../shared/music.js';
+import { jevConfig } from '../server/provider.js';
+const config = jevConfig();
 
 // Explicit paid audition: two isolated eight-bar solo excerpts, at most 120 Jev calls.
-if (!process.env.OPENROUTER_API_KEY) throw new Error('Set the server key first.');
+if (!config.apiKey) throw new Error('Set the selected Jev provider key first.');
 const keepAlive = setInterval(() => {}, 1000);
 const traces: Trace[] = [];
 const results: { role: string; parts: Part[] }[] = [];
@@ -22,18 +24,19 @@ try {
     results.push({ role, parts });
     for (let chunk = 0; chunk < 4; chunk++) {
       if (chunk) room.soloInvitation = undefined;
-      const part = await composePhrase(
-        role,
-        room,
-        chunk,
-        process.env.JEV_MODEL || 'typesafe/jev-1.13',
-        async (request) => {
-          if (traces.length >= 120) throw new Error('Solo audition request cap');
-          const trace = await callJev(request, role, chunk, process.env.OPENROUTER_API_KEY!);
-          traces.push(trace);
-          return trace;
-        },
-      );
+      const part = await composePhrase(role, room, chunk, config.model, async (request) => {
+        if (traces.length >= 120) throw new Error('Solo audition request cap');
+        const trace = await callJev(
+          request,
+          role,
+          chunk,
+          config.apiKey,
+          undefined,
+          config.provider,
+        );
+        traces.push(trace);
+        return trace;
+      });
       parts.push(part);
       const frame = {
         id: chunk,

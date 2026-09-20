@@ -2,8 +2,10 @@ import 'dotenv/config';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { directJam } from '../server/director.js';
 import { bootstrapRequest, callJev } from '../server/jev.js';
-const key = process.env.OPENROUTER_API_KEY;
-if (!key) throw new Error('Set the server key first.');
+import { jevConfig } from '../server/provider.js';
+const config = jevConfig();
+if (!config.apiKey || !config.directorKey)
+  throw new Error('Configure Jev and the OpenRouter director key first.');
 // Explicit paid check: exactly two LLM briefs and at most two Jev opening decisions, no room or playback.
 const keepAlive = setInterval(() => {}, 1000);
 const results = [];
@@ -14,18 +16,17 @@ for (const prompt of [
   const director = await directJam(
     prompt,
     process.env.DIRECTOR_MODEL || 'openai/gpt-5.6-luna',
-    key,
+    config.directorKey,
     ['bass', 'bass'],
   );
   const opening = director.concept
     ? await callJev(
-        bootstrapRequest(prompt, process.env.JEV_MODEL || 'typesafe/jev-1.13', director.concept, [
-          'bass',
-          'bass',
-        ]),
+        bootstrapRequest(prompt, config.model, director.concept, ['bass', 'bass']),
         'host',
         -1,
-        key,
+        config.apiKey,
+        undefined,
+        config.provider,
       )
     : undefined;
   results.push({ prompt, director, opening });

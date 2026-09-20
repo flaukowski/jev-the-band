@@ -4,23 +4,27 @@ import { Room } from '../server/room.js';
 import { callJev, requestFor } from '../server/jev.js';
 import { phrasePlanRequest } from '../server/composer.js';
 import { roles } from '../shared/music.js';
-if (!process.env.OPENROUTER_API_KEY)
-  throw new Error('Set OPENROUTER_API_KEY in the server environment.');
+import { jevConfig } from '../server/provider.js';
+const config = jevConfig();
+if (!config.apiKey) throw new Error('Set the selected Jev provider key in the server environment.');
 // Exactly five calls, one per persona. No repeating performance loop.
 const room = new Room(
   'Lanterns on the river: a patient, warm D Dorian funk groove with space for conversation.',
   'live',
-  process.env.OPENROUTER_API_KEY,
+  config.apiKey,
+  config.model,
 );
 const traces = await Promise.all(
   roles.map((role) =>
     callJev(
       role === 'lights'
-        ? requestFor(role, room.view(), 4, process.env.JEV_MODEL || 'typesafe/jev-1.13')
-        : phrasePlanRequest(role, room.view(), 4, process.env.JEV_MODEL || 'typesafe/jev-1.13'),
+        ? requestFor(role, room.view(), 4, config.model)
+        : phrasePlanRequest(role, room.view(), 4, config.model),
       role,
       4,
-      process.env.OPENROUTER_API_KEY!,
+      config.apiKey,
+      undefined,
+      config.provider,
     ),
   ),
 );
@@ -33,6 +37,7 @@ console.log(
   JSON.stringify(
     traces.map((t) => ({
       role: t.role,
+      provider: t.provider,
       source: t.source,
       latencyMs: t.latencyMs,
       questionCount: Object.keys(t.answers).length,

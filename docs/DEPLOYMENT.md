@@ -1,10 +1,54 @@
-# Deployment paths
+# Deployment
 
-No public deployment is performed by the founding implementation. The repository and local preview are the review surface. Use a separate production API key before publishing.
+## Hosting decision — 2026-09-20
 
-## 1. Open-source / self-hosted application
+**Use Railway for this demo.** The existing Node process owns one persistent ten-minute room, an authoritative clock, request budgets and an SSE spectator stream. One Docker service serves the API, WebGL frontend and recorded samples on a single HTTPS origin. This is an architectural assessment, not a hosting benchmark.
 
-The app is an ordinary Node 22 service and a static Vite frontend. No proprietary hosting service is required. One process owns one shared room; all spectators subscribe to its SSE stream and synthesize the same timestamped score locally.
+| Option | Fit for this code |
+|---|---|
+| Railway | Existing persistent Node service in one container. Best current fit; use one replica. |
+| Vercel | Good static frontend option. Request-bound Functions do not replace the in-memory room owner without redesign; a persistent backend would still be needed. |
+| ChatGPT Sites | Potential audience frontend using an external band backend. The available Sites workflow targets a Cloudflare-compatible build rather than this persistent Node process; actual audio/WebGL/SSE integration remains untested. |
+
+References: [Railway Express guide](https://docs.railway.com/guides/express), [Vercel Function limits](https://vercel.com/docs/functions/limitations). The Sites assessment comes from the installed hosting workflow inspected during this task, not an actual Sites deployment.
+
+A dedicated Railway project/service and domain have been prepared. **No deployment has run yet; the dedicated production key is pending.** A domain allocation is not a live release. Git history remains private; hosting the compiled demo does not require publishing it.
+
+## Runtime configuration
+
+| Variable | Purpose |
+|---|---|
+| `JEV_PROVIDER` | `typesafe`, `openrouter` or `auto`; pin explicitly in production |
+| `TYPESAFE_API_KEY` | Dedicated TypeSafe server key |
+| `TYPESAFE_MODEL` | Default `jev-1.13.0` |
+| `OPENROUTER_API_KEY` | Dedicated key for routed Jev and/or optional Luna director |
+| `OPENROUTER_JEV_MODEL` | Default `typesafe/jev-1.13` |
+| `DIRECTOR_MODEL` | Default `openai/gpt-5.6-luna` |
+| `DIRECTOR_ENABLED` | `0` disables Luna; absent OpenRouter key also disables it |
+| `HOST` / `PORT` | Container: `0.0.0.0` / `4310` |
+| `CONTROLLER_TOKEN` | Random host token, at least 24 characters; protects every POST |
+| `STAGE_ORIGIN` | Exact public HTTPS origin, including scheme |
+| `MAX_JEV_REQUESTS` | Per-jam attempt ceiling, default/hard maximum 6000 |
+| `BUILD_REVISION` | Full committed SHA for CLI uploads; Git-linked builds expose `RAILWAY_GIT_COMMIT_SHA` |
+
+TypeSafe-only music needs no OpenRouter key but has no Luna brief. Use dedicated production credentials. No secrets in build arguments or `VITE_` variables. Audio-generation credentials are unnecessary at runtime.
+
+The host enters the controller token in the stage. It stays in page memory, never localStorage or exports. Spectators need no token and cannot start, queue or stop a jam. Public read routes intentionally expose themes and recent decisions: use public material in public performances.
+
+The Docker build includes `public/`, so all instrument samples ship. The final image copies only runtime code, dependencies and compiled assets. Docker/Railway excludes `.env*`, private artifacts, local agent settings and docs from build context. Full private prompts stay out of deployment; approved public samples are intentionally downloadable.
+
+## Release procedure
+
+1. Verify Git state, local checks, production build and secret scan. Keep Actions disabled unless requested otherwise.
+2. Configure the dedicated provider key, random host token, exact origin and one replica. Write secrets through stdin/the hosting secret store without printing values.
+3. Make an explicit bounded provider smoke check. Health's `liveAvailable` reports key presence, not successful authentication.
+4. Upload committed source with the Docker builder and `/api/health` check; set `BUILD_REVISION`. `railway.json` records one replica and bounded failure restarts.
+5. Verify actual HTTPS health version/revision, served HTML and its JS/CSS, sample manifest and audio. Build success alone is not release proof.
+6. Confirm anonymous POST rejection, foreign-origin rejection, host control, two shared spectators, muted browser rendering and a bounded live performance; stop the test afterward.
+
+Do not horizontally scale this in-memory process. A container restart loses the room. Avoid scale-to-zero for a continuously available venue. The app does not automatically begin another paid jam after ending or restarting.
+
+## Self-hosting and separate frontends
 
 ```sh
 npm ci
@@ -12,43 +56,15 @@ npm run build
 npm start
 ```
 
-Use a reverse proxy with HTTPS and streaming enabled; disable SSE buffering. Configure:
+Local default: http://127.0.0.1:4310. Public hosting needs HTTPS, unbuffered SSE, controller token and exact origin.
 
-| Variable | Purpose |
-|---|---|
-| `OPENROUTER_API_KEY` | Dedicated server-side production key |
-| `JEV_MODEL` | Version pin; initial default `typesafe/jev-1.13` |
-| `DIRECTOR_MODEL` | Optional per-theme sonic brief; default `openai/gpt-5.6-luna` |
-| `DIRECTOR_ENABLED` | Set `0` to skip the LLM brief and use the raw theme |
-| `HOST` | `0.0.0.0` for a container; local default is `127.0.0.1` |
-| `PORT` | Service port; default 4310 |
-| `CONTROLLER_TOKEN` | At least 24 characters for public binding; required on all POST actions |
-| `STAGE_ORIGIN` | Exact HTTPS frontend origin, including scheme; set for public hosting |
-| `MAX_JEV_REQUESTS` | Hard request ceiling per jam; default and maximum 6000, lower values respected |
-| `ELEVENLABS_API_KEY` | Optional offline audience-bank generation only; unnecessary for runtime playback |
+A Vercel or Sites frontend can use public `VITE_API_BASE_URL` pointing to Railway, with the backend origin set to the exact frontend origin. Browsers cannot use a hosting private-network URL. Check the actual frontend's WebGL, audio gesture, SSE, cross-origin and embed policies. This split remains unverified.
 
-Enter the host token in the stage's host-access field. It is kept in page memory, never localStorage or an export. Spectators can join without this token; they cannot start or end performances. Read routes reveal the user-submitted prompt and recent musical decisions; do not enter confidential material in a public room.
+## Larger-venue limits
 
-The Dockerfile packages both server and client. It requires these runtime environment values. It does not copy `.env`, artifacts, or source credentials into an image. Do not put secrets in Docker build arguments.
-
-## 2. Potential ChatGPT Site audience frontend
-
-The intended split is a public Site showing the stage, backed by the same dedicated performance service. Build the static frontend with `VITE_API_BASE_URL=https://your-band-service.example` and set the service's `STAGE_ORIGIN` to the exact published Site origin. This variable contains only a public endpoint URL, never a key. SSE, WebGL, Web Audio, and user-gesture audio activation must be verified on the actual published host.
-
-This is an integration design, **not an already-tested ChatGPT Site deployment**. At publication time, use the current Sites build/hosting workflow and test its iframe/content-security policy, external connections, autoplay policy, and visibility controls. The local repository is intentionally independent of a managed Sites starter. Do not assume a static site can own a persistent Node performance loop. If a supported platform worker/durable runtime replaces Node, it must preserve the single authoritative clock and per-jam request cap.
-
-Publishing should first use a private review URL. A dedicated key, verified public controller protection, and spectator tests should precede a public URL. None of these hosting actions have been taken yet.
-
-## Public-venue work still needed
-
-- Durable session storage and full replay, plus restart/reconnect recovery. Current room state is in memory and disappears on service restart.
-- A proper host login if more than one trusted operator will run the venue. A bearer token is sufficient only for this small prototype.
-- An account-level spend/rate limit and host cooldown. The current request cap is per jam, not a dollar budget or a global daily quota.
-- Load-test the target viewer count. The current server caps SSE viewers at 200, limits buffered writes, and provides no scale guarantee.
-- A single elected room owner when running multiple replicas. Do not scale this Node process horizontally and assume its memory is shared.
-- A full-session event store, object storage for recordings, and an optional server-mixed audio stream for robust background/mobile playback.
-- Recheck the alpha Decisions API and pinned model before release. Do not automatically adopt a moving alias without replay comparisons.
-
-## Credential handling
-
-`.env`, artifacts, generated media, dependencies, and test output are ignored. The initial key import was explicitly authorized for this prototype and remains local. Application startup loads only its own environment. Public source code, frontend bundles, exported traces, and screenshots must contain no provider credentials. A dedicated production key can be scoped and revoked independently of Frix.
+- Room/replay state is not durable; no restart recovery.
+- A bearer token suits one trusted operator; multi-host login needs more work.
+- The per-jam request cap is not a dollar/day budget; use provider-side spend limits.
+- SSE caps at 200 viewers with bounded buffers; that is not a load-tested capacity guarantee.
+- Browser sound/crowd waveforms are not a sample-perfect broadcast; a server mix could improve mobile/background playback.
+- Existing source history has privacy findings. A clean frontend bundle does not make old Git commits publication-safe; curate a separate source snapshot before open sourcing.

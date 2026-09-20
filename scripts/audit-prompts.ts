@@ -2,24 +2,21 @@ import 'dotenv/config';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { Room } from '../server/room.js';
 import type { Frame } from '../shared/music.js';
+import { jevConfig } from '../server/provider.js';
+const config = jevConfig();
 
 // Explicit paid diagnostic: two isolated, silent live rooms, at most 70 calls each.
 // Does not touch the audience room, play sound, or reuse a procedural rehearsal.
-if (!process.env.OPENROUTER_API_KEY) throw new Error('Set the server key first.');
+if (!config.apiKey) throw new Error('Set the selected Jev provider key first.');
 const prompts = [
   'the grieving pastor decides to burn it all down',
   'saturday after nursery rhymes',
 ];
 const evidence = [];
 for (const prompt of prompts) {
-  const room = new Room(
-    prompt,
-    'live',
-    process.env.OPENROUTER_API_KEY,
-    process.env.JEV_MODEL || 'typesafe/jev-1.13',
-    70,
-    40,
-  );
+  const room = new Room(prompt, 'live', config.apiKey, config.model, 70, 40, {
+    provider: config.provider,
+  });
   const frames: Frame[] = [];
   const done = new Promise<void>((resolve) => {
     room.on('state', (state) => {

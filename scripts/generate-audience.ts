@@ -83,7 +83,8 @@ async function main() {
     throw new Error(
       'Provide --license with the actual account/output-use grant. Paid commercial use is required for public use; raw asset redistribution also needs review.',
     );
-  const directory = resolve('public/audience');
+  // Generation is private. Public assets are copied only by promote-audience after review.
+  const directory = resolve('artifacts/audience-bank');
   const manifestPath = resolve(directory, 'manifest.json');
   let bank: AudienceBank;
   try {
@@ -181,7 +182,7 @@ async function main() {
     );
   }
   console.log(
-    'Generation finished. Audition the files and verify asset redistribution rights before marking approved: true in the manifest. Unapproved files do not play.',
+    'Generation finished in private artifacts/audience-bank. Audition the files, verify redistribution rights, mark approved clips in its manifest, then run promote:audience with a public license statement.',
   );
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

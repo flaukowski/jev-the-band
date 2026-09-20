@@ -3,15 +3,18 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { Room } from '../server/room.js';
 import { validateNotes } from '../shared/score.js';
 import { musicians, type Frame } from '../shared/music.js';
-if (!process.env.OPENROUTER_API_KEY) throw new Error('Set the server key first.');
+import { jevConfig } from '../server/provider.js';
+const config = jevConfig();
+if (!config.apiKey) throw new Error('Set the selected Jev provider key first.');
 // Integrated audition. At most 240 calls, at most 90 seconds of score. No sound output.
 const room = new Room(
   'Lanterns on the river. Begin with a syncopated bass groove; let guitar answer with a warm melodic motif, Rhodes chords and an evolving drum pocket.',
   'live',
-  process.env.OPENROUTER_API_KEY,
-  process.env.JEV_MODEL || 'typesafe/jev-1.13',
+  config.apiKey,
+  config.model,
   240,
   90,
+  { provider: config.provider },
 );
 const frames: Frame[] = [];
 const done = new Promise<void>((resolve) =>

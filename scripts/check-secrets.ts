@@ -12,11 +12,20 @@ const walk = (dir: string): string[] =>
         e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
       )
     : [];
-const key = existsSync('.env') ? parse(readFileSync('.env')).OPENROUTER_API_KEY : undefined;
+const privateValues = ['.env', '.env.deploy'].flatMap((path) =>
+  existsSync(path)
+    ? Object.entries(parse(readFileSync(path)))
+        .filter(([name, value]) => /(KEY|TOKEN|SECRET|PASSWORD)$/.test(name) && value.length > 10)
+        .map(([, value]) => value)
+    : [],
+);
 const scanned = [...files, ...walk('dist')];
 const suspicious = scanned.filter((path) => {
   const content = readFileSync(path, 'utf8');
-  return (key && content.includes(key)) || /sk-or-v1-[a-f0-9]{32,}/i.test(content);
+  return (
+    privateValues.some((value) => content.includes(value)) ||
+    /sk-or-v1-[a-f0-9]{32,}/i.test(content)
+  );
 });
 if (files.some((path) => /^\.env($|\.)/.test(path) && path !== '.env.example'))
   suspicious.push('tracked environment file');
@@ -29,6 +38,6 @@ if (suspicious.length) {
       passed: true,
       trackedFiles: files.length,
       bundleFiles: scanned.length - files.length,
-      actualLocalKeyChecked: !!key,
+      actualLocalSecretsChecked: privateValues.length,
     }),
   );

@@ -1,7 +1,7 @@
 .git
+.env*
 node_modules
 dist
-.env*
 artifacts
 test-results
 playwright-report
