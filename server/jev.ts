@@ -18,6 +18,7 @@ import {
   type ChoiceQuestion,
   type Decision,
   type DecisionRole,
+  type JevProvider,
   type JevRequest,
   type Lighting,
   type Musician,
@@ -28,6 +29,7 @@ import {
 import { endingPressure } from '../shared/score.js';
 import { listeningState } from './listening.js';
 import type { SonicConcept } from '../shared/concept.js';
+import { decisionEndpoints } from './provider.js';
 
 export const choice = (
   instructions: string,
@@ -264,9 +266,12 @@ export async function callJev(
   frame: number,
   apiKey: string,
   parentSignal?: AbortSignal,
+  provider: JevProvider = 'openrouter',
 ): Promise<Trace> {
   const start = performance.now();
   const trace: Trace = {
+    provider,
+    endpoint: decisionEndpoints[provider],
     id: randomUUID(),
     role,
     frame,
@@ -279,12 +284,12 @@ export async function callJev(
     cost: null,
   };
   try {
-    const response = await fetch('https://openrouter.ai/api/alpha/decisions', {
+    const response = await fetch(decisionEndpoints[provider], {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'X-Title': 'JEV the band',
+        ...(provider === 'openrouter' ? { 'X-Title': 'JEV the band' } : {}),
       },
       body: JSON.stringify(request),
       signal: AbortSignal.any([AbortSignal.timeout(1800), ...(parentSignal ? [parentSignal] : [])]),
@@ -299,6 +304,14 @@ export async function callJev(
         ? payload.usage.cost
         : null;
     trace.providerId = typeof payload.id === 'string' ? payload.id.slice(0, 200) : undefined;
+    trace.responseModel =
+      typeof payload.model === 'string' ? payload.model.slice(0, 160) : undefined;
+    const tokens = (value: unknown) =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+    trace.usage = {
+      inputTokens: tokens(payload.usage?.input_tokens ?? payload.usage?.prompt_tokens),
+      outputTokens: tokens(payload.usage?.output_tokens ?? payload.usage?.completion_tokens),
+    };
     trace.answers = parseAnswers(payload, request);
   } catch (error) {
     trace.source = 'fallback';

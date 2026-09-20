@@ -206,3 +206,23 @@ ALSO IF YOU Can launch another thread to safely merge in claude's visual PR on m
 ```text
 is there a way to generate audience noise from an audio generation model? like just generate 100 short chunks of audience background noise  ambient audio, crossfade, randomly play them or a jev can classify the mood for appropriate audience response: investigate this and launch a subagent to implement, mix engineer can also turn down "audience"
 ```
+
+## 2026-09-20 — Disable GitHub Actions
+
+```text
+Please turn off GitHub ci for this repo, and for me in general. I’m out of GitHub actions credits so it just spams my inbox with errors
+```
+
+Actions was disabled through GitHub repository settings. Workflow files remain available if the user later requests re-enabling Actions; local validation remains available.
+
+## 2026-09-20 — Completeness audit, provider compatibility and deployment
+
+```text
+Check: all my prompts are documented, all features requested have been implemented, also make this both typescript api compatible and openrouter, I’ll get you a typesafe key for the .env in a minute. 
+
+Also can you launch a separate repo investigation thread to make sure I can public open source this repo without revealing any secrets or personal info? Create a basic readme and contributing. 
+
+Determine the best deployment service (railway, vercel, and ChatGPT sites all available) and deploy the current demo with an api key o will provide shortly.
+```
+
+“typescript api” is interpreted as the direct TypeSafe API because the request specifies a TypeSafe key; application code is already TypeScript. This request authorizes hosting the demo, superseding the earlier local-only deployment boundary. Making the repository public or rewriting its existing history is a separate release step after the privacy review.

@@ -11,6 +11,7 @@ import {
   type Part,
   type Snapshot,
   type Trace,
+  type JevProvider,
 } from '../shared/music.js';
 import { compile, endingPressure, nextRoot, nextTempo, rehearsal } from '../shared/score.js';
 import { bootstrapRequest, callJev, requestFor, toLighting } from './jev.js';
@@ -57,7 +58,7 @@ export class Room extends EventEmitter {
       void directJam(
         prompt,
         this.options.directorModel,
-        this.apiKey,
+        this.options.directorApiKey ?? (this.options.provider === 'typesafe' ? '' : this.apiKey),
         this.options.recentOpeners,
         this.abort.signal,
       ).then((report) => {
@@ -82,11 +83,17 @@ export class Room extends EventEmitter {
     private model = 'typesafe/jev-1.13',
     private maxRequests = 6000,
     private durationSeconds = 600,
-    private options: { directorModel?: string; recentOpeners?: Musician[] } = {},
+    private options: {
+      provider?: JevProvider;
+      directorModel?: string;
+      directorApiKey?: string;
+      recentOpeners?: Musician[];
+    } = {},
   ) {
     super();
     const seed = hash(prompt + Date.now());
     this.state = {
+      provider: mode === 'live' ? (options.provider ?? 'openrouter') : undefined,
       id: randomUUID(),
       title: prompt.split('\n')[0].slice(0, 80),
       prompt,
@@ -131,7 +138,8 @@ export class Room extends EventEmitter {
           this.state.director = await directJam(
             this.state.prompt,
             this.options.directorModel,
-            this.apiKey,
+            this.options.directorApiKey ??
+              (this.options.provider === 'typesafe' ? '' : this.apiKey),
             this.options.recentOpeners,
             this.abort.signal,
           );
@@ -150,6 +158,7 @@ export class Room extends EventEmitter {
           -1,
           this.apiKey,
           this.abort.signal,
+          this.options.provider,
         );
         this.trace(t);
         if (t.source !== 'jev') throw new Error(t.error ?? 'Could not start Jev');
@@ -293,6 +302,7 @@ export class Room extends EventEmitter {
                 index,
                 this.apiKey,
                 phraseSignal,
+                this.options.provider,
               ),
             ];
           }
@@ -314,6 +324,7 @@ export class Room extends EventEmitter {
                       index,
                       this.apiKey,
                       phraseSignal,
+                      this.options.provider,
                     );
                     calls.push(trace);
                     return trace;
@@ -332,7 +343,9 @@ export class Room extends EventEmitter {
               return calls;
             }
             this.state.requests++;
-            return [await callJev(request, role, index, this.apiKey, phraseSignal)];
+            return [
+              await callJev(request, role, index, this.apiKey, phraseSignal, this.options.provider),
+            ];
           }
           return [
             {

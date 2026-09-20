@@ -5,11 +5,17 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { Room } from './room.js';
 import { levelsSchema } from '../shared/engineer.js';
+import { jevConfig } from './provider.js';
+import { readFileSync } from 'node:fs';
 
 const app = express();
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 4310);
 const token = process.env.CONTROLLER_TOKEN || '';
+const provider = jevConfig();
+const version = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version;
 if (!['127.0.0.1', 'localhost', '::1'].includes(host) && token.length < 24)
   throw new Error('Public binding requires a CONTROLLER_TOKEN of at least 24 characters');
 app.disable('x-powered-by');
@@ -75,9 +81,13 @@ app.get('/api/health', (_req, res) =>
   res.json({
     ok: true,
     serverTime: Date.now(),
-    liveAvailable: !!process.env.OPENROUTER_API_KEY,
+    liveAvailable: !!provider.apiKey,
     hostAccessRequired: !!token,
-    model: process.env.JEV_MODEL || 'typesafe/jev-1.13',
+    model: provider.model,
+    provider: provider.provider,
+    directorAvailable: !!provider.directorModel,
+    version,
+    revision: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.BUILD_REVISION || null,
   }),
 );
 app.get('/api/room', (_req, res) => res.json(room?.view() ?? null));
@@ -113,10 +123,13 @@ app.post('/api/room', (req, res) => {
     res.status(409).json({ error: 'A jam is already playing. Join it or end it first.' });
     return;
   }
-  if (parsed.data.mode === 'live' && !process.env.OPENROUTER_API_KEY) {
+  if (parsed.data.mode === 'live' && !provider.apiKey) {
     res
       .status(503)
-      .json({ error: 'The host needs to configure an OpenRouter key. Rehearsal works offline.' });
+      .json({
+        error:
+          'The host needs to configure the selected Jev provider key. Rehearsal works offline.',
+      });
     return;
   }
   if (room) recentOpeners.push(room.state.opener);
@@ -124,15 +137,14 @@ app.post('/api/room', (req, res) => {
   room = new Room(
     parsed.data.prompt,
     parsed.data.mode,
-    process.env.OPENROUTER_API_KEY || '',
-    process.env.JEV_MODEL || 'typesafe/jev-1.13',
+    provider.apiKey,
+    provider.model,
     Math.max(15, Math.min(6000, Number(process.env.MAX_JEV_REQUESTS) || 6000)),
     600,
     {
-      directorModel:
-        process.env.DIRECTOR_ENABLED === '0'
-          ? undefined
-          : process.env.DIRECTOR_MODEL || 'openai/gpt-5.6-luna',
+      provider: provider.provider,
+      directorModel: provider.directorModel,
+      directorApiKey: provider.directorKey,
       recentOpeners: [...recentOpeners],
     },
   );
@@ -179,7 +191,7 @@ app.use(
 );
 const server = app.listen(port, host, () =>
   console.log(
-    `JEV the band: http://${host}:${port} · ${process.env.OPENROUTER_API_KEY ? 'Jev connected' : 'offline rehearsal available'}`,
+    `JEV the band: http://${host}:${port} · ${provider.apiKey ? `Jev configured via ${provider.provider}` : 'offline rehearsal available'}`,
   ),
 );
 function shutdown() {

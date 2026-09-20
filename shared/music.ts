@@ -6,6 +6,7 @@ import type { EngineerMix } from './engineer.js';
 export const roles = ['guitar', 'bass', 'keys', 'drums', 'lights'] as const;
 export type Role = (typeof roles)[number];
 export type DecisionRole = Role | 'engineer' | 'host';
+export type JevProvider = 'openrouter' | 'typesafe';
 export type Musician = Exclude<Role, 'lights'>;
 export const musicians: Musician[] = ['guitar', 'bass', 'keys', 'drums'];
 export const personas: Record<
@@ -246,6 +247,7 @@ export interface Frame {
   decisionRole?: Musician;
 }
 export interface Snapshot {
+  provider?: JevProvider;
   setlist?: import('./setlist.js').ThemeCue[];
   themeId?: string;
   themeStartedAt?: number;
@@ -291,6 +293,10 @@ export interface Answer {
   confidence?: number;
 }
 export interface Trace {
+  provider?: JevProvider;
+  endpoint?: string;
+  responseModel?: string;
+  usage?: { inputTokens?: number; outputTokens?: number };
   id: string;
   role: DecisionRole;
   frame: number;
