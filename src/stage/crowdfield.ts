@@ -38,7 +38,9 @@ float crowdDensity(vec2 p){
   // crowds interleave, so there is no seam and the pit looks as packed from the air as it is.
   float inside = step(abs(p.x), 10.8 + max(0.0, p.y - 5.6) * 0.8) * step(p.y, 25.2);
   float pit = inside * (1.0 - 0.55 * smoothstep(13.0, 19.0, p.y));
-  return ang * far * front * mix(clumps, 1.0, inside) * (1.0 - pit);
+  // The picnic lawn behind the pit belongs to the people sitting on blankets; only a few stand there.
+  float lawn = smoothstep(25.6, 27.2, p.y) * smoothstep(35.6, 33.8, p.y) * smoothstep(27.5, 25.0, abs(p.x));
+  return ang * far * front * mix(clumps, 1.0, inside) * (1.0 - pit) * (1.0 - 0.88 * lawn);
 }`;
 
 const vertex = /* glsl */ `
@@ -123,6 +125,8 @@ void main(){
   float cover = smoothstep(soft, -soft, d);
   float dither = hash21(gl_FragCoord.xy + who);
   if (cover < mix(0.5, dither, smoothstep(10.0, 60.0, vDist)) && spark < 0.04) discard;
+  // These are figures for the distance. Near the lens they give way to the modelled dancers.
+  if (vDist < mix(11.0, 19.0, dither)) discard;
 
   vec3 shirt = hash21(key + 51.0) < 0.3 ? hsl(hash21(key + 53.0), 0.7, 0.45) : mix(vec3(0.07, 0.08, 0.1), vec3(0.75, 0.7, 0.6), hash21(key + 57.0));
   vec3 skin = mix(vec3(0.94, 0.76, 0.62), vec3(0.36, 0.23, 0.15), hash21(key + 61.0));
