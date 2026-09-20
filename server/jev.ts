@@ -6,6 +6,7 @@ import {
   fxNames,
   defaultDecision,
   lightRecipes,
+  wallOverlays,
   lightingSchema,
   modes,
   musicians,
@@ -53,10 +54,20 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
       "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
     ...listeningState(room, role),
   };
-  if (role === 'lights')
+  if (role === 'lights') {
+    // Lux can see its own desk: the look currently up, so pictures and skies can be held on purpose.
+    const look = room.frames.at(-1)?.lighting;
     return {
       model,
-      state,
+      state: {
+        ...state,
+        currentLook: look && {
+          wash: look.wash,
+          visual: look.visual ?? 'liquid light',
+          overlay: look.overlay ?? 'none',
+          sky: look.sky ?? 'starry night',
+        },
+      },
       questions: {
         wash: choice('Choose a color wash that expresses the present music.', lightRecipes.wash),
         beam: choice(
@@ -69,8 +80,41 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
         ),
         intensity: choice('Choose overall brightness.', ['low', 'medium', 'high']),
         motion: choice('Choose smooth movement speed; no strobing.', ['slow', 'medium', 'fast']),
+        visual: choice(
+          'Choose what the projection wall behind the band shows. state.currentLook is what is up now; let a good picture stay for a few phrases.',
+          {
+            'liquid light': 'Oil-and-water light show that follows the key and mode',
+            'jev logo': 'The animated JEV band logo, breathing with the music',
+            'piano roll': 'A scrolling piano roll of the notes the four players are performing',
+            'band camera': 'Live camera on a band member; finds the soloist',
+            'graphic eq': 'Classic graphic equalizer bars with falling peak caps',
+            'radial spectrum': 'A circular audio spectrum with a pulsing core',
+            'plasma trails':
+              'Late-90s media-player visualizer: warping feedback trails around a waveform',
+            mandala: 'Randomly generated geometric mandala, a new pattern every phrase',
+            'decision stream': 'Green rain of the raw decision JSON the band is made of',
+          },
+        ),
+        overlay: choice(
+          'Optionally lay a second picture over the first. none is often tasteful; do not repeat the visual.',
+          wallOverlays,
+        ),
+        sky: choice(
+          'Choose the sky and weather over the festival field. The sky moves slowly: keep state.currentLook.sky unless the music has clearly travelled somewhere new.',
+          {
+            'starry night': 'Clear night, stars and aurora',
+            sunrise: 'Pink and gold dawn behind the field',
+            'high noon': 'Bright blue midday with drifting cloud',
+            sunset: 'Low orange sun and long purple cloud',
+            rain: 'Steady warm rain on the field; the crowd stays',
+            snow: 'Slow heavy snowfall at night',
+            'meteor shower': 'Clear night with frequent shooting stars',
+            'alien abduction': 'A saucer drifts in over the field and takes something home',
+          },
+        ),
       },
     };
+  }
   const questions: Record<string, ChoiceQuestion> = {
     action: choice(
       'What will you play? hold repeats; vary/develop transform your own motif; solo steps forward with a melodic voice; support ends your solo; space breathes; rest is silence; resolve lands. Respond only to what you have heard.',
@@ -258,6 +302,10 @@ export function toLighting(a: Record<string, Answer>): Lighting {
     laser: a.laser.choice,
     intensity: { low: 0.25, medium: 0.6, high: 0.95 }[a.intensity.choice],
     motion: { slow: 0.15, medium: 0.45, fast: 0.8 }[a.motion.choice],
+    visual: a.visual?.choice,
+    // Laying a picture over itself is just that picture.
+    overlay: a.overlay?.choice === a.visual?.choice ? 'none' : a.overlay?.choice,
+    sky: a.sky?.choice,
   });
 }
 export async function callJev(

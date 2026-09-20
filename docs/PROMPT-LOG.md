@@ -256,3 +256,33 @@ and the .env of the dev repo
 ```
 
 Only the credential value is omitted from this record. It is stored in the ignored development environment and the Railway secret store, never documentation, source, screenshots or traces. The user explicitly authorized both destinations and deployment. Existing local OpenRouter configuration remains local; it was not copied to production.
+
+## 2026-09-20 — Wall visualizers, festival crowd, weather and fretting hands
+
+```text
+visual notes:
+
+both guitar and bass seem to have their left hands upside down" compared to how people play guitar
+
+lux should have the option to do several visualizers on the back drop
+animated jev logo
+piano roll of the instruments
+camera of a band member
+graphic eq
+radial audio visualizer
+Winamp style visualizers
+random geometric mandala patterns
+just a stream of the raw json from jev like the matrix code hahaha
+
+overlays of any of the above
+
+also increase the apparent audience size, amorphous festival size land and so it looks like there are thousands (obviously don't render thousand of individuals, be memory conservative, a blurry audience like wave out
+
+add procedurally generated weather effects. sunset, sunrise, high day time, rain, alien abductions etc
+```
+
+Follow-up during the work:
+
+```text
+merge into main when ready
+```

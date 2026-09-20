@@ -1,5 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { musicians, personas, type Frame, type Musician, type Role } from '../shared/music';
+import {
+  lightRecipes,
+  musicians,
+  personas,
+  wallOverlays,
+  type Frame,
+  type Musician,
+  type Role,
+  type Sky,
+  type Trace,
+  type WallOverlay,
+  type WallVisual,
+} from '../shared/music';
 import { createStage, type StageEngine, type StageInput } from './stage/engine';
 
 const tripLevels = [
@@ -17,6 +29,8 @@ export function Stage({
   serverOffset,
   loadingAudio,
   levels,
+  spectrum,
+  traces,
 }: {
   frame: Frame | null;
   upcoming: Frame | null;
@@ -26,12 +40,29 @@ export function Stage({
   serverOffset: number;
   loadingAudio: boolean;
   levels?: () => Record<Musician, number>;
+  spectrum?: () => Uint8Array | null;
+  traces?: Trace[];
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [view, setView] = useState('wide');
   const [follow, setFollow] = useState(false);
   const [director, setDirector] = useState(false);
   const [trip, setTrip] = useState(0);
+  // Empty string follows Lux; anything else is this viewer's own choice and is never sent anywhere.
+  const [visual, setVisual] = useState<WallVisual | ''>('');
+  const [overlay, setOverlay] = useState<WallOverlay | ''>('');
+  const [sky, setSky] = useState<Sky | ''>('');
+  // The wall's "decision stream" shows the room's raw decision records, exactly as received.
+  const stream = useRef<{ from?: Trace[]; lines: string[] }>({ lines: [] });
+  const readStream = useRef(() => stream.current.lines).current;
+  if (stream.current.from !== traces) {
+    stream.current = {
+      from: traces,
+      lines: (traces ?? [])
+        .slice(-24)
+        .map((t) => JSON.stringify({ role: t.role, source: t.source, answers: t.answers })),
+    };
+  }
   const engine = useRef<StageEngine | null>(null);
   const input = useRef<StageInput>(null!);
   input.current = {
@@ -45,6 +76,11 @@ export function Stage({
     director,
     trip: tripLevels[trip].value,
     levels,
+    spectrum,
+    stream: readStream,
+    visual: visual || undefined,
+    overlay: overlay || undefined,
+    sky: sky || undefined,
   };
   const select = useRef(onSelect);
   select.current = onSelect;
@@ -82,6 +118,8 @@ export function Stage({
           <option value="crowd">In the crowd</option>
           <option value="overhead">Overhead</option>
           <option value="wing">Stage wing</option>
+          <option value="stage">From the stage</option>
+          <option value="drone">Drone</option>
           <option value="lux">Lighting desk</option>
           {musicians.map((r) => (
             <option key={r} value={r}>
@@ -124,6 +162,45 @@ export function Stage({
         >
           {tripLevels[trip].label}
         </button>
+        <select
+          aria-label="Projection wall"
+          title="What the wall behind the band shows. Lux chooses unless you do; only you see your choice."
+          value={visual}
+          onChange={(e) => setVisual(e.target.value as WallVisual | '')}
+        >
+          <option value="">Wall: Lux</option>
+          {lightRecipes.visual.map((v) => (
+            <option key={v} value={v}>
+              Wall: {v}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Wall overlay"
+          title="A second picture laid over the first"
+          value={overlay}
+          onChange={(e) => setOverlay(e.target.value as WallOverlay | '')}
+        >
+          <option value="">Overlay: Lux</option>
+          {wallOverlays.map((v) => (
+            <option key={v} value={v}>
+              Overlay: {v}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Sky and weather"
+          title="Sky and weather over the field. Lux chooses unless you do."
+          value={sky}
+          onChange={(e) => setSky(e.target.value as Sky | '')}
+        >
+          <option value="">Sky: Lux</option>
+          {lightRecipes.sky.map((v) => (
+            <option key={v} value={v}>
+              Sky: {v}
+            </option>
+          ))}
+        </select>
         <span>Drag to orbit · scroll to zoom</span>
       </div>
       <div className="stage-fallback">

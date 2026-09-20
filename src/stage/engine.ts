@@ -1,8 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { musicians, roles, type Frame, type Musician, type Role } from '../../shared/music';
+import {
+  musicians,
+  roles,
+  type Frame,
+  type Musician,
+  type Role,
+  type Sky,
+  type WallOverlay,
+  type WallVisual,
+} from '../../shared/music';
 import { Crowd } from './crowd';
+import { CrowdField } from './crowdfield';
 import { LightRig } from './lightrig';
 import { Particles } from './particles';
 import {
@@ -21,6 +31,7 @@ import { resetAmpTextures } from './strings';
 import { disposeTextures } from './textures';
 import { clearBoxCache, clearMaterialCache, damp } from './util';
 import { Venue } from './venue';
+import { Weather } from './weather';
 
 export interface StageInput {
   frame: Frame | null;
@@ -33,6 +44,14 @@ export interface StageInput {
   director: boolean;
   trip: number;
   levels?: () => Record<Musician, number>;
+  /** The listener's master-bus spectrum, when their sound is on. */
+  spectrum?: () => Uint8Array | null;
+  /** Recent raw decision JSON for the "decision stream" wall. */
+  stream?: () => string[];
+  /** Viewer-local overrides of Lux's wall and sky; undefined follows Lux. */
+  visual?: WallVisual;
+  overlay?: WallOverlay;
+  sky?: Sky;
 }
 export interface StageCallbacks {
   onSelect: (role: Role) => void;
@@ -57,6 +76,9 @@ const shots: Record<string, Shot> = {
   crowd: { position: [-3.5, 1.35, 12.5], target: [0.5, 3.2, -2], drift: 0.35 },
   lux: { position: [-8.6, 2.6, 12.2], target: [-1, 3.4, -2], drift: 0.25 },
   wing: { position: [-8.0, 2.7, -3.9], target: [1.5, 1.4, 0.6], drift: 0.3 },
+  // The two shots that show how many people came.
+  drone: { position: [-16, 27, 80], target: [0, 2, 6], drift: 1.2 },
+  stage: { position: [2.6, 4.6, -4.9], target: [-1, 2.2, 34], drift: 0.25 },
 };
 const memberShot = (role: Musician): Shot => {
   const [x, y, z, yaw] = stagePositions[role];
@@ -85,7 +107,9 @@ const directorCycle = [
   'wing',
   'bass',
   'overhead',
+  'drone',
   'lux',
+  'stage',
 ];
 
 export function createStage(
@@ -123,7 +147,7 @@ export function createStage(
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x04050c, 0.012);
+  const fog = (scene.fog = new THREE.FogExp2(0x04050c, 0.012));
   const pmrem = new THREE.PMREMGenerator(renderer);
   const room = new RoomEnvironment();
   const environment = pmrem.fromScene(room, 0.04);
@@ -139,7 +163,7 @@ export function createStage(
   orbit.enableDamping = true;
   orbit.dampingFactor = 0.075;
   orbit.minDistance = 1.6;
-  orbit.maxDistance = 60;
+  orbit.maxDistance = 130;
   orbit.maxPolarAngle = Math.PI * 0.53;
   const cameraGoal = camera.position.clone();
   const targetGoal = orbit.target.clone();
@@ -155,6 +179,8 @@ export function createStage(
   let band!: Record<Role, Performer>;
   let rig!: LightRig;
   let crowd!: Crowd;
+  let field!: CrowdField;
+  let weather!: Weather;
   let particles!: Particles;
   let post: PostChain | null = null;
   let stations: THREE.Object3D[] = [];
@@ -189,6 +215,7 @@ export function createStage(
     camera.fov = w / h < 1 ? 52 : 36;
     camera.updateProjectionMatrix();
     particles.setViewport(h * pixelRatio, camera.fov);
+    weather.setViewport(h * pixelRatio);
   };
   const resize = new ResizeObserver(applySize);
   resize.observe(container);
@@ -237,7 +264,16 @@ export function createStage(
   const soloPoint = new THREE.Vector3();
   const sway = new THREE.Vector3();
 
-  const debugStats = { cpu: 0, calls: 0, band: 0, world: 0, render: 0, build: 0, compile: 0 };
+  const debugStats = {
+    cpu: 0,
+    calls: 0,
+    band: 0,
+    world: 0,
+    render: 0,
+    build: 0,
+    compile: 0,
+    worst: 0,
+  };
   let capped = false;
   let crowdTick = false;
   let crowdDt = 0;
@@ -331,7 +367,16 @@ export function createStage(
         strongest.velocity * (role === 'bass' ? 1.5 : role === 'drums' ? 0.6 : 1),
       );
     });
-    venue.update(sig, rig.palette, renderer, dt);
+    weather.update(sig, rig.palette, dt, camera, input.sky);
+    venue.update(sig, rig.palette, renderer, dt, weather.air, {
+      scene,
+      shot: memberShot,
+      stream: input.stream,
+      spectrum: input.spectrum,
+      visual: input.visual,
+      overlay: input.overlay,
+    });
+    field.update(sig, rig.palette, weather.air);
     // The crowd is the single biggest CPU item; at a distance, every other frame is indistinguishable.
     crowdTick = !crowdTick;
     crowdDt += dt;
@@ -343,11 +388,13 @@ export function createStage(
     const t2 = performance.now();
     scene.environmentIntensity = damp(
       scene.environmentIntensity,
-      sig.lighting.wash === 'blackout' ? 0.03 : 0.1 + sig.lighting.intensity * 0.22,
+      (sig.lighting.wash === 'blackout' ? 0.03 : 0.1 + sig.lighting.intensity * 0.22) +
+        (1 - weather.air.night) * 0.45,
       2,
       dt,
     );
-    (scene.fog as THREE.FogExp2).color.copy(rig.palette[1]).multiplyScalar(0.035);
+    fog.color.copy(weather.air.fogColor);
+    fog.density = weather.air.fogDensity;
 
     // Handheld life: a breath of drift on top of wherever the operator parked the camera.
     const drift = sig.reduced ? 0 : (currentShot.drift ?? 0.3) * 0.05;
@@ -359,7 +406,7 @@ export function createStage(
     camera.position.add(sway);
     camera.lookAt(orbit.target);
     if (post) {
-      post.update(sig, dt, input.trip);
+      post.update(sig, dt, input.trip, weather.air.night);
       post.render(dt);
     } else renderer.render(scene, camera);
     camera.position.sub(sway);
@@ -370,6 +417,7 @@ export function createStage(
     debugStats.world += (t2 - t1 - debugStats.world) * 0.05;
     debugStats.render += (performance.now() - t2 - debugStats.render) * 0.05;
     debugStats.cpu += (cost - debugStats.cpu) * 0.05;
+    debugStats.worst = Math.max(debugStats.worst, cost);
     debugStats.calls = renderer.info.render.calls;
     renderer.info.reset();
     slow = cost > 24 ? slow + dt : Math.max(0, slow - dt * 2);
@@ -402,6 +450,8 @@ export function createStage(
     band = players;
     rig = new LightRig(scene, lowPower);
     crowd = new Crowd(scene, lowPower);
+    field = new CrowdField(scene, lowPower);
+    weather = new Weather(scene, lowPower);
     await pause();
     if (disposed) return;
     particles = new Particles(scene, lowPower);
@@ -421,6 +471,7 @@ export function createStage(
     debugStats.build = performance.now() - initStart;
     // Compile every shader off the main thread before the first frame.
     await renderer.compileAsync(scene, camera).catch(() => undefined);
+    await venue.wall.precompile(renderer).catch(() => undefined);
     debugStats.compile = performance.now() - initStart - debugStats.build;
     if (!disposed) raf = requestAnimationFrame(draw);
   }
@@ -431,6 +482,7 @@ export function createStage(
       scene,
       camera,
       orbit,
+      view,
       stats: debugStats,
     };
 
