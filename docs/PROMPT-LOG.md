@@ -39,3 +39,9 @@ Can you also scour the web for a better guitar e bass and keyboard samples / rig
 
 I’d love more especially for the guitar, distortion, envelope filter, pitch bend, more melodic phrases etc.  there’s gotta be something that sounds more convincingly like a real e guitar and e bass? Keys and drums are okay but could also be better
 ```
+
+## 2026-09-19 — Psychedelic realism stage pass
+
+```text
+read the spec and create a gorgeously upgrade visual pattern for this app. more psychedelic, much more realism. GPT-6-astra did extremely lazy models and visuals, your goal is to go all out, make the characters and animation have extremely visually stunning life and effects, down to the most excruciating details, responsive to the music, every decision intentional aesthetic, trippy, fun, a real digital jam experience /goal
+```
