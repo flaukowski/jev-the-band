@@ -60,7 +60,7 @@ Starting a live jam marks that browser as a reference; an authorized host can se
 
 The audience sound has a separate bus feeding the master mix. Patch classifies the performed mood and chooses audience attenuation in its existing request; local controls can mute the audience, disable reactions, or set mood/level manually. Beds crossfade and occasional reactions are spaced apart. The current fallback is explicitly labeled procedural room noise and applause. A bounded ElevenLabs generation script and reviewed, hashed local sample-bank loader are implemented; no generated crowd recordings are bundled yet. See [audience research and workflow](AUDIENCE.md).
 
-The stage includes the banner, performers, crowd, rigs, camera orbit/presets and timestamp-driven instrument animation. Reduced-motion controls remain. Viewers share one server performance; adding an audience does not create model calls.
+The procedural festival stage lives in `src/stage/`. Its signal tracker derives visual inputs from committed notes, performed rig cues, typed lighting decisions and listener meters. Jointed performers, light rig, projection wall, crowd, particles and lens effects share the server-aligned visual clock without creating model calls. Camera presets, solo following, automatic camera direction, viewer lens settings and reduced-motion controls remain local. Viewers share one server performance; adding an audience does not create model calls.
 
 ## Demo and verification workflow
 

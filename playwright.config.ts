@@ -10,7 +10,9 @@ export default defineConfig({
       args: ['--mute-audio', ...(process.platform === 'win32' ? ['--use-angle=d3d11'] : [])],
     },
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    // The stage is a constantly changing full-canvas scene; trace screencasts of it cost more than
+    // the test itself. Actions, DOM snapshots and failure screenshots are still kept.
+    trace: { mode: 'retain-on-failure', screenshots: false },
   },
   reporter: 'list',
 });
