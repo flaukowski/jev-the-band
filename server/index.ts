@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { Room } from './room.js';
+import { levelsSchema } from '../shared/engineer.js';
 
 const app = express();
 const host = process.env.HOST || '127.0.0.1';
@@ -59,6 +60,7 @@ app.use((req, res, next) => {
   next();
 });
 let room: Room | null = null;
+const recentOpeners: import('../shared/music.js').Musician[] = [];
 const clients = new Set<express.Response>();
 const broadcast = (event: string, data: unknown) => {
   const wire = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -117,12 +119,22 @@ app.post('/api/room', (req, res) => {
       .json({ error: 'The host needs to configure an OpenRouter key. Rehearsal works offline.' });
     return;
   }
+  if (room) recentOpeners.push(room.state.opener);
+  if (recentOpeners.length > 4) recentOpeners.shift();
   room = new Room(
     parsed.data.prompt,
     parsed.data.mode,
     process.env.OPENROUTER_API_KEY || '',
     process.env.JEV_MODEL || 'typesafe/jev-1.13',
-    Math.max(5, Math.min(1200, Number(process.env.MAX_JEV_REQUESTS) || 1200)),
+    Math.max(15, Math.min(6000, Number(process.env.MAX_JEV_REQUESTS) || 6000)),
+    600,
+    {
+      directorModel:
+        process.env.DIRECTOR_ENABLED === '0'
+          ? undefined
+          : process.env.DIRECTOR_MODEL || 'openai/gpt-5.6-luna',
+      recentOpeners: [...recentOpeners],
+    },
   );
   room.on('state', (state) => broadcast('state', { ...state, traces: [] }));
   room.on('trace', (trace) => broadcast('trace', trace));
@@ -131,6 +143,31 @@ app.post('/api/room', (req, res) => {
 });
 app.post('/api/room/stop', (_req, res) => {
   room?.stop();
+  res.json({ ok: true });
+});
+app.post('/api/room/queue', (req, res) => {
+  const parsed = z
+    .object({ roomId: z.string(), prompt: z.string().trim().min(1).max(4000) })
+    .safeParse(req.body);
+  if (!parsed.success || parsed.data.roomId !== room?.state.id) {
+    res.status(400).json({ error: 'Enter a theme for the current room.' });
+    return;
+  }
+  try {
+    res.status(202).json(room.queueTheme(parsed.data.prompt));
+  } catch (error) {
+    res
+      .status(409)
+      .json({ error: error instanceof Error ? error.message : 'Could not queue theme.' });
+  }
+});
+app.post('/api/room/levels', (req, res) => {
+  const parsed = z.object({ roomId: z.string(), levels: levelsSchema }).safeParse(req.body);
+  if (!parsed.success || parsed.data.roomId !== room?.state.id) {
+    res.status(400).json({ error: 'Invalid reference measurement' });
+    return;
+  }
+  room.recordLevels(parsed.data.levels);
   res.json({ ok: true });
 });
 app.use(express.static(resolve('dist')));

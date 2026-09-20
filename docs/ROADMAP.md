@@ -6,6 +6,8 @@ These are proposed directions, not extra commitments or approved changes to the 
 
 ## Next: listen, remember, answer
 
+**Revision 0.3 supersedes template transformation:** live notes now come from sequential Jev event decisions, with probability sampling disclosed in traces. Motif memory below should guide newly chosen notes rather than reinstate the procedural live compiler. RMS-matched drive and per-instrument compression are implemented.
+
 1. **Motif memory:** retain a small named motif ledger; let a player quote another player's phrase, answer it, invert it, or bring it back much later. Jev chooses these transformations; code performs them exactly.
 2. **Audible invitations:** explicit rhythmic/harmonic proposals persist for two phrases. Peers can adopt, complement, defer, or counter-propose. Show a subtle connection between the initiating and answering player in the stage UI.
 3. **Measured novelty:** track rhythmic and melodic distance, not just the word “vary.” Feed stagnation and overcrowding into persona state. Test whether a small perturbation leads to a musical cascade instead of unrelated changes.

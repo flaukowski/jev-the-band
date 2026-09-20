@@ -40,3 +40,13 @@ The user's listening feedback triggered a primary-source search for recorded gui
 | [Three.js OrbitControls](https://threejs.org/docs/pages/OrbitControls.html) | Standard orbit, pan and zoom control; integrated with presets, drag-aware picking and optional solo follow. |
 
 The chosen compact sampler is an engineering choice, not a listening-certified equivalence to a real player or a commercial guitar library. Full libraries offer many more velocity layers, release noises, fret/string choices and articulations. The app keeps explicit voice limits and short sample loading; later comparisons should use identical phrases and blind listening. Every bundled file's source commit, original/derived SHA-256 and license appears in the [sample manifest](../public/samples/manifest.json), with [credits and conversion details](../public/samples/CREDITS.md).
+
+## 2026-09-19 — One-time sonic planning
+
+The requested LLM planning layer uses OpenRouter's documented [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs), validated again with the application's Zod schema. [GPT-4.1 Mini](https://openrouter.ai/openai/gpt-4.1-mini) is the configurable initial planner choice, verified with two real structured brief responses. This choice is an implementation assumption, not a quality or cost benchmark against other models. The planner is explicitly labeled LLM and uses chat completions; all ongoing note, pedal, lighting and sound-engineer judgments continue using the Jev Decisions endpoint.
+
+## 2026-09-20 — Luna preference and audience sound
+
+The user requested [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna) instead. Two actual structured brief calls succeeded, and `openai/gpt-5.6-luna` is now the configurable director default. The grief/burning theme produced an A-minor, 78 BPM Jev opening; the nursery theme produced a G-major, 96 BPM opening. These are two stochastic examples, not a controlled artistic comparison. Each queued theme receives its own optional brief.
+
+Audience-audio research and the implemented ElevenLabs Sound Effects adapter are recorded in [Audience sound](AUDIENCE.md), including primary sources, bounded generation estimates, sample provenance/review, crossfades and Patch integration. There are no generated audience recordings in this revision; the current audible fallback is explicitly procedural.

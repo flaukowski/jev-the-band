@@ -3,12 +3,14 @@ import {
   fxNames,
   modes,
   musicians,
+  type Effects,
   type Frame,
   type Lighting,
   type Musician,
   type Note,
   type Part,
 } from '../../shared/music';
+import { effectsAtBeat } from '../../shared/performance';
 import { clamp01, damp, rootHue } from './util';
 
 /**
@@ -19,6 +21,8 @@ import { clamp01, damp, rootHue } from './util';
 export interface PlayerSignal {
   role: Musician;
   part?: Part;
+  /** The committed rig cue sounding now, including bar-level changes. */
+  effects?: Effects;
   active: boolean;
   solo: boolean;
   /** Fast attack envelope from the most recent onset, 0..1. */
@@ -76,7 +80,7 @@ export const drumVoice = (midi: number) =>
     ? 'kick'
     : midi === 38
       ? 'snare'
-      : midi === 42
+      : midi === 42 || midi === 46
         ? 'hat'
         : midi === 51
           ? 'ride'
@@ -199,6 +203,7 @@ export class SignalTracker {
       const p = s.players[role];
       const part = s.playing ? frame?.parts.find((x) => x.role === role) : undefined;
       p.part = part;
+      p.effects = part ? effectsAtBeat(part, beat) : undefined;
       p.active = !!part?.notes.length;
       p.solo = !!part?.solo && p.active;
       p.density = part ? clamp01(part.notes.length / 36) : 0;
@@ -236,8 +241,7 @@ export class SignalTracker {
       if (p.solo) s.soloists.push(role);
       energy += p.level * 0.55 + p.density * 0.3 + (p.solo ? 0.22 : 0);
       if (part && p.active)
-        for (const n of fxNames)
-          if (part.decision.effects[n]) fxTarget[n] += role === 'drums' ? 0 : 0.5;
+        for (const n of fxNames) if (p.effects?.[n]) fxTarget[n] += role === 'drums' ? 0 : 0.5;
     }
     energy = s.playing ? clamp01(energy / 2.4) : 0;
     s.energy = damp(s.energy, reduced ? 0 : energy, energy > s.energy ? 5 : 1.6, dt);
@@ -277,14 +281,15 @@ export function around(
       }
     }
   if (!next) {
-    // A continuing part repeats its notes, so the next downbeat is knowable even before the frame lands.
-    const future =
-      s.upcoming?.parts.find((x) => x.role === role) ?? (part?.continued ? part : undefined);
+    // A long phrase/solo can continue with freshly composed notes. Anticipate only a published frame.
+    const future = s.upcoming?.parts.find((x) => x.role === role);
+    const startBeat =
+      s.frame && s.upcoming ? ((s.upcoming.at - s.frame.at) * s.bpm) / 60000 : Infinity;
     if (future)
       for (const n of future.notes)
-        if (accept(n) && n.beat + 8 < nextBeat && n.beat + 8 > s.beat) {
+        if (accept(n) && n.beat + startBeat < nextBeat && n.beat + startBeat > s.beat) {
           next = n;
-          nextBeat = n.beat + 8;
+          nextBeat = n.beat + startBeat;
         }
   }
   return { prev, next, nextBeat };

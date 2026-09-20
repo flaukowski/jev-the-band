@@ -2,17 +2,31 @@ import { clamp, musicians, type Frame, type Musician, type Note, type Part } fro
 import { channelGain, defaultMix, effectiveEffects, type Mix } from '../shared/mixer';
 import { guitarSamples } from './guitar';
 import { SampleBank } from './samples';
+import { drumSampleLifetime, effectsAtBeat } from '../shared/performance';
+import { rigProfiles, instrumentEffects } from '../shared/rigs';
+import { AudiencePlayer } from './audience';
+import {
+  defaultAudienceControls,
+  defaultAudienceDirection,
+  type AudienceControls,
+} from '../shared/audience';
+import {
+  defaultEngineerMix,
+  defaultMasterControls,
+  effectiveMaster,
+  type EngineerMix,
+  type MasterControls,
+  type ChannelLevels,
+} from '../shared/engineer';
 
 interface Bus {
   input: GainNode;
-  dry: GainNode;
-  distortion: WaveShaperNode;
-  driveInput: GainNode;
-  drive: GainNode;
+  distortion: AudioWorkletNode;
   filter: BiquadFilterNode;
   wah: GainNode;
   delay: DelayNode;
   echo: GainNode;
+  feedback: GainNode;
   reverb: ConvolverNode;
   wet: GainNode;
   level: GainNode;
@@ -23,10 +37,27 @@ interface Bus {
   meterData: Float32Array<ArrayBuffer>;
   chorus: GainNode;
   tremolo: GainNode;
+  balance: GainNode;
+  reference: AnalyserNode;
+  referenceData: Float32Array<ArrayBuffer>;
 }
 export class BandAudio {
   context?: AudioContext;
   private master?: GainNode;
+  private masterRig?: { wet: GainNode; glue: DynamicsCompressorNode };
+  private masterControls = defaultMasterControls();
+  private audience?: AudiencePlayer;
+  private audienceControls = defaultAudienceControls();
+  get audienceStatus() {
+    return this.audience?.status;
+  }
+  setAudienceControls(controls: AudienceControls) {
+    this.audienceControls = controls;
+    this.audience?.setControls(controls);
+  }
+  private referencePower = new Map<Musician, { power: number; peak: number; count: number }>();
+  private initializing?: Promise<void>;
+  private openHat?: { gain: GainNode; source: AudioBufferSourceNode };
   private buses = new Map<Musician, Bus>();
   private frames: Frame[] = [];
   private seen = new Set<string>();
@@ -40,6 +71,41 @@ export class BandAudio {
   scheduledNotes = 0;
   private mix: Mix = defaultMix();
   readonly samples = new SampleBank();
+  setMasterControls(controls: MasterControls) {
+    this.masterControls = controls;
+    if (!this.context) return;
+    const frame = this.frames.filter((f) => f.at <= Date.now() + this.offset).at(-1);
+    this.applyMaster(frame?.engineerMix ?? defaultEngineerMix(), this.context.currentTime);
+  }
+  referenceLevels(): ChannelLevels | undefined {
+    if (!this.enabled || this.context?.state !== 'running') return;
+    const db = (v: number) => Math.max(-100, Math.min(12, 20 * Math.log10(Math.max(v, 0.00001))));
+    const levels = Object.fromEntries(
+      musicians.map((role) => {
+        const v = this.referencePower.get(role);
+        return [
+          role,
+          { rmsDb: db(v?.count ? Math.sqrt(v.power / v.count) : 0), peakDb: db(v?.peak ?? 0) },
+        ];
+      }),
+    ) as ChannelLevels;
+    this.referencePower.clear();
+    return levels;
+  }
+  private applyMaster(mix: EngineerMix, at: number) {
+    const effective = effectiveMaster(mix, this.masterControls);
+    const ramp = (parameter: AudioParam | undefined, value: number) => {
+      // A manual change must also replace any Jev cue in the audio lookahead window.
+      parameter?.cancelScheduledValues(at);
+      parameter?.setTargetAtTime(value, at, 0.4);
+    };
+    for (const role of musicians)
+      ramp(this.buses.get(role)?.balance.gain, 10 ** (effective.trimDb[role] / 20));
+    ramp(this.masterRig?.wet.gain, effective.reverb);
+    ramp(this.masterRig?.glue.threshold, effective.threshold);
+    ramp(this.masterRig?.glue.ratio, effective.ratio);
+    this.audience?.setDirection(effective.audience ?? defaultAudienceDirection(), at);
+  }
   setMix(mix: Mix) {
     this.mix = mix;
     if (!this.context) return;
@@ -63,6 +129,7 @@ export class BandAudio {
           at,
           frame.bpm,
           frame.parts.some((p) => p.solo),
+          effectsAtBeat(part, ((Date.now() + this.offset - frame.at) * frame.bpm) / 60000),
         );
   }
   levels(): Record<Musician, number> {
@@ -78,10 +145,12 @@ export class BandAudio {
     ) as Record<Musician, number>;
   }
   async enable() {
-    if (!this.context) this.init();
+    if (!this.context) this.initializing = this.init();
+    await this.initializing;
     await this.context!.resume();
     await this.samples.load(this.context!);
     this.enabled = true;
+    if (this.frames.length) this.audience?.start(this.roomId);
     this.master!.gain.setTargetAtTime(this.volume * 0.65, this.context!.currentTime, 0.05);
     if (!this.timer) this.timer = window.setInterval(() => this.tick(), 25);
     this.tick();
@@ -108,6 +177,7 @@ export class BandAudio {
         this.master!.gain.setTargetAtTime(this.volume * 0.65, this.context.currentTime, 0.03);
     }
     this.frames = frames;
+    if (frames.length && this.enabled) this.audience?.start(roomId);
     const earliest = frames[0]?.id ?? 0;
     for (const key of this.seen) if (Number(key.split(':')[0]) < earliest) this.seen.delete(key);
   }
@@ -123,14 +193,19 @@ export class BandAudio {
       }
     }
     this.sources.clear();
+    this.openHat = undefined;
+    this.audience?.stop();
+    this.referencePower.clear();
   }
   dispose() {
     this.stop();
+    this.audience?.dispose();
     window.clearInterval(this.timer);
     void this.context?.close();
   }
-  private init() {
+  private async init() {
     const c = (this.context = new AudioContext({ latencyHint: 'interactive' }));
+    await c.audioWorklet.addModule(new URL('./drive-processor.js', import.meta.url));
     const master = (this.master = c.createGain());
     master.gain.value = 0;
     const compressor = c.createDynamicsCompressor();
@@ -154,17 +229,26 @@ export class BandAudio {
         data[i] =
           samples[(i + channel * 983) % samples.length] * Math.pow(1 - i / data.length, 3) * 0.3;
     }
+    const mixInput = c.createGain();
+    this.audience = new AudiencePlayer(c, mixInput);
+    this.audience.setControls(this.audienceControls);
+    void this.audience.loadBank();
+    const glue = c.createDynamicsCompressor();
+    glue.threshold.value = -14;
+    glue.ratio.value = 2;
+    glue.knee.value = 12;
+    glue.attack.value = 0.025;
+    glue.release.value = 0.25;
+    const roomReverb = c.createConvolver();
+    roomReverb.buffer = impulse;
+    const roomWet = c.createGain();
+    roomWet.gain.value = 0.04;
+    mixInput.connect(glue).connect(master);
+    mixInput.connect(roomReverb).connect(roomWet).connect(glue);
+    this.masterRig = { wet: roomWet, glue };
     musicians.forEach((role, index) => {
       const input = c.createGain();
-      const dry = c.createGain();
-      const drive = c.createGain();
-      const distortion = c.createWaveShaper();
-      const driveInput = c.createGain();
-      driveInput.gain.value = 1;
-      const curve = new Float32Array(2048);
-      for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh((i / 1024 - 1) * 3) * 0.6;
-      distortion.curve = curve;
-      distortion.oversample = '2x';
+      const distortion = new AudioWorkletNode(c, 'level-drive');
       const filter = c.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.value = 12000;
@@ -190,10 +274,7 @@ export class BandAudio {
       level.gain.value = role === 'keys' ? 0.47 : role === 'drums' ? 0.7 : 0.7;
       const pan = c.createStereoPanner();
       pan.pan.value = [-0.4, 0.08, 0.4, 0][index];
-      input.connect(dry).connect(filter);
-      input.connect(driveInput).connect(distortion).connect(drive).connect(filter);
-      dry.gain.value = 1;
-      drive.gain.value = 0;
+      input.connect(distortion).connect(filter);
       const body = c.createBiquadFilter();
       body.type = 'peaking';
       body.frequency.value = 280;
@@ -225,17 +306,31 @@ export class BandAudio {
       tone.connect(delay).connect(echo).connect(level);
       tone.connect(reverb).connect(wet).connect(level);
       tone.connect(chorusDelay).connect(chorus).connect(level);
-      level.connect(fader).connect(pan).connect(meter).connect(master);
+      const channelCompressor = c.createDynamicsCompressor();
+      channelCompressor.threshold.value = -16;
+      channelCompressor.knee.value = 10;
+      channelCompressor.ratio.value = 3;
+      channelCompressor.attack.value = 0.006;
+      channelCompressor.release.value = 0.12;
+      const balance = c.createGain();
+      const reference = c.createAnalyser();
+      reference.fftSize = 2048;
+      level
+        .connect(channelCompressor)
+        .connect(reference)
+        .connect(balance)
+        .connect(fader)
+        .connect(pan)
+        .connect(meter)
+        .connect(mixInput);
       this.buses.set(role, {
         input,
-        dry,
         distortion,
-        driveInput,
-        drive,
         filter,
         wah,
         delay,
         echo,
+        feedback,
         reverb,
         wet,
         level,
@@ -246,26 +341,57 @@ export class BandAudio {
         meterData: new Float32Array(1024),
         chorus,
         tremolo,
+        balance,
+        reference,
+        referenceData: new Float32Array(2048),
       });
     });
     this.setMix(this.mix);
+    this.setMasterControls(this.masterControls);
   }
   private tick() {
     const c = this.context;
     if (!c || !this.enabled || c.state !== 'running') return;
+    this.audience?.tick();
+    for (const role of musicians) {
+      const bus = this.buses.get(role)!;
+      bus.reference.getFloatTimeDomainData(bus.referenceData);
+      const value = this.referencePower.get(role) ?? { power: 0, peak: 0, count: 0 };
+      for (const sample of bus.referenceData) {
+        value.power += sample * sample;
+        value.peak = Math.max(value.peak, Math.abs(sample));
+        value.count++;
+      }
+      this.referencePower.set(role, value);
+    }
     const now = Date.now() + this.offset;
     for (const frame of this.frames) {
       if (frame.at + frame.durationMs < now || frame.at > now + 180) continue;
+      const mixKey = `${frame.id}:master`;
+      if (!this.seen.has(mixKey)) {
+        this.applyMaster(
+          frame.engineerMix ?? defaultEngineerMix(),
+          Math.max(c.currentTime, c.currentTime + (frame.at - now) / 1000),
+        );
+        this.seen.add(mixKey);
+      }
       for (const part of frame.parts) {
-        const busKey = `${frame.id}:${part.role}:fx`;
-        if (!this.seen.has(busKey)) {
+        const cues = part.effectsTimeline ?? [{ beat: 0, effects: part.decision.effects }];
+        for (const [index, cue] of cues.entries()) {
+          const time = frame.at + (cue.beat * 60000) / frame.bpm;
+          const busKey = `${frame.id}:${part.role}:fx:${cue.beat}`;
+          if (this.seen.has(busKey) || time > now + 180) continue;
+          this.seen.add(busKey);
+          // A late listener starts with the current bar's rig, never an unplayed future cue.
+          const next = cues[index + 1];
+          if (next && frame.at + (next.beat * 60000) / frame.bpm <= now) continue;
           this.fx(
             part,
-            Math.max(c.currentTime, c.currentTime + (frame.at - now) / 1000),
+            Math.max(c.currentTime, c.currentTime + (time - now) / 1000),
             frame.bpm,
             frame.parts.some((p) => p.solo),
+            cue.effects,
           );
-          this.seen.add(busKey);
         }
         part.notes.forEach((note, index) => {
           const time = frame.at + (note.beat * 60000) / frame.bpm;
@@ -281,9 +407,16 @@ export class BandAudio {
       }
     }
   }
-  private fx(part: Part, at: number, bpm: number, hasSolo: boolean) {
+  private fx(
+    part: Part,
+    at: number,
+    bpm: number,
+    hasSolo: boolean,
+    effects = part.decision.effects,
+  ) {
     const bus = this.buses.get(part.role)!;
-    const e = effectiveEffects(this.mix[part.role], part.decision.effects);
+    const e = instrumentEffects(part.role, effectiveEffects(this.mix[part.role], effects));
+    const profile = rigProfiles[part.role];
     const focus = part.solo
       ? 1.18
       : hasSolo
@@ -292,16 +425,18 @@ export class BandAudio {
           : 0.87
         : 1;
     bus.level.gain.setTargetAtTime((part.role === 'keys' ? 0.47 : 0.7) * focus, at, 0.15);
-    bus.dry.gain.setTargetAtTime(e.drive ? 0.25 : 1, at, 0.06);
-    bus.driveInput.gain.setTargetAtTime(0.8 + this.mix[part.role].drive * 9, at, 0.06);
-    bus.drive.gain.setTargetAtTime(e.drive ? 0.65 : 0, at, 0.06);
-    bus.filter.frequency.setTargetAtTime(e.wah ? 1700 : 12000, at, 0.08);
-    bus.wah.gain.setTargetAtTime(e.wah ? 1300 : 0, at, 0.08);
-    bus.echo.gain.setTargetAtTime(e.delay ? 0.24 : 0, at, 0.06);
+    bus.distortion.parameters.get('enabled')!.setTargetAtTime(e.drive ? 1 : 0, at, 0.03);
+    bus.distortion.parameters
+      .get('amount')!
+      .setTargetAtTime(this.mix[part.role].drive * profile.drive, at, 0.03);
+    bus.filter.frequency.setTargetAtTime(e.wah ? profile.wahHz : 12000, at, 0.08);
+    bus.wah.gain.setTargetAtTime(e.wah ? profile.wahDepth : 0, at, 0.08);
+    bus.echo.gain.setTargetAtTime(e.delay ? profile.echo : 0, at, 0.06);
+    bus.feedback.gain.setTargetAtTime(profile.feedback, at, 0.06);
     bus.delay.delayTime.setTargetAtTime(45 / bpm, at, 0.08);
-    bus.wet.gain.setTargetAtTime(e.reverb ? 0.2 : 0, at, 0.06);
-    bus.chorus.gain.setTargetAtTime(e.chorus ? 0.28 : 0, at, 0.06);
-    bus.tremolo.gain.setTargetAtTime(e.tremolo ? 0.08 : 0, at, 0.06);
+    bus.wet.gain.setTargetAtTime(e.reverb ? profile.room : 0, at, 0.06);
+    bus.chorus.gain.setTargetAtTime(e.chorus ? profile.chorus : 0, at, 0.06);
+    bus.tremolo.gain.setTargetAtTime(e.tremolo ? profile.tremolo : 0, at, 0.06);
   }
   private track(source: AudioScheduledSourceNode, end: number, nodes: AudioNode[]) {
     this.sources.add(source);
@@ -316,7 +451,10 @@ export class BandAudio {
     const role = part.role;
     const c = this.context!;
     let target: AudioNode = this.buses.get(role)!.input;
-    const effects = effectiveEffects(this.mix[role], part.decision.effects);
+    const effects = instrumentEffects(
+      role,
+      effectiveEffects(this.mix[role], effectsAtBeat(part, note.beat)),
+    );
     const extraNodes: AudioNode[] = [];
     if (effects.envelope) {
       // Each performed attack opens its own filter; chords never cancel each other's envelopes.
@@ -352,13 +490,29 @@ export class BandAudio {
       const level =
         note.velocity *
         (role === 'keys' ? 0.3 : role === 'bass' ? 0.62 : role === 'drums' ? 0.6 : 0.5);
-      const sustain = Math.min(duration, sample.buffer.duration / source.playbackRate.value - 0.06);
+      const sustain = drumSampleLifetime(
+        role,
+        duration,
+        sample.buffer.duration / source.playbackRate.value,
+      );
       gain.gain.setValueAtTime(0.0001, at);
       gain.gain.linearRampToValueAtTime(level, at + 0.003);
       gain.gain.setValueAtTime(level, at + Math.max(0.004, sustain));
       gain.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.01, sustain) + 0.12);
       this.expression(source, note, at, duration, role);
       source.connect(gain).connect(target);
+      if (role === 'drums' && [42, 46].includes(note.midi)) {
+        if (this.openHat) {
+          this.openHat.gain.gain.cancelScheduledValues(at);
+          this.openHat.gain.gain.setTargetAtTime(0.0001, at, 0.008);
+          try {
+            this.openHat.source.stop(at + 0.04);
+          } catch {
+            /* already finished */
+          }
+        }
+        this.openHat = note.midi === 46 ? { source, gain } : undefined;
+      }
       source.start(at);
       this.track(source, at + Math.max(0.01, sustain) + 0.14, [gain, ...extraNodes]);
       return;

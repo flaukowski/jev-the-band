@@ -1,4 +1,5 @@
 import type { Role, Snapshot } from '../shared/music.js';
+import { effectsAtBeat } from '../shared/performance.js';
 
 /** Symbolic hearing, with a reaction delay. Never disclose a peer's unplayed score or intent. */
 export function listeningState(room: Snapshot, role: Role, now = Date.now()) {
@@ -15,6 +16,7 @@ export function listeningState(room: Snapshot, role: Role, now = Date.now()) {
       throughBeat,
       players: f.parts.map((p) => ({
         role: p.role,
+        effects: effectsAtBeat(p, throughBeat),
         notes: p.notes
           .filter((n) => n.beat <= throughBeat)
           .map((n) => ({
@@ -39,10 +41,23 @@ export function listeningState(room: Snapshot, role: Role, now = Date.now()) {
           mode: frame.mode,
           players: heard.at(-1)?.players,
         }
-      : { bpm: room.baseBpm, rootPitchClass: 2, mode: 'dorian', players: [], opener: room.opener },
+      : {
+          bpm: room.baseBpm,
+          rootPitchClass: room.initialRoot ?? 2,
+          mode: room.initialMode ?? 'dorian',
+          players: [],
+          opener: room.opener,
+        },
     recent: heard,
     ownMemory: own
-      ? { decision: own.decision, solo: own.solo, consecutiveRepeats: own.repeated }
+      ? {
+          decision: own.decision,
+          effectsTimeline: own.effectsTimeline,
+          notes: own.notes,
+          tonalIntent: own.tonalIntent,
+          solo: own.solo,
+          consecutiveRepeats: own.repeated,
+        }
       : null,
   };
 }

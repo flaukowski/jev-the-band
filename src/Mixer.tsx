@@ -2,6 +2,8 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { fxNames, musicians, personas, type Frame, type Musician } from '../shared/music';
 import { defaultMix, readMix, type ChannelMix, type Mix, type Override } from '../shared/mixer';
 import type { BandAudio } from './audio';
+import { effectsAtBeat } from '../shared/performance';
+import { availableEffects, instrumentEffects } from '../shared/rigs';
 
 const labels = {
   drive: 'Distortion',
@@ -12,7 +14,15 @@ const labels = {
   delay: 'Delay',
   reverb: 'Reverb',
 };
-export function Mixer({ audio, frame }: { audio: BandAudio; frame: Frame | null }) {
+export function Mixer({
+  audio,
+  frame,
+  beat = 0,
+}: {
+  audio: BandAudio;
+  frame: Frame | null;
+  beat?: number;
+}) {
   const [mix, setMix] = useState<Mix>(() => {
     try {
       return readMix(JSON.parse(localStorage.getItem('jev-mix-v2') ?? 'null'));
@@ -41,6 +51,8 @@ export function Mixer({ audio, frame }: { audio: BandAudio; frame: Frame | null 
   }, [audio]);
   const update = (role: Musician, patch: Partial<ChannelMix>) =>
     setMix((m) => ({ ...m, [role]: { ...m[role], ...patch } }));
+  const rigPart = frame?.parts.find((part) => part.role === rig);
+  const direction = rigPart?.performance;
   return (
     <section className="soundboard" aria-label="Soundboard">
       <div className="board-heading">
@@ -160,18 +172,29 @@ export function Mixer({ audio, frame }: { audio: BandAudio; frame: Frame | null 
               <strong>{personas[rig].name}’S PEDALBOARD</strong>
               <span>JEV = player decides · ON / OFF = your override</span>
             </div>
+            {direction && (
+              <p className="rig-direction">
+                {direction.style.replaceAll('_', ' ')} · {direction.arc} ·{' '}
+                {direction.texture.replaceAll('_', ' ')} <span>BAR {beat < 4 ? '1' : '2'}</span>
+              </p>
+            )}
             <div className="pedals">
-              {fxNames.map((effect) => {
-                const played =
-                  frame?.parts.find((p) => p.role === rig)?.decision.effects[effect] ?? false;
+              {availableEffects(rig).map((effect) => {
+                const played = rigPart
+                  ? instrumentEffects(rig, effectsAtBeat(rigPart, beat))[effect]
+                  : false;
                 const enabled =
                   mix[rig].rig[effect] === 'auto' ? played : mix[rig].rig[effect] === 'on';
                 return (
                   <label key={effect} className={`pedal ${enabled ? 'engaged' : ''}`}>
                     <span>
                       <i />
-                      {labels[effect]}
+                      {rig === 'drums' && effect === 'drive' ? 'Saturation' : labels[effect]}
                     </span>
+                    <small>
+                      Jev: {played ? 'ON' : 'OFF'}
+                      {mix[rig].rig[effect] !== 'auto' ? ' · overridden' : ''}
+                    </small>
                     <select
                       aria-label={`${personas[rig].name} ${labels[effect]}`}
                       value={mix[rig].rig[effect]}

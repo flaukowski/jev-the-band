@@ -321,7 +321,7 @@ abstract class StringPlayer implements Performer {
     }
 
     // Feet: tap with the pulse, step on pedals when Jev changes the rig.
-    const reach = this.stomp.update(ch, p.part?.decision.effects, this.footHomeR, dt, sig.playing);
+    const reach = this.stomp.update(ch, p.effects, this.footHomeR, dt, sig.playing && !sig.reduced);
     if (reach < 0.01 && sig.playing && !sig.reduced)
       ch.footPitch.R =
         -Math.max(0, Math.sin(sig.beatPhase * Math.PI * 2 + 0.6)) * 0.22 * (0.4 + p.level);
@@ -349,7 +349,7 @@ abstract class StringPlayer implements Performer {
     this.cable.update(inst.jack.getWorldPosition(this.tmpJack), dt);
 
     inst.update(dt, t);
-    this.pedals.update(sig.playing ? p.part?.decision.effects : undefined, dt);
+    this.pedals.update(sig.playing ? p.effects : undefined, dt);
     this.amp.update(p.level, t);
     inst.headstock.getWorldPosition(this.emitter);
   }

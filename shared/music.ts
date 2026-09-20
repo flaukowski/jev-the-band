@@ -1,7 +1,11 @@
 import { z } from 'zod';
+import type { Performance } from './performance.js';
+import type { DirectorReport } from './concept.js';
+import type { EngineerMix } from './engineer.js';
 
 export const roles = ['guitar', 'bass', 'keys', 'drums', 'lights'] as const;
 export type Role = (typeof roles)[number];
+export type DecisionRole = Role | 'engineer' | 'host';
 export type Musician = Exclude<Role, 'lights'>;
 export const musicians: Musician[] = ['guitar', 'bass', 'keys', 'drums'];
 export const personas: Record<
@@ -45,6 +49,22 @@ export const personas: Record<
   },
 };
 export const patches = ['piano', 'rhodes', 'organ', 'analog', 'pad', 'bell'] as const;
+export const decisionPersonas = {
+  ...personas,
+  engineer: {
+    name: 'PATCH',
+    instrument: 'Front of house',
+    color: '#e7cda1',
+    philosophy:
+      'Keep a balanced musical mix. Preserve dynamics and the pocket; move gently, leave silence alone.',
+  },
+  host: {
+    name: 'OPENING',
+    instrument: 'Stage host',
+    color: '#d6e4b9',
+    philosophy: 'Choose the entry that best serves the sonic concept. Any musician can start.',
+  },
+};
 export const fxNames = [
   'drive',
   'wah',
@@ -190,6 +210,8 @@ export const noteSchema = z.object({
   patch: z.enum(patches).optional(),
   articulation: z.enum(articulations).optional(),
   bend: z.number().min(-2).max(2).optional(),
+  provenance: z.object({ traceId: z.string(), slot: z.string() }).optional(),
+  string: z.number().int().min(0).max(5).optional(),
 });
 export type Note = z.infer<typeof noteSchema>;
 export interface Part {
@@ -201,8 +223,16 @@ export interface Part {
   source: 'jev' | 'rehearsal' | 'fallback';
   updatedAtFrame?: number;
   continued?: boolean;
+  phraseFormat?: 'events-v1';
+  tonalIntent?: { root: number; mode: string };
+  performance?: Performance;
+  effectsTimeline?: { beat: number; effects: Effects; traceId: string }[];
 }
 export interface Frame {
+  themeId?: string;
+  themeTitle?: string;
+  themeStartedAt?: number;
+  engineerMix?: EngineerMix;
   id: number;
   at: number;
   durationMs: number;
@@ -216,6 +246,14 @@ export interface Frame {
   decisionRole?: Musician;
 }
 export interface Snapshot {
+  setlist?: import('./setlist.js').ThemeCue[];
+  themeId?: string;
+  themeStartedAt?: number;
+  soloInvitation?: { role: Musician; urgency: number; required: boolean };
+  themeTransition?: boolean;
+  lastSoloAt?: number;
+  lastSoloRole?: Musician;
+  director?: DirectorReport;
   id: string;
   title: string;
   prompt: string;
@@ -225,6 +263,8 @@ export interface Snapshot {
   endsAt: number;
   seed: number;
   baseBpm: number;
+  initialRoot?: number;
+  initialMode?: keyof typeof scales;
   opener: Musician;
   frame: Frame | null;
   frames: Frame[];
@@ -252,13 +292,15 @@ export interface Answer {
 }
 export interface Trace {
   id: string;
-  role: Role;
+  role: DecisionRole;
   frame: number;
   at: number;
   source: 'jev' | 'rehearsal' | 'fallback';
   latencyMs: number;
   request: JevRequest;
   answers: Record<string, Answer>;
+  appliedAnswers?: Record<string, Answer>;
+  selectionMethod?: 'seeded-model-distribution';
   requestHash: string;
   providerId?: string;
   cost: number | null;
