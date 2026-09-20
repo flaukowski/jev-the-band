@@ -46,7 +46,7 @@ void main(){
   #include <colorspace_fragment>
 }`;
 
-type Kind = 'spark' | 'bubble' | 'orb' | 'shimmer' | 'glowstick';
+type Kind = 'spark' | 'bubble' | 'orb' | 'shimmer' | 'glowstick' | 'smoke';
 interface Ring {
   mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   age: number;
@@ -196,7 +196,14 @@ export class Particles {
     this.baseSize[i] = size;
     this.life[i] = life;
     this.span[i] = life;
-    this.kind[i] = ['spark', 'bubble', 'orb', 'shimmer', 'glowstick'].indexOf(kind);
+    this.kind[i] = ['spark', 'bubble', 'orb', 'shimmer', 'glowstick', 'smoke'].indexOf(kind);
+  }
+
+  /** A breath of smoke from somebody in the crowd; it takes a little colour from the rig. */
+  puff(p: THREE.Vector3, vx: number, vy: number, vz: number, size: number, tint: THREE.Color) {
+    const grey = 0.05 + this.rng() * 0.03;
+    this.tmp.setRGB(grey, grey, grey * 1.08).lerp(tint, 0.12);
+    this.spawn('smoke', p, [vx, vy, vz], this.tmp, size, 3.2 + this.rng() * 2.2);
   }
 
   private ring(
@@ -361,6 +368,11 @@ export class Particles {
         vy -= 2.2 * dt;
         vx *= 1 - dt * 1.5;
         vz *= 1 - dt * 1.5;
+      } else if (kind === 5) {
+        // Smoke loses its push quickly, then just hangs and drifts up.
+        vx = vx * (1 - dt * 1.6) + Math.sin(sig.time * 0.7 + i) * 0.12 * dt;
+        vz *= 1 - dt * 1.6;
+        vy += (0.22 - vy) * dt * 1.4;
       } else {
         vy -= 9 * dt;
       }
@@ -376,9 +388,13 @@ export class Particles {
           ? (1 - u) * (0.5 + 0.5 * Math.sin(sig.time * 30 + i))
           : kind === 4
             ? 1
-            : Math.pow(1 - u, 1.5);
+            : kind === 5
+              ? Math.min(1, u * 5) * Math.pow(1 - u, 1.2)
+              : Math.pow(1 - u, 1.5);
       this.alpha[i] = fadeIn * fade * (this.life[i] > 0 ? 1 : 0);
-      this.size[i] = this.baseSize[i] * (kind === 1 ? 0.6 + u * 0.9 : kind === 2 ? 1 + u : 1);
+      this.size[i] =
+        this.baseSize[i] *
+        (kind === 1 ? 0.6 + u * 0.9 : kind === 2 ? 1 + u : kind === 5 ? 1 + u * 3.5 : 1);
     }
     const g = this.points.geometry;
     this.points.visible = alive > 0;
