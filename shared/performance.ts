@@ -62,6 +62,14 @@ export type Performance = {
   tensionPhrases: number;
   motifAge: number;
   timbres?: string[];
+  hasPlayed?: boolean;
+  silentTurns?: number;
+  soloBars?: number;
+  soloPhrases?: number;
+  soloStage?: string;
+  phraseBars?: number;
+  phraseChunks?: number;
+  phraseMotif?: { midi: number; beat: number; duration: number }[];
 };
 export const guitarTuning = [40, 45, 50, 55, 59, 64] as const;
 export function effectsAtBeat(part: Part, beat: number) {

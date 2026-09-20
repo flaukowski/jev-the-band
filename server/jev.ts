@@ -11,10 +11,13 @@ import {
   musicians,
   patches,
   personas,
+  decisionPersonas,
+  noteNames,
   rhythms,
   type Answer,
   type ChoiceQuestion,
   type Decision,
+  type DecisionRole,
   type JevRequest,
   type Lighting,
   type Musician,
@@ -24,6 +27,7 @@ import {
 } from '../shared/music.js';
 import { endingPressure } from '../shared/score.js';
 import { listeningState } from './listening.js';
+import type { SonicConcept } from '../shared/concept.js';
 
 export const choice = (
   instructions: string,
@@ -144,25 +148,41 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
     );
   return { model, state, questions };
 }
-export function bootstrapRequest(prompt: string, model: string): JevRequest {
+export function bootstrapRequest(
+  prompt: string,
+  model: string,
+  concept?: SonicConcept,
+  recentOpeners: Musician[] = [],
+): JevRequest {
   return {
     model,
     state: {
-      persona: personas.bass,
+      persona: decisionPersonas.host,
       prompt,
+      sonicConcept: concept,
+      recentOpeners,
       task: 'Invite the band into a new original jam. Pick who starts alone, a tempo, a tonic and a mode matching this title or description.',
     },
     questions: {
-      opener: choice('Who should introduce the first groove?', musicians),
-      bpm: choice('Starting tempo in BPM.', ['78', '88', '96', '104', '112', '120']),
-      root: choice('Tonic pitch class.', {
-        '0': 'C',
-        '2': 'D',
-        '4': 'E',
-        '5': 'F',
-        '7': 'G',
-        '9': 'A',
-      }),
+      opener: choice(
+        'Who should introduce this particular sonic concept? Consider the director suggestion and recent openings. Guitar, keyboard, bass and drums are equally valid; do not default to bass.',
+        musicians,
+      ),
+      bpm: choice('Starting tempo in BPM, informed by the sonic concept.', [
+        ...new Set([
+          '78',
+          '88',
+          '96',
+          '104',
+          '112',
+          '120',
+          ...(concept ? [String(concept.bpm)] : []),
+        ]),
+      ]),
+      root: choice(
+        'Tonic pitch class.',
+        Object.fromEntries(noteNames.map((name, i) => [String(i), name])),
+      ),
       mode: choice('Starting scale color.', modes),
     },
   };
@@ -240,7 +260,7 @@ export function toLighting(a: Record<string, Answer>): Lighting {
 }
 export async function callJev(
   request: JevRequest,
-  role: Role,
+  role: DecisionRole,
   frame: number,
   apiKey: string,
   parentSignal?: AbortSignal,

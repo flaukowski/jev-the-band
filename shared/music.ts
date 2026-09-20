@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import type { Performance } from './performance.js';
+import type { DirectorReport } from './concept.js';
+import type { EngineerMix } from './engineer.js';
 
 export const roles = ['guitar', 'bass', 'keys', 'drums', 'lights'] as const;
 export type Role = (typeof roles)[number];
+export type DecisionRole = Role | 'engineer' | 'host';
 export type Musician = Exclude<Role, 'lights'>;
 export const musicians: Musician[] = ['guitar', 'bass', 'keys', 'drums'];
 export const personas: Record<
@@ -46,6 +49,22 @@ export const personas: Record<
   },
 };
 export const patches = ['piano', 'rhodes', 'organ', 'analog', 'pad', 'bell'] as const;
+export const decisionPersonas = {
+  ...personas,
+  engineer: {
+    name: 'PATCH',
+    instrument: 'Front of house',
+    color: '#e7cda1',
+    philosophy:
+      'Keep a balanced musical mix. Preserve dynamics and the pocket; move gently, leave silence alone.',
+  },
+  host: {
+    name: 'OPENING',
+    instrument: 'Stage host',
+    color: '#d6e4b9',
+    philosophy: 'Choose the entry that best serves the sonic concept. Any musician can start.',
+  },
+};
 export const fxNames = [
   'drive',
   'wah',
@@ -210,6 +229,10 @@ export interface Part {
   effectsTimeline?: { beat: number; effects: Effects; traceId: string }[];
 }
 export interface Frame {
+  themeId?: string;
+  themeTitle?: string;
+  themeStartedAt?: number;
+  engineerMix?: EngineerMix;
   id: number;
   at: number;
   durationMs: number;
@@ -223,6 +246,14 @@ export interface Frame {
   decisionRole?: Musician;
 }
 export interface Snapshot {
+  setlist?: import('./setlist.js').ThemeCue[];
+  themeId?: string;
+  themeStartedAt?: number;
+  soloInvitation?: { role: Musician; urgency: number; required: boolean };
+  themeTransition?: boolean;
+  lastSoloAt?: number;
+  lastSoloRole?: Musician;
+  director?: DirectorReport;
   id: string;
   title: string;
   prompt: string;
@@ -261,7 +292,7 @@ export interface Answer {
 }
 export interface Trace {
   id: string;
-  role: Role;
+  role: DecisionRole;
   frame: number;
   at: number;
   source: 'jev' | 'rehearsal' | 'fallback';

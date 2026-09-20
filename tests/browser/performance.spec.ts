@@ -1,16 +1,29 @@
 import { test, expect } from '@playwright/test';
 import { defaultDecision, defaultLighting, type Part } from '../../shared/music';
+import { defaultEngineerMix } from '../../shared/engineer';
 
 test('real audio switches isolated pedal rigs by bar and lets recorded cymbals ring beyond the score gate', async ({
   page,
 }) => {
   test.setTimeout(90000);
   const errors: string[] = [];
+  const measured: any[] = [];
+  await page.route('**/api/room/levels', (route) => {
+    measured.push(route.request().postDataJSON());
+    return route.fulfill({ json: { ok: true } });
+  });
   page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript(() => {
     const w = window as any;
     w.rigs = [];
     w.playedBuffers = [];
+    w.compressors = [];
+    const createCompressor = AudioContext.prototype.createDynamicsCompressor;
+    AudioContext.prototype.createDynamicsCompressor = function () {
+      const node = createCompressor.call(this);
+      w.compressors.push(node);
+      return node;
+    };
     const Worklet = AudioWorkletNode;
     window.AudioWorkletNode = class extends Worklet {
       constructor(...args: ConstructorParameters<typeof AudioWorkletNode>) {
@@ -56,7 +69,7 @@ test('real audio switches isolated pedal rigs by bar and lets recorded cymbals r
     id: 'audio-fixture',
     title: 'Audio fixture',
     prompt: '',
-    mode: 'rehearsal',
+    mode: 'live',
     status: 'playing',
     startedAt: Date.now(),
     endsAt: Date.now() + 600000,
@@ -81,6 +94,8 @@ test('real audio switches isolated pedal rigs by bar and lets recorded cymbals r
   await expect(page.getByTestId('sample-status')).toHaveText('162 recorded samples ready', {
     timeout: 30000,
   });
+  await page.getByRole('button', { name: 'Use this browser as reference', exact: true }).click();
+  await page.getByRole('button', { name: 'Mute ROOK', exact: true }).click();
   const clean = { ...defaultDecision().effects, drive: false, reverb: false };
   const parts: Part[] = ['guitar', 'keys', 'drums'].map((role) => ({
     role: role as Part['role'],
@@ -106,20 +121,24 @@ test('real audio switches isolated pedal rigs by bar and lets recorded cymbals r
   const frame = {
     id: 0,
     at: Date.now() + 1000,
-    durationMs: 4000,
-    bpm: 120,
+    durationMs: 10000,
+    bpm: 48,
     root: 0,
     mode: 'major',
     parts,
+    engineerMix: { ...defaultEngineerMix(), threshold: -16, ratio: 3, reverb: 0.14 },
     lighting: defaultLighting,
     chapter: 'audio fixture',
     ending: false,
   };
   await page.evaluate(
-    (s) =>
+    (s) => {
+      s.frame.at = Date.now() + 1500;
+      s.frames[0] = s.frame;
       (window as any).testStream.dispatchEvent(
         new MessageEvent('state', { data: JSON.stringify(s) }),
-      ),
+      );
+    },
     { ...snapshot, frame, frames: [frame] },
   );
   const rigStates = () =>
@@ -128,8 +147,8 @@ test('real audio switches isolated pedal rigs by bar and lets recorded cymbals r
         Math.round(r.parameters.get('enabled')!.value),
       ),
     );
-  await expect.poll(rigStates).toEqual([1, 0, 0, 0]);
-  await expect.poll(rigStates, { timeout: 6000 }).toEqual([0, 0, 1, 0]);
+  await expect.poll(rigStates, { timeout: 8000 }).toEqual([1, 0, 0, 0]);
+  await expect.poll(rigStates, { timeout: 10000 }).toEqual([0, 0, 1, 0]);
   const tail = await page.evaluate(async () => {
     const manifest = await (await fetch('/samples/manifest.json')).json();
     const crash = manifest.find((s: any) => s.bank === 'drums' && s.midi === 49);
@@ -155,6 +174,46 @@ test('real audio switches isolated pedal rigs by bar and lets recorded cymbals r
   expect(tail.records.length).toBeGreaterThan(0);
   expect(tail.records[0].held).toBeGreaterThanOrEqual(tail.duration - 0.02);
   expect(errors).toEqual([]);
+  await expect
+    .poll(() => measured.some((m) => m.levels.guitar.rmsDb > -55), { timeout: 6000 })
+    .toBe(true);
+  await page.getByLabel('Master room', { exact: true }).focus();
+  await page.getByLabel('Master room', { exact: true }).press('Home');
+  await page.getByLabel('Master room', { exact: true }).press('ArrowRight');
+  await expect(page.getByLabel('Master mix control')).toHaveValue('manual');
+  await expect(page.getByLabel('Master room', { exact: true })).toHaveValue('0.01');
+  const glueThreshold = () =>
+    page.evaluate(() =>
+      Math.round(
+        (window as any).compressors.find(
+          (c: DynamicsCompressorNode) => Math.abs(c.attack.value - 0.025) < 0.00001,
+        ).threshold.value,
+      ),
+    );
+  await page.getByLabel('Master compression threshold', { exact: true }).press('Home');
+  await expect.poll(glueThreshold).toBe(-30);
+  await page.getByLabel('Master mix control').selectOption('jev');
+  await expect.poll(glueThreshold).toBe(-16);
+  await expect(page.getByLabel('Audience sound enabled')).toBeChecked();
+  await page.getByLabel('Audience sound enabled').uncheck();
+  await expect(page.getByLabel('Audience sound enabled')).not.toBeChecked();
+  await page.getByLabel('Audience reactions enabled').uncheck();
+  await page.getByLabel('Audience mood', { exact: true }).selectOption('quiet');
+  await expect(page.getByLabel('Master mix control')).toHaveValue('manual');
+  await page.getByLabel('Audience level', { exact: true }).press('Home');
+  await expect(page.getByLabel('Audience level', { exact: true })).toHaveValue('-48');
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('jev-audience-v1')!)),
+  ).toMatchObject({ enabled: false, reactions: false });
+  await expect(
+    page.getByText('Procedural room + applause · no generated voices', { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('article', { name: 'KIT mixer' })
+    .getByRole('button', { name: 'Effects rig' })
+    .click();
+  await expect(page.locator('.effects-rig select')).toHaveCount(3);
+  await expect(page.getByLabel('KIT Auto-wah', { exact: true })).toHaveCount(0);
   console.log(
     JSON.stringify({
       barRigs: [

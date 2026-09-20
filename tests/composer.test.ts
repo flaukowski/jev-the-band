@@ -148,6 +148,38 @@ test('bootstrap harmony reaches the opener before any sound', () => {
   assert.equal(listeningState(room.view(), 'bass').music.rootPitchClass, 0);
   assert.equal(listeningState(room.view(), 'bass').music.mode, 'minor');
 });
+
+test('June gets an audible entry and returns after extended silence, without invented notes', async () => {
+  const room = new Room('Piano opens', 'live', '').view();
+  const q = phrasePlanRequest('keys', room, 0, 'test');
+  assert.ok(!('rest' in q.questions.action.criteria));
+  const plan = reply(q);
+  const first = eventRequest('keys', room, 0, 'test', plan.answers, 0, [], 0);
+  assert.deepEqual(Object.keys(first.questions.sound.criteria), ['play']);
+  assert.ok(!('0' in first.questions.rightCount.criteria));
+  const part = await composePhrase('keys', room, 0, 'test', async (q) =>
+    reply(q, { advance: '8' }),
+  );
+  assert.ok(part.notes.length > 0);
+  assert.ok(part.notes.every((n) => n.provenance?.traceId));
+  assert.equal(part.performance?.hasPlayed, true);
+  part.performance!.silentTurns = 2;
+  room.frames = [
+    {
+      id: 0,
+      at: 0,
+      durationMs: 5000,
+      bpm: 96,
+      root: 0,
+      mode: 'major',
+      parts: [part],
+      lighting: { wash: 'amber dusk', beam: 'off', laser: 'off', intensity: 0, motion: 0 },
+      chapter: 'test',
+      ending: false,
+    },
+  ];
+  assert.ok(!('rest' in phrasePlanRequest('keys', room, 4, 'test').questions.action.criteria));
+});
 test('a failed attack rejects the atomic phrase, without procedural completion', async () => {
   let count = 0;
   await assert.rejects(

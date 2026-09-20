@@ -3,6 +3,7 @@ import { fxNames, musicians, personas, type Frame, type Musician } from '../shar
 import { defaultMix, readMix, type ChannelMix, type Mix, type Override } from '../shared/mixer';
 import type { BandAudio } from './audio';
 import { effectsAtBeat } from '../shared/performance';
+import { availableEffects, instrumentEffects } from '../shared/rigs';
 
 const labels = {
   drive: 'Distortion',
@@ -178,15 +179,17 @@ export function Mixer({
               </p>
             )}
             <div className="pedals">
-              {fxNames.map((effect) => {
-                const played = rigPart ? effectsAtBeat(rigPart, beat)[effect] : false;
+              {availableEffects(rig).map((effect) => {
+                const played = rigPart
+                  ? instrumentEffects(rig, effectsAtBeat(rigPart, beat))[effect]
+                  : false;
                 const enabled =
                   mix[rig].rig[effect] === 'auto' ? played : mix[rig].rig[effect] === 'on';
                 return (
                   <label key={effect} className={`pedal ${enabled ? 'engaged' : ''}`}>
                     <span>
                       <i />
-                      {labels[effect]}
+                      {rig === 'drums' && effect === 'drive' ? 'Saturation' : labels[effect]}
                     </span>
                     <small>
                       Jev: {played ? 'ON' : 'OFF'}

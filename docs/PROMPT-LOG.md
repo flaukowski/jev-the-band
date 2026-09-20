@@ -111,3 +111,98 @@ prompt and play should be at top of UI not bottom
 ```text
 the effects sound dope by the way, jev should make heavy use of them! it should be able to classify bars at any combination of effects on or off right? that will make a big big difference. playing around with them manually they add a TON of texture and interest!
 ```
+
+## 2026-09-19 — Sonic director and opener variety
+
+```text
+it seems like moss always starts? is that not true?
+
+maybe we add an llm step where the user prompt= translates the prompt into a sonic concept and ways to develop and vary the composition over time in a semi cooridnated fashion:
+designs the basic parameters for the jev model (fills in the state)
+
+so that theres more specific material for jev to draw on? idk if there's a specific way to get, the insturments less "Stuck in a loop" for 3 mins straight, "vary" and "develop don't seem to change the note choice as reliably as before...
+```
+
+## 2026-09-19 — GitHub checkpoint
+
+```text
+by this way this is great let's commit this to github
+```
+
+## 2026-09-19 — Global sound engineer and appropriate instrument rigs
+
+```text
+can we add in a jev for global sound:
+basically a global effects sound guy
+
+get's relative volume of the instruments and addjust there level
+can control global reverb, compression, etc.
+
+or the user can do it manually
+
+kit's peddle board was wayy to agressive (filters) didn't even really sound like drums can you make custom pedal board settings appropriate to the instruments, please.
+```
+
+## 2026-09-19 — June missing an entrance
+
+```text
+some time june gets stuck 'waiting for a spark' never starts?
+```
+
+## 2026-09-19 — Visible keyboard choices
+
+```text
+can june actually choose different instruments? it should display which keyboard(s) she's using somehow
+```
+
+## 2026-09-19 — Queue the next theme
+
+```text
+add a feature where when the user submits a prompt in the prompt box it is submitted, but they can follow up any time forcing the band to transition in 8 bars after the new them comes in
+
+it queues the next song essentially
+```
+
+## 2026-09-19 — Real melodic solos
+
+```text
+it's weird when rook says "solo" but it's just repeating the exact same groove... like bro that's not a guitar solo; solo has to be at least 8 bars of distinctly melodic rhythmic interesting net new material.
+```
+
+## 2026-09-19 — Director model preference
+
+```text
+lol 4.1 mini guy; why not gpt 5.6 luna
+```
+
+## 2026-09-19 — Solo invitations
+
+```text
+i still have yet to anything like a guitar or keyboard solo, can we see how to work those in at least ever 180 seconds etc..? increasing their likelihood some how for one of the jevs to switch to a proper solo composition mode, even if it needs to call llm or something?
+
+this is getting sick though
+```
+
+## 2026-09-19 — Variable solo duration
+
+```text
+randomly 8 bar - 32 bars is the length of a solo, non deterministically deppending on the mood
+```
+
+## 2026-09-19 — Independent longer phrases
+
+```text
+is it possible to have some of the intruments probability switching to a 2 - 8 bar phrase? i think the same 2 bar loop is part of why this feels a little too robotic, instruments should be able to compose at least 12 bar phrases, that might fix soloing, figure out the best architecture for jev to do that on a per instument basis
+```
+
+## 2026-09-19 — Visual PR integration thread
+
+```text
+ALSO IF YOU Can launch another thread to safely merge in claude's visual PR on master when that hits
+```
+
+## 2026-09-19 — Generated audience ambience
+
+```text
+is there a way to generate audience noise from an audio generation model? like just generate 100 short chunks of audience background noise  ambient audio, crossfade, randomly play them or a jev can classify the mood for appropriate audience response: investigate this and launch a subagent to implement, mix engineer can also turn down "audience"
+```

@@ -1,4 +1,5 @@
-import { fxNames, type Answer, type JevRequest } from '../shared/music.js';
+import { fxNames, type Answer, type JevRequest, type Musician } from '../shared/music.js';
+import { availableEffects } from '../shared/rigs.js';
 import { choice } from './jev.js';
 
 export const timbres = {
@@ -10,8 +11,21 @@ export const timbres = {
   psychedelic_surge: 'An adventurous layered swirling surge; allow multiple strong colors',
   intimate_dry: 'An intentional clear dry contrast after a colored passage',
 };
+export function timbresFor(role: Musician) {
+  return role === 'drums'
+    ? {
+        natural_punch: 'Clear acoustic drum attacks and natural cymbals; keep the groove legible',
+        small_room: 'A little room around a focused acoustic kit',
+        warm_breakbeat: 'Gentle tape-like saturation and a close drum sound',
+        dub_space: 'Restrained echo punctuation while preserving kick/snare definition',
+        roomy_lift: 'A modest room lift for a build or fill; keep transients clear',
+        close_dry: 'Tight dry contrast, natural drums up front',
+      }
+    : timbres;
+}
 
 export function rigRequest(
+  role: Musician,
   model: string,
   context: unknown,
   plan: Record<string, Answer>,
@@ -44,10 +58,12 @@ export function rigRequest(
           bar === 1 ? effect : effect + 'Bar2',
           choice(
             `BAR ${bar}, chosen timbre: ${plan['timbreBar' + bar].choice}. Should your ${effect} be engaged? ${colors[effect]} Judge its specific fit to this timbre, instrument, style and arc; the other pedals are independent.`,
-            {
-              off: 'Bypass: this particular color does not serve this bar',
-              on: 'Engage: this particular color serves this bar',
-            },
+            !availableEffects(role).includes(effect)
+              ? { off: 'This effect is not part of this instrument rig' }
+              : {
+                  off: 'Bypass: this particular color does not serve this bar',
+                  on: 'Engage: this particular color serves this bar',
+                },
           ),
         ]),
       ),

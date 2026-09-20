@@ -1,6 +1,7 @@
 import type { Musician, Snapshot } from '../shared/music.js';
 import { scaleIntervals } from '../shared/performance.js';
 import { listeningState } from './listening.js';
+import { chapterAt } from '../shared/concept.js';
 
 export function musicalContext(room: Snapshot, role: Musician) {
   const heard = listeningState(room, role);
@@ -15,6 +16,13 @@ export function musicalContext(room: Snapshot, role: Musician) {
   ).length;
   return {
     ...heard,
+    sonicConcept: room.director?.concept?.concept,
+    sharedChart: chapterAt(
+      room.director?.concept,
+      (Date.now() - (room.themeStartedAt ?? room.startedAt)) / 1000,
+    ),
+    currentTheme: room.prompt,
+    soloInvitation: room.soloInvitation,
     ownDirection: own?.performance ?? null,
     grooveMemory:
       own?.notes.map(({ beat, midi, duration, velocity, hand, string }) => ({

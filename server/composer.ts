@@ -33,7 +33,8 @@ import {
   type Performance,
 } from '../shared/performance.js';
 import { drumRequest, readDrums } from './drummer.js';
-import { rigRequest, timbres } from './rig.js';
+import { rigRequest, timbresFor } from './rig.js';
+import { continuingSolo, continuingPhrase, soloPlanRequest, sampleSoloLength } from './solo.js';
 
 export type Decide = (request: JevRequest) => Promise<Trace>;
 export const drumPitches: Record<string, string> = {
@@ -78,9 +79,18 @@ export function phrasePlanRequest(
 ): JevRequest {
   const own = room.frames.at(-1)?.parts.find((p) => p.role === role);
   const releaseDue = (own?.performance?.tensionPhrases ?? 0) >= 2;
+  const soloContinues = continuingSolo(own);
+  const phraseContinues = continuingPhrase(own);
+  const invitedSolo = room.soloInvitation?.role === role && room.soloInvitation.required;
+  const entryDue =
+    role === 'keys' && (!own?.performance?.hasPlayed || (own.performance.silentTurns ?? 0) >= 2);
   const questions: Record<string, ChoiceQuestion> = {
+    phraseBars: choice(
+      'Choose the length of this whole musical idea, in bars. Two bars is a compact riff; four to eight allow question/answer and development; twelve allow a longer journey. These are fresh connected sections, not repeating one two-bar loop. Choose from the mood and use varied lengths.',
+      phraseContinues ? [String(own!.performance!.phraseBars)] : ['2', '4', '6', '8', '12'],
+    ),
     style: choice(
-      'Choose a stylistic branch for your phrase. Develop the current feel rather than switching genre every turn. Start from the prompt, then let the heard band lead.',
+      'Choose a stylistic branch for your phrase. When sharedChart moves to a new section, introduce your instrument-specific instruction and style through a small audible change while responding to performed peers. Between transitions, develop the current feel. Start from the sonic concept, then let heard music and the loose shared chart guide the journey.',
       styles,
     ),
     arc: choice(
@@ -125,10 +135,18 @@ export function phrasePlanRequest(
       ['0', '0.125', '0.25', '0.333333', '0.5', '0.75', '1', '1.5', '2'],
     ),
     action: choice(
-      'Compose your next two-bar phrase. Solo foregrounds a singable melody; support ends a solo; vary/develop continue it; space is sparse; rest is silence; resolve is your own ending. Hold explicitly repeats your exact prior notes, only when offered.',
-      actions.filter(
-        (a) => a !== 'hold' || (own && !releaseDue && (own.performance?.motifAge ?? 0) < 3),
-      ),
+      'Compose your next two-bar phrase. Solo enters a dedicated 8–32-bar melodic composition with fresh phrases every two bars. Attend to soloInvitation urgency: the audience needs a proper featured melody, not endless support. A continuing committed solo must develop until its chosen length is complete. Support ends a finished solo; space is sparse; rest is silence. Hold explicitly repeats accompaniment, never a solo.',
+      invitedSolo
+        ? ['solo']
+        : soloContinues || phraseContinues
+          ? ['develop', 'vary']
+          : actions.filter(
+              (a) =>
+                (!entryDue || !['rest', 'hold'].includes(a)) &&
+                (!room.themeTransition || !['rest', 'hold'].includes(a)) &&
+                !(own?.solo && a === 'hold') &&
+                (a !== 'hold' || (own && !releaseDue && (own.performance?.motifAge ?? 0) < 3)),
+            ),
     ),
     intent: choice(
       'Choose how to keep the music compelling. A groove needs familiar anchors and a payoff. Develop one detail, answer a peer, or resolve tension; do not replace every note every turn.',
@@ -253,8 +271,21 @@ export function phrasePlanRequest(
       'Choose the sonic character of bar ' +
         bar +
         '. Effects should be used generously as a musical voice; keep a color while it serves the groove or change it to answer, build or release. A separate decision will choose every pedal after seeing this intention.',
-      timbres,
+      timbresFor(role),
     );
+  if (phraseContinues && !invitedSolo) {
+    // Continue an established idea; new notes and rhythm do not require a new theme.
+    for (const [key, value] of Object.entries({
+      style: own!.performance!.style,
+      root: String(own!.tonalIntent?.root ?? room.initialRoot ?? 2),
+      mode: own!.tonalIntent?.mode ?? room.initialMode ?? 'dorian',
+    }))
+      questions[key] = choice(
+        `Continue your committed musical phrase: retain its ${key} while developing fresh notes.`,
+        [value],
+      );
+    delete questions.intent.criteria.new_theme;
+  }
   return {
     model,
     state: {
@@ -287,6 +318,13 @@ export function eventRequest(
     } as Record<string, number[]>
   )[plan.mode.choice];
   const root = Number(plan.root.choice);
+  const own = room.frames.at(-1)?.parts.find((p) => p.role === role);
+  const soloMode = !!plan.soloBars;
+  const phraseContinues = continuingPhrase(own);
+  const entryDue =
+    role === 'keys' &&
+    attack === 0 &&
+    (!own?.performance?.hasPlayed || (own.performance.silentTurns ?? 0) >= 2);
   const last = draft.at(-1)?.midi;
   const describe = (midi: number) => {
     const interval = (midi - root + 120) % 12;
@@ -342,7 +380,9 @@ export function eventRequest(
   const questions: Record<string, ChoiceQuestion> = {
     sound: choice(
       'Play this next attack or take an intentional rest? A solo should sing and a bass should establish a groove. This is an actual musical event, not an unused slot.',
-      { play: 'Sound notes now', rest: 'Rest and advance time without notes' },
+      entryDue || soloMode
+        ? { play: 'Enter audibly now; choose your actual notes' }
+        : { play: 'Sound notes now', rest: 'Rest and advance time without notes' },
     ),
     advance: choice(
       `After this attack at beat ${beat}, how many beats until your next attack? Pick the actual interval: rests arise when the interval exceeds held duration. ${Number(plan.attacks.choice) - attack - 1} further attacks are planned in ${8 - beat} remaining beats; mix short runs with held targets and leave an intentional ending.`,
@@ -379,6 +419,7 @@ export function eventRequest(
                 '5': 'Use all five fingers for a full chord',
               },
       );
+    if (entryDue || soloMode) delete questions.rightCount.criteria['0'];
     for (const hand of ['left', 'right'])
       for (let voice = 0; voice < 5; voice++) {
         const active = draft.filter((n) => n.hand === hand && n.beat + n.duration > beat + 0.00001);
@@ -479,6 +520,52 @@ export function eventRequest(
       `Bend amount in semitones for this note at beat ${beat}. Zero means no bend.`,
       ['-2', '-1', '0', '1', '2'],
     );
+  if (soloMode) {
+    const remaining = Number(plan.attacks.choice) - attack - 1;
+    const middle = attack === Math.floor(Number(plan.attacks.choice) / 2) - 1;
+    const minimum = Math.max(0.125, remaining === 1 ? 6.5 - beat : middle ? 3.5 - beat : 0.125);
+    const maximum = remaining > 0 ? 7.75 - beat - (remaining - 1) * 0.125 : 8 - beat;
+    const intervals = [...new Set([...durations, Number(minimum.toFixed(6))])].filter(
+      (v) => v >= minimum - 0.00001 && v <= maximum + 0.00001,
+    );
+    if (remaining > 0)
+      questions.advance.criteria = Object.fromEntries(
+        intervals.map((v) => [
+          String(v),
+          `Next attack after ${v} beats; leave room for the full melodic phrase`,
+        ]),
+      );
+    const melody = questions[role === 'keys' ? 'right0' : 'pitch'];
+    const oldMelody = own?.notes.filter((n) => role !== 'keys' || n.hand === 'right') ?? [];
+    // Preserve recognizable anchors, but new solo statements cannot repeat the old groove.
+    if (melody && [0, 2, 4].includes(attack) && Object.keys(melody.criteria).length > 2)
+      delete melody.criteria[String(oldMelody[attack]?.midi)];
+    if (melody && Object.keys(melody.criteria).length > 2 && draft.length)
+      delete melody.criteria[
+        String(draft.filter((n) => role !== 'keys' || n.hand === 'right').at(-1)?.midi)
+      ];
+    if (
+      attack === 1 &&
+      Object.keys(questions.advance.criteria).length > 1 &&
+      oldMelody.length > 2
+    ) {
+      const oldInterval = Number((oldMelody[2].beat - oldMelody[1].beat).toFixed(6));
+      delete questions.advance.criteria[String(oldInterval)];
+    }
+    const melodyDraft = draft.filter((n) => role !== 'keys' || n.hand === 'right');
+    if (melodyDraft.length >= 3 && Object.keys(questions.advance.criteria).length > 1) {
+      const latest = melodyDraft.slice(-3);
+      const a = Number((latest[1].beat - latest[0].beat).toFixed(6));
+      const b = Number((latest[2].beat - latest[1].beat).toFixed(6));
+      if (a === b) delete questions.advance.criteria[String(a)];
+    }
+  }
+  if (phraseContinues && !soloMode && [1, 3].includes(attack)) {
+    const melody = questions[role === 'keys' ? 'right0' : 'pitch'];
+    const previousMelody = own?.notes.filter((n) => role !== 'keys' || n.hand === 'right') ?? [];
+    if (melody && Object.keys(melody.criteria).length > 2)
+      delete melody.criteria[String(previousMelody[attack]?.midi)];
+  }
   return {
     model,
     state: {
@@ -627,87 +714,157 @@ export async function composePhrase(
   decide: Decide,
 ): Promise<Part> {
   const previous = room.frames.at(-1)?.parts.find((p) => p.role === role);
-  const plan = await decide(phrasePlanRequest(role, room, phrase, model));
-  if (plan.source !== 'jev') throw new Error('Phrase plan unavailable');
-  const rig = await decide(rigRequest(model, context(role, room, phrase), plan.answers));
-  if (rig.source !== 'jev') throw new Error('Rig decisions unavailable');
-  const d = toDecision({ ...plan.answers, ...rig.answers });
-  d.degrees = [];
-  d.development = plan.answers.intent.choice === 'new_theme' ? 'new_theme' : 'answer';
-  const performance: Performance = {
-    style: plan.answers.style.choice as Performance['style'],
-    arc: plan.answers.arc.choice as Performance['arc'],
-    palette: plan.answers.palette.choice as Performance['palette'],
-    chord: plan.answers.chord.choice as Performance['chord'],
-    texture: plan.answers.texture?.choice ?? 'groove',
-    tensionPhrases: ['build', 'peak'].includes(plan.answers.arc.choice)
-      ? (previous?.performance?.tensionPhrases ?? 0) + 1
-      : 0,
-    motifAge: d.action === 'hold' ? (previous?.performance?.motifAge ?? 0) + 1 : 0,
-    timbres: [plan.answers.timbreBar1.choice, plan.answers.timbreBar2.choice],
-  };
-  const remember = (part: Part) => {
-    const fingerprint = (notes: Note[]) =>
-      JSON.stringify(notes.map(({ provenance: _provenance, ...note }) => note));
-    part.performance!.motifAge =
-      previous && fingerprint(part.notes) === fingerprint(previous.notes)
-        ? (previous.performance?.motifAge ?? 0) + 1
-        : 0;
-    return part;
-  };
-  const part: Part = {
-    role,
-    decision: d,
-    solo:
-      d.action === 'solo' || (['vary', 'develop', 'hold'].includes(d.action) && !!previous?.solo),
-    repeated: 0,
-    notes: [],
-    source: 'jev',
-    phraseFormat: 'events-v1',
-    tonalIntent: { root: Number(plan.answers.root.choice), mode: plan.answers.mode.choice },
-    performance,
-    effectsTimeline: [0, 4].map((beat) => ({
-      beat,
-      effects: Object.fromEntries(
-        fxNames.map((effect) => [
-          effect,
-          rig.answers[beat === 0 ? effect : effect + 'Bar2'].choice === 'on',
-        ]),
-      ) as Decision['effects'],
-      traceId: rig.id,
-    })),
-  };
-  if (d.action === 'rest') return remember(part);
-  if (d.action === 'hold' && previous)
-    return remember({
-      ...part,
-      notes: structuredClone(previous.notes),
-      repeated: previous.repeated + 1,
-    });
-  if (role === 'drums') {
-    for (let start = 0; start < 8; start += Math.min(4, 16 / Number(plan.answers.pulse.choice))) {
-      const trace = await decide(
-        drumRequest(model, context(role, room, phrase), plan.answers, start, part.notes),
-      );
-      if (trace.source !== 'jev') throw new Error('Drum decisions unavailable');
-      part.notes = readDrums(trace, plan.answers, start, part.notes);
-    }
-    return remember(part);
+  const rawPlan = await decide(phrasePlanRequest(role, room, phrase, model));
+  if (rawPlan.source !== 'jev') throw new Error('Phrase plan unavailable');
+  const plan = { ...rawPlan, answers: structuredClone(rawPlan.answers) };
+  if (!continuingPhrase(previous)) {
+    const lengthTrace = { ...rawPlan, answers: { bars: rawPlan.answers.phraseBars } };
+    const length = sampleSoloLength(lengthTrace, random(room.seed + phrase * 271 + hash(role)));
+    rawPlan.appliedAnswers = {
+      ...structuredClone(rawPlan.answers),
+      phraseBars: lengthTrace.appliedAnswers!.bars,
+    };
+    rawPlan.selectionMethod = 'seeded-model-distribution';
+    plan.answers.phraseBars = { ...lengthTrace.appliedAnswers!.bars, choice: String(length) };
   }
-  let beat = Number(plan.answers.entry.choice);
-  const rng = random(room.seed + phrase * 197 + hash(role));
-  const attacks = Math.min(maxAttacks, Number(plan.answers.attacks.choice));
-  for (let attack = 0; attack < attacks && beat < 7.9999; attack++) {
-    const events = await decide(
-      eventRequest(role, room, phrase, model, plan.answers, beat, part.notes, attack),
+  const soloMode =
+    (role === 'guitar' || role === 'keys') &&
+    (plan.answers.action.choice === 'solo' || continuingSolo(previous));
+  let soloBars: number | undefined;
+  if (soloMode) {
+    const solo = await decide(
+      soloPlanRequest(role, room, model, plan.answers, context(role, room, phrase)),
     );
-    if (events.source !== 'jev') throw new Error('Note decisions unavailable');
-    applyPerformanceChoices(events, rng);
-    part.notes = readEvents(role, events, beat, d, part.notes);
-    beat = Math.round((beat + Number(events.appliedAnswers!.advance.choice)) * 1e6) / 1e6;
-    // The remaining phrase is silence if all twelve attack slots were used early.
-    if (8 - beat < 0.12499) break;
+    if (solo.source !== 'jev') throw new Error('Solo plan unavailable');
+    soloBars = sampleSoloLength(solo, random(room.seed + phrase * 313 + hash(role)));
+    Object.assign(plan.answers, solo.appliedAnswers);
+    plan.answers.soloBars = solo.appliedAnswers!.bars;
   }
-  validateNotes(part.notes, role);
-  return remember(part);
+  // Rig and note decisions share the accepted direction but do not depend on each
+  // other. Let them compose concurrently, then accept both atomically.
+  const rigPending = decide(
+    rigRequest(role, model, context(role, room, phrase), plan.answers),
+  ).catch(() => null);
+  try {
+    const d = toDecision(plan.answers);
+    d.degrees = [];
+    d.development = plan.answers.intent.choice === 'new_theme' ? 'new_theme' : 'answer';
+    const performance: Performance = {
+      style: plan.answers.style.choice as Performance['style'],
+      arc: plan.answers.arc.choice as Performance['arc'],
+      palette: plan.answers.palette.choice as Performance['palette'],
+      chord: plan.answers.chord.choice as Performance['chord'],
+      texture: plan.answers.texture?.choice ?? 'groove',
+      tensionPhrases: ['build', 'peak'].includes(plan.answers.arc.choice)
+        ? (previous?.performance?.tensionPhrases ?? 0) + 1
+        : 0,
+      motifAge: d.action === 'hold' ? (previous?.performance?.motifAge ?? 0) + 1 : 0,
+      timbres: [plan.answers.timbreBar1.choice, plan.answers.timbreBar2.choice],
+      soloBars,
+      soloPhrases: soloMode
+        ? (continuingSolo(previous) ? (previous!.performance!.soloPhrases ?? 0) : 0) + 1
+        : 0,
+      soloStage: soloMode
+        ? continuingSolo(previous)
+          ? 'Developing the melody'
+          : 'New melodic statement'
+        : undefined,
+      phraseBars: soloMode ? soloBars : Number(plan.answers.phraseBars.choice),
+      phraseChunks: (soloMode ? continuingSolo(previous) : continuingPhrase(previous))
+        ? (previous?.performance?.phraseChunks ?? 0) + 1
+        : 1,
+      phraseMotif: (soloMode ? continuingSolo(previous) : continuingPhrase(previous))
+        ? previous?.performance?.phraseMotif
+        : undefined,
+    };
+    const remember = async (part: Part) => {
+      const rig = await rigPending;
+      if (!rig || rig.source !== 'jev') throw new Error('Rig decisions unavailable');
+      part.effectsTimeline = [0, 4].map((beat) => ({
+        beat,
+        effects: Object.fromEntries(
+          fxNames.map((effect) => [
+            effect,
+            rig.answers[beat === 0 ? effect : effect + 'Bar2'].choice === 'on',
+          ]),
+        ) as Decision['effects'],
+        traceId: rig.id,
+      }));
+      part.decision.effects = part.effectsTimeline[0].effects;
+      const fingerprint = (notes: Note[]) =>
+        JSON.stringify(notes.map(({ provenance: _provenance, ...note }) => note));
+      part.performance!.motifAge =
+        previous && fingerprint(part.notes) === fingerprint(previous.notes)
+          ? (previous.performance?.motifAge ?? 0) + 1
+          : 0;
+      part.performance!.hasPlayed = !!part.notes.length || !!previous?.performance?.hasPlayed;
+      part.performance!.phraseMotif ??= part.notes
+        .slice(0, 16)
+        .map(({ midi, beat, duration }) => ({ midi, beat, duration }));
+      part.performance!.silentTurns = part.notes.length
+        ? 0
+        : (previous?.performance?.silentTurns ?? 0) + 1;
+      return part;
+    };
+    const part: Part = {
+      role,
+      decision: d,
+      solo:
+        role === 'guitar' || role === 'keys'
+          ? soloMode
+          : d.action === 'solo' ||
+            (['vary', 'develop', 'hold'].includes(d.action) && !!previous?.solo),
+      repeated: 0,
+      notes: [],
+      source: 'jev',
+      phraseFormat: 'events-v1',
+      tonalIntent: { root: Number(plan.answers.root.choice), mode: plan.answers.mode.choice },
+      performance,
+    };
+    if (d.action === 'rest') return remember(part);
+    if (d.action === 'hold' && previous)
+      return remember({
+        ...part,
+        notes: structuredClone(previous.notes),
+        repeated: previous.repeated + 1,
+      });
+    if (role === 'drums') {
+      for (let start = 0; start < 8; start += Math.min(4, 16 / Number(plan.answers.pulse.choice))) {
+        const trace = await decide(
+          drumRequest(model, context(role, room, phrase), plan.answers, start, part.notes),
+        );
+        if (trace.source !== 'jev') throw new Error('Drum decisions unavailable');
+        part.notes = readDrums(trace, plan.answers, start, part.notes);
+      }
+      return remember(part);
+    }
+    let beat = Number(plan.answers.entry.choice);
+    const rng = random(room.seed + phrase * 197 + hash(role));
+    const attacks = Math.min(maxAttacks, Number(plan.answers.attacks.choice));
+    for (let attack = 0; attack < attacks && beat < 7.9999; attack++) {
+      const events = await decide(
+        eventRequest(role, room, phrase, model, plan.answers, beat, part.notes, attack),
+      );
+      if (events.source !== 'jev') throw new Error('Note decisions unavailable');
+      applyPerformanceChoices(events, rng);
+      if (soloMode)
+        for (const note of part.notes) {
+          if (
+            (role !== 'keys' || note.hand === 'right') &&
+            note.beat < beat &&
+            note.beat + note.duration > beat
+          )
+            note.duration = beat - note.beat;
+        }
+      part.notes = readEvents(role, events, beat, d, part.notes);
+      beat = Math.round((beat + Number(events.appliedAnswers!.advance.choice)) * 1e6) / 1e6;
+      // The remaining phrase is silence if all twelve attack slots were used early.
+      if (8 - beat < 0.12499) break;
+    }
+    validateNotes(part.notes, role);
+    return remember(part);
+  } finally {
+    // Account for every started request even when a note call rejects the chunk.
+    await rigPending;
+  }
 }

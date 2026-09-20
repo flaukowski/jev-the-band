@@ -1,9 +1,9 @@
 {
   "name": "jev-the-band",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
-  "description": "Five decision models. One improvising band.",
+  "description": "Six decision personas. One evolving live band.",
   "engines": {
     "node": ">=22"
   },
@@ -18,7 +18,10 @@
     "smoke:performance": "tsx scripts/smoke-performance.ts",
     "audit:prompts": "tsx scripts/audit-prompts.ts",
     "audit:groove": "tsx scripts/audit-groove.ts",
-    "format": "prettier --write src server shared scripts tests *.json *.ts"
+    "audit:director": "tsx scripts/audit-director.ts",
+    "format": "prettier --write src server shared scripts tests *.json *.ts",
+    "audit:solos": "tsx scripts/audit-solos.ts",
+    "generate:audience": "tsx scripts/generate-audience.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.0",

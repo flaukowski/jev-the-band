@@ -24,20 +24,33 @@ import {
   musicians,
   noteNames,
   personas,
+  decisionPersonas,
   roles,
   type Frame,
   type Role,
+  type DecisionRole,
   type Snapshot,
   type Trace,
 } from '../shared/music';
 import { BandAudio } from './audio';
 import { Mixer } from './Mixer';
+import { MasterDesk } from './MasterDesk';
+import { ConceptCard } from './ConceptCard';
 import './styles.css';
 
 const Stage = lazy(() => import('./Stage').then((module) => ({ default: module.Stage })));
 
 const API = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const icons = { guitar: Guitar, bass: Guitar, keys: Piano, drums: Drum, lights: LampDesk };
+const patchLabel = (patch: string) =>
+  ({
+    piano: 'Piano',
+    rhodes: 'Rhodes',
+    organ: 'Organ',
+    analog: 'Analog synth',
+    pad: 'Synth pad',
+    bell: 'Bell keys',
+  })[patch] ?? patch;
 const elapsedLabel = (seconds: number) =>
   `${Math.floor(Math.max(0, seconds) / 60)
     .toString()
@@ -51,6 +64,7 @@ export default function App() {
   const [hostRequired, setHostRequired] = useState(false);
   const [controller, setController] = useState('');
   const [prompt, setPrompt] = useState('Somewhere between the last train and the sunrise');
+  const [nextPrompt, setNextPrompt] = useState('');
   const [chosenMode, setChosenMode] = useState<'live' | 'rehearsal' | null>(null);
   const [healthReady, setHealthReady] = useState(false);
   const mode = chosenMode ?? (liveAvailable ? 'live' : 'rehearsal');
@@ -58,9 +72,10 @@ export default function App() {
   const [error, setError] = useState('');
   const [sound, setSound] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [referenceRoom, setReferenceRoom] = useState('');
   const [volume, setVolume] = useState(0.6);
   const [consoleOpen, setConsoleOpen] = useState(false);
-  const [selected, setSelected] = useState<Role | 'all'>('all');
+  const [selected, setSelected] = useState<DecisionRole | 'all'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [offset, setOffset] = useState(0);
@@ -73,6 +88,10 @@ export default function App() {
   const currentTime = now + offset;
   const frame: Frame | null = room?.frames.filter((f) => f.at <= currentTime).at(-1) ?? null;
   const activeFrame = running ? frame : null;
+  const themeTitle = activeFrame?.themeTitle ?? room?.title;
+  const activeCue = room?.setlist?.find((c) => c.id === activeFrame?.themeId);
+  const queuedThemes =
+    room?.setlist?.filter((c) => c.atFrame > (activeFrame?.id ?? -1) && c.id !== room.id) ?? [];
   const seconds = room ? Math.min(((room.endedAt ?? currentTime) - room.startedAt) / 1000, 600) : 0;
   const traces = (room?.traces ?? [])
     .filter((t) => selected === 'all' || t.role === selected)
@@ -137,6 +156,22 @@ export default function App() {
     }
   }, [room?.id, room?.frames, room?.status]);
   useEffect(() => {
+    if (!running || room.mode !== 'live' || referenceRoom !== room.id || !sound) return;
+    const timer = window.setInterval(() => {
+      const levels = audio.current.referenceLevels();
+      if (levels)
+        void fetch(`${API}/api/room/levels`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
+          },
+          body: JSON.stringify({ roomId: room.id, levels }),
+        }).catch(() => {});
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [running, room?.id, room?.mode, referenceRoom, sound, controller]);
+  useEffect(() => {
     if (!about) return;
     const previous = document.activeElement as HTMLElement | null;
     const keydown = (event: KeyboardEvent) => {
@@ -198,6 +233,7 @@ export default function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'The jam could not start.');
       setRoom(data);
+      setReferenceRoom(data.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The jam could not start.');
     } finally {
@@ -214,6 +250,28 @@ export default function App() {
       if (!response.ok) throw new Error('Host access is required to end this jam.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not end jam');
+    }
+  }
+  async function queueTheme() {
+    if (busy || !room || !nextPrompt.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`${API}/api/room/queue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
+        },
+        body: JSON.stringify({ roomId: room.id, prompt: nextPrompt }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not queue the next theme.');
+      setNextPrompt('');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not queue theme.');
+    } finally {
+      setBusy(false);
     }
   }
   function exportTrace() {
@@ -252,7 +310,7 @@ export default function App() {
           <span className="logo-star">✳</span>
         </a>
         <div className="header-note">
-          FIVE MINDS.
+          SIX MINDS.
           <br />
           ONE LONG, STRANGE JAM.
         </div>
@@ -298,18 +356,74 @@ export default function App() {
               {(running ? room.mode : mode) === 'rehearsal'
                 ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
                 : running
-                  ? 'They listen to one another. The prompt is just the first spark.'
+                  ? 'Send the next theme whenever inspiration hits. An eight-bar lead-in begins at the next phrase boundary.'
                   : 'A title, a feeling, or a whole story. See where they take it.'}
             </p>
           </div>
           <div className="prompt-form">
             {running ? (
-              <div className="playing-controls">
-                <span className="current-prompt">“{room?.title}”</span>
-                <button className="end-button" onClick={stop}>
-                  <Square size={15} /> End jam
-                </button>
-              </div>
+              <>
+                <div className="playing-controls">
+                  <span className="current-prompt">“{themeTitle}”</span>
+                  <button className="end-button" onClick={stop}>
+                    <Square size={15} /> End jam
+                  </button>
+                </div>
+                {room.mode === 'live' && (
+                  <form
+                    className="next-theme"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void queueTheme();
+                    }}
+                  >
+                    <label htmlFor="next-theme">Where should they go next?</label>
+                    <textarea
+                      id="next-theme"
+                      aria-label="Next jam theme"
+                      value={nextPrompt}
+                      rows={2}
+                      maxLength={4000}
+                      onChange={(event) => setNextPrompt(event.target.value)}
+                      placeholder="A new title, mood, or direction…"
+                    />
+                    <button
+                      className="start-button"
+                      type="submit"
+                      disabled={
+                        busy ||
+                        !nextPrompt.trim() ||
+                        queuedThemes.length >= 4 ||
+                        room.status !== 'playing'
+                      }
+                    >
+                      {busy ? 'Queueing…' : 'Queue next · 8-bar lead-in'}
+                    </button>
+                    {queuedThemes.length > 0 && (
+                      <ol className="theme-queue" aria-label="Queued themes">
+                        {queuedThemes.map((cue) => (
+                          <li key={cue.id}>
+                            <b>{cue.prompt.split('\n')[0].slice(0, 80)}</b>
+                            <span>
+                              {Math.max(
+                                0,
+                                Math.ceil(
+                                  (cue.atFrame - (activeFrame?.id ?? 0)) * 2 -
+                                    (activeFrame
+                                      ? ((currentTime - activeFrame.at) * activeFrame.bpm) / 240000
+                                      : 0),
+                                ),
+                              )}{' '}
+                              bars to transition ·{' '}
+                              {cue.director?.status === 'planning' ? 'shaping concept' : 'queued'}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </form>
+                )}
+              </>
             ) : (
               <>
                 <label className="sr-only" htmlFor="jam-prompt">
@@ -402,6 +516,12 @@ export default function App() {
                   : 'Your prompt sets the scene. Each player makes real Jev decisions as the jam unfolds.'}
           </span>
         </div>
+        <ConceptCard
+          report={activeCue?.director ?? room?.director}
+          elapsed={
+            (currentTime - (activeFrame?.themeStartedAt ?? room?.startedAt ?? currentTime)) / 1000
+          }
+        />
         <div className={`performance-layout ${consoleOpen ? 'with-console' : ''}`}>
           <div className="performance-main">
             <div className="stage-wrap" ref={stage}>
@@ -445,7 +565,7 @@ export default function App() {
                         ? 'Until the next one.'
                         : 'A little spark. A whole new direction.'}
                   </span>
-                  <p>{running ? room?.title : 'Four musicians. One lighting artist. All ears.'}</p>
+                  <p>{running ? themeTitle : 'Four musicians. Lights. Sound. All ears.'}</p>
                 </div>
                 {(running || sound) && (
                   <button
@@ -532,15 +652,34 @@ export default function App() {
                       {part?.solo && <span className="solo-tag">SOLO</span>}
                     </h2>
                     <p>{person.instrument}</p>
+                    {role === 'keys' && part && (
+                      <div className="keyboard-patches" aria-label="June keyboard sounds">
+                        <span>LH · {patchLabel(part.decision.left)}</span>
+                        <span>RH · {patchLabel(part.decision.right)}</span>
+                      </div>
+                    )}
+                    {part?.performance?.phraseBars && (
+                      <div className="phrase-progress">
+                        {part.solo ? 'Melodic solo' : 'Musical phrase'} · bars{' '}
+                        {Math.max(1, (part.performance.phraseChunks ?? 1) * 2 - 1)}–
+                        {(part.performance.phraseChunks ?? 1) * 2} / {part.performance.phraseBars}
+                      </div>
+                    )}
                     <div className="player-bottom">
                       <span>
-                        {lit
-                          ? role === 'lights'
-                            ? activeFrame?.lighting.wash
-                            : part?.continued || part?.decision.action === 'hold'
-                              ? 'Holding the thread'
-                              : part?.decision.action
-                          : 'Waiting for a spark'}
+                        {part && !part.notes.length
+                          ? part.source === 'fallback'
+                            ? 'Retrying entry'
+                            : part.decision.action === 'rest'
+                              ? 'Taking a breath'
+                              : 'Listening · no notes'
+                          : lit
+                            ? role === 'lights'
+                              ? activeFrame?.lighting.wash
+                              : part?.continued || part?.decision.action === 'hold'
+                                ? 'Holding the thread'
+                                : part?.decision.action
+                            : 'Waiting for a spark'}
                       </span>
                       <div className={`meter ${lit && !reduced ? 'moving' : ''}`}>
                         {Array.from({ length: 9 }, (_, j) => (
@@ -563,6 +702,15 @@ export default function App() {
               frame={activeFrame}
               beat={frame ? ((currentTime - frame.at) * frame.bpm) / 60000 : 0}
             />
+            <MasterDesk
+              audio={audio.current}
+              frame={activeFrame}
+              referenceActive={referenceRoom === room?.id && sound}
+              canReference={
+                running && room.mode === 'live' && sound && (!hostRequired || !!controller)
+              }
+              onReference={() => setReferenceRoom(room!.id)}
+            />
             <details className="composition-contract">
               <summary>What does Jev actually control?</summary>
               <p>
@@ -573,13 +721,14 @@ export default function App() {
                 hit/rest across two full bars. Samples ring naturally.
               </p>
               <p>
-                Each player chooses a tonal intention, musical role and any combination of seven
-                independent pedals for each bar. Your mixer overrides take priority. Players take
-                turns revising phrases and hear only notes already played by peers. The harness
-                keeps time, enforces instrument limits, asks for a release after sustained building,
-                and caps the jam at ten minutes. Live phrases use no preset licks, voicings or drum
-                patterns. Creative pitch choices use Jev’s probabilities, more conservatively in
-                settled passages; the trace shows raw answers and applied choices.
+                Each player chooses a tonal intention, musical role and independent pedals for each
+                bar. Guitar, bass and keys have seven colors; Kit has a restrained saturation, echo
+                and room rig that preserves drum attacks. Your mixer overrides take priority.
+                Players take turns revising phrases and hear only notes already played by peers. The
+                harness keeps time, enforces instrument limits, asks for a release after sustained
+                building, and caps the jam at ten minutes. Live phrases use no preset licks,
+                voicings or drum patterns. Creative pitch choices use Jev’s probabilities, more
+                conservatively in settled passages; the trace shows raw answers and applied choices.
               </p>
               <p>
                 The instrument demo makes no Jev calls and uses three built-in motifs with
@@ -625,14 +774,14 @@ export default function App() {
                 >
                   All
                 </button>
-                {roles.map((r) => (
+                {([...roles, 'engineer', 'host'] as DecisionRole[]).map((r) => (
                   <button
                     key={r}
                     className={selected === r ? 'active' : ''}
                     onClick={() => setSelected(r)}
-                    style={{ '--player-color': personas[r].color } as React.CSSProperties}
+                    style={{ '--player-color': decisionPersonas[r].color } as React.CSSProperties}
                   >
-                    {personas[r].name}
+                    {decisionPersonas[r].name}
                   </button>
                 ))}
               </div>
@@ -703,11 +852,13 @@ export default function App() {
             <h2 id="about-title">
               One spark.
               <br />
-              Five points of view.
+              Six points of view.
             </h2>
             <p>
               Rook, Moss, June, and Kit choose musical gestures through separate Jev decision calls.
-              Lux reacts to music already played and shapes the lights.
+              Lux shapes the lights. Patch listens to measured channel levels and balances the
+              sound. One initial LLM brief turns your prompt into a sonic concept and a loose
+              section map; the musicians still choose the actual notes through Jev.
             </p>
             <p>
               Jev receives a delayed record of notes already played, never a peer’s unplayed score.
@@ -749,7 +900,7 @@ function TraceCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const p = personas[trace.role];
+  const p = decisionPersonas[trace.role];
   const choices = Object.entries(trace.appliedAnswers ?? trace.answers)
     .filter(([key]) => !key.startsWith('note'))
     .slice(0, 5);

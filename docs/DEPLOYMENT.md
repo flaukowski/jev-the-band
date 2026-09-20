@@ -18,11 +18,14 @@ Use a reverse proxy with HTTPS and streaming enabled; disable SSE buffering. Con
 |---|---|
 | `OPENROUTER_API_KEY` | Dedicated server-side production key |
 | `JEV_MODEL` | Version pin; initial default `typesafe/jev-1.13` |
+| `DIRECTOR_MODEL` | Optional per-theme sonic brief; default `openai/gpt-5.6-luna` |
+| `DIRECTOR_ENABLED` | Set `0` to skip the LLM brief and use the raw theme |
 | `HOST` | `0.0.0.0` for a container; local default is `127.0.0.1` |
 | `PORT` | Service port; default 4310 |
 | `CONTROLLER_TOKEN` | At least 24 characters for public binding; required on all POST actions |
 | `STAGE_ORIGIN` | Exact HTTPS frontend origin, including scheme; set for public hosting |
-| `MAX_JEV_REQUESTS` | Hard request ceiling per jam; maximum 1200 |
+| `MAX_JEV_REQUESTS` | Hard request ceiling per jam; default and maximum 6000, lower values respected |
+| `ELEVENLABS_API_KEY` | Optional offline audience-bank generation only; unnecessary for runtime playback |
 
 Enter the host token in the stage's host-access field. It is kept in page memory, never localStorage or an export. Spectators can join without this token; they cannot start or end performances. Read routes reveal the user-submitted prompt and recent musical decisions; do not enter confidential material in a public room.
 
