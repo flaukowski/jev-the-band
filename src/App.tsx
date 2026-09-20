@@ -83,11 +83,14 @@ export default function App() {
   const [about, setAbout] = useState(false);
   const audio = useRef(new BandAudio());
   const stage = useRef<HTMLDivElement>(null);
+  // The stage reads the same post-fader meters as the soundboard, so movement follows what is heard.
+  const levels = useRef(() => audio.current.levels()).current;
   const running = !!room && room.status !== 'ended';
   const effectiveMode = running ? room.mode : mode;
   const currentTime = now + offset;
   const frame: Frame | null = room?.frames.filter((f) => f.at <= currentTime).at(-1) ?? null;
   const activeFrame = running ? frame : null;
+  const upcomingFrame = running ? (room?.frames.find((f) => f.at > currentTime) ?? null) : null;
   const themeTitle = activeFrame?.themeTitle ?? room?.title;
   const activeCue = room?.setlist?.find((c) => c.id === activeFrame?.themeId);
   const queuedThemes =
@@ -528,6 +531,8 @@ export default function App() {
               <Suspense fallback={<div className="stage-loading">Setting the stage…</div>}>
                 <Stage
                   frame={activeFrame}
+                  upcoming={upcomingFrame}
+                  levels={levels}
                   playing={running && !!frame}
                   reduced={reduced}
                   onSelect={selectRole}

@@ -218,11 +218,21 @@ Actions was disabled through GitHub repository settings. Workflow files remain a
 ## 2026-09-20 — Completeness audit, provider compatibility and deployment
 
 ```text
-Check: all my prompts are documented, all features requested have been implemented, also make this both typescript api compatible and openrouter, I’ll get you a typesafe key for the .env in a minute. 
+Check: all my prompts are documented, all features requested have been implemented, also make this both typescript api compatible and openrouter, I’ll get you a typesafe key for the .env in a minute.
 
-Also can you launch a separate repo investigation thread to make sure I can public open source this repo without revealing any secrets or personal info? Create a basic readme and contributing. 
+Also can you launch a separate repo investigation thread to make sure I can public open source this repo without revealing any secrets or personal info? Create a basic readme and contributing.
 
 Determine the best deployment service (railway, vercel, and ChatGPT sites all available) and deploy the current demo with an api key o will provide shortly.
 ```
 
 “typescript api” is interpreted as the direct TypeSafe API because the request specifies a TypeSafe key; application code is already TypeScript. This request authorizes hosting the demo, superseding the earlier local-only deployment boundary. Making the repository public or rewriting its existing history is a separate release step after the privacy review.
+
+## 2026-09-19 — Psychedelic realism stage pass
+
+```text
+read the spec and create a gorgeously upgrade visual pattern for this app. more psychedelic, much more realism. GPT-6-astra did extremely lazy models and visuals, your goal is to go all out, make the characters and animation have extremely visually stunning life and effects, down to the most excruciating details, responsive to the music, every decision intentional aesthetic, trippy, fun, a real digital jam experience /goal
+```
+
+## 2026-09-20 — Authorized visual integration
+
+The user authorized this separate task to review and safely merge Claude's visual PR against the latest remote `main`, preserving v0.5 and subsequent musical changes. Work is restricted to an isolated checkout; the canonical checkout and its previews on ports 5178/4310 must remain untouched. Public deployment, repository visibility changes and computer restarts are not authorized.

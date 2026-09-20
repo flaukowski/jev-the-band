@@ -53,7 +53,8 @@ Open **http://127.0.0.1:4310**. The server serves both the compiled stage and it
 - Submit another prompt during a live jam to queue a theme. An eight-bar lead-in starts at the next two-bar boundary; up to four prompts queue in order. At the shared cue, all players compose for the new direction. This explicit user cue can interrupt their phrases; the ten-minute jam limit remains.
 - A quiet audience bus crossfades ambience and occasional reactions. Patch controls its mood/level; listeners can mute it or use manual settings. The current fallback is labeled procedural room noise/soft claps. A reviewed generated sample bank and bounded generation script are supported, but no generated crowd recordings are bundled. See [Audience sound](docs/AUDIENCE.md).
 - The soundboard provides level, mute, isolation solo, pan, tone, drive amount and actual signal meters. Musical soloists are labeled LEAD in the desk; listening SOLO does not change their decisions.
-- Camera presets, orbit, zoom, reset and solo following complement animations synchronized to performed notes.
+- A psychedelic festival stage where every light, ripple and gesture is driven by performed notes, Jev's typed choices or your own mix meters: real fret positions, real key layouts, sticks that land on the beat, twelve beam cues and eight laser geometries.
+- Ten cameras, orbit, zoom, solo following, an automatic director, and a Full trip / Mellow / Clean lens control.
 - Lux combines 12 washes, 12 beam arrangements, and 8 laser choices. These are stylized virtual presets, with smooth transitions and no strobe.
 - After five minutes, increasing ending pressure asks the musicians to resolve. Two ending votes can land the jam. The server imposes a ten-minute ceiling; the live musicians choose their own ending notes.
 - One shared room broadcasts score events to all viewers. Audience count does not multiply Jev calls.
@@ -95,7 +96,8 @@ src/MasterDesk.tsx Jev/manual global mix and reference-browser controls
 src/ConceptCard.tsx Sonic concept, section map and director provenance
 src/audience.ts    Crossfading ambience/reactions and generated sample-bank support
 public/samples/   162 recordings, integrity manifest and license credits
-src/Stage.tsx      Three.js stage, players, lights, crowd
+src/Stage.tsx      Stage shell and camera desk
+src/stage/         Three.js venue: signals, IK characters, instruments, light rig, wall, crowd, particles, post
 src/App.tsx        Audience controls and live decision console
 src/main.tsx       React entrypoint
 docs/             Original prompt, design history, research, architecture

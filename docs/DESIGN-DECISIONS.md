@@ -168,3 +168,63 @@ The invitation's urgency rises with time since the last solo. At about 175 secon
 **Deadline correction from live verification:** dense simultaneous continuations exceeded the previous roughly four-second runway; a late round could also discard already-completed musicians. The first joining player now starts planning 250 ms after the opener begins. Steady-state planning starts up to two seconds before the preceding chunk, giving roughly six to nine seconds for the next chunk at supported tempos. Every peer observation still uses the actual 180 ms hearing cutoff, so a queued score is private until performed. Independent rig decisions run alongside sequential notes and both are accepted atomically. Each musician's completion time controls acceptance; a late lighting/peer response no longer invalidates a timely score. Provider failure can still cause a disclosed repeat/rest.
 
 Solo lead gates now end at the following lead attack, preserving a clear melodic voice, while keyboard left-hand comping can sustain. A third identical onset interval is excluded when valid alternatives remain. These are explicit composition/playability constraints, not model-authored notes or a claim of human listening approval.
+
+## 2026-09-19 — Psychedelic realism stage revision
+
+**User requirement:** a far more psychedelic and far more realistic stage; characters and animation with visible life down to small details; everything responsive to the music; every aesthetic decision intentional; trippy, fun, a real digital jam experience. Exact wording is in the prompt log.
+
+**Supersedes** the founding note that "low-poly geometry is an intentional prototype aesthetic" and the box-figure stage. The gig-poster interface, persona colours, no-strobe rule, reduced-motion behaviour, note-synchronised animation and "animation never creates model calls" all stand. Everything below is an implementation choice, not an explicit user approval.
+
+### Visual thesis
+
+*The Neverending Room has no ceiling.* A real festival stage — truss, moving heads, backline, cables, a crooked rug — stands in an open field under a listening sky, and the music is the only thing that moves the light. Realism lives in the objects and the bodies; psychedelia lives in the light, the wall and the lens. Nothing is random decoration: every moving element is driven by a committed note, a typed Jev decision, or the listener's real post-fader meters.
+
+### One rule: the picture may only say what the music said
+
+The stage reads `Frame` data (notes, decisions, lighting) and the soundboard's `levels()`. It never invents musical facts and never calls a model. Anticipatory motion (a drumstick rising before its hit) uses notes already committed in the current phrase, or the next phrase once the server has published it; for a continuing part it assumes the repeat. This is animation look-ahead, not musical foresight, and it never appears in the decision feed.
+
+### Mapping table — what drives what
+
+| Musical fact | Visual consequence |
+|---|---|
+| Key root | Hue of the whole room, placed on the colour wheel by the circle of fifths. A modulation up a fourth or fifth turns the room exactly one step. |
+| Mode | Pattern family on the projection wall: Dorian → oil-and-water liquid projection; Mixolydian → turning mandala; minor → deep tunnel; major → op-art sunburst. Modes cross-fade. |
+| Lux's `wash` | A three-colour chord (key, counter, accent), not one flat colour. Key floods, counter rims the players from behind, accent rides the beams. `ultraviolet` makes the banner's fluorescent inks glow; `blackout` leaves only LEDs, pilot lamps and the dimmed wall. |
+| Lux's `beam` (12 recipes) | Twelve hand-written cues for 14 moving heads that physically pan and tilt: `four pillars` drops one column on each musician, `solo pool` converges on whoever is soloing, `prism bloom` splits into separate hues with a gobo, `rain curtain` rolls brightness along the downstage edge, and so on. |
+| Lux's `laser` (8 recipes) | Colour comes from the recipe's adjective, geometry from its noun: fan, tunnel, lattice, horizon, spokes, canopy, spiral. Beams glide between shapes. |
+| Lux's `intensity` / `motion` | Light level and fixture travel speed. Lux (the character) reaches across the desk each time a new look is committed. |
+| A solo | A visible follow-spot beam from front of house, a slow iris on the wall, bandmates turn to watch, the crowd's hands-up threshold drops, and the soloist's posture changes (weight back, neck up, eyes closed; bends open the mouth and raise the brows). |
+| Guitar / bass pitch | The fretting hand goes to the real fret: instruments are modelled to scale length (648 mm / 864 mm) with 12-TET fret spacing and standard tunings, and a mid-neck position is chosen as a player would. The sounding string shows a vibration blur. Alternate picking follows onset parity; Moss alternates index and middle fingers. |
+| Keys `hand` + `patch` | Each hand moves to the instrument that carries its patch: piano/Rhodes on the stage piano, analog/pad/bell on the synth above it, organ on the console at June's left, with the Leslie horn spinning up. Real 61-key layouts; keys dip and glow for exactly the note's duration. |
+| Drum voices | Kick → right foot and beater; snare/high tom/crash → left hand; hats/ride/toms → right hand. Sticks travel from the last hit to the next and land on the beat; cymbals swing on springs; heads flex. |
+| `decision.effects` | The matching pedal LED on that player's board, and the player steps on the pedal when the state changes. |
+| The same effects, band-wide | The lens bends the way the sound does: delay → light trails; reverb → wider bloom; drive → grain, saturation, colour fringing; wah/envelope → swimming glass; chorus → doubling and swirl; tremolo → a slow breath of brightness. |
+| Note onsets | Each instrument has a visual voice: guitar throws pitch-coloured sparks from the headstock; bass rolls rings across the deck (lower notes roll further); keys release slow bubbles; kick fires a ring; cymbals shed brass shimmer. Notes also push the wall from that player's side of the stage. |
+| Real meters | Amp grilles, wedges and the LED stage lip (one zone per musician in their persona colour) follow the listener's post-fader signal. With sound off they fall back to note-derived envelopes. |
+| Whole-band energy | Crowd bounce, each fan's individual hands-up threshold, balloon volleys, aurora brightness, and — at sustained peaks only, at most every few bars — a glowstick war. |
+
+### Characters
+
+Five hand-built, jointed people replace the box figures: two-bone IK arms and legs (knees absorb the groove because feet stay planted while hips move), articulated fingers, eyes that lead the head, blinking, brows and mouths, spring-driven hair, and seeded wandering attention between bandmates, their instrument and the crowd. Looks are original and chosen per persona: Rook's long hair and copper tie-dye, Moss's beanie and shades, June's curls and round glasses, Kit's headband and tank, Lux's cap and headphones. They remain stylised figures, not motion capture or likenesses of real people.
+
+### Safety and comfort
+
+No strobes, as before. Brightness pulses follow the bar (about 0.4–0.6 Hz) or the kick at a few percent; the tremolo breath is 1.8 Hz at under 4 %. Fast musical events (hi-hats, 32nd runs) drive small motion and particles, never luminance. Video-feedback trails are capped so they cannot accumulate brightness, apply only to light sources, and yield to camera movement. *Less movement* freezes performance animation, shaders, trails and pulses but keeps camera navigation. A lens control (Full trip / Mellow / Clean lens) scales every effect-driven distortion for the individual viewer.
+
+### Cameras
+
+Balcony, front row, in the crowd, overhead, stage wing, lighting desk and four member cameras, each framed from the player's open side. *Follow solo* remains. *Director* cuts between cameras every two phrases and goes to a soloist when one appears. Manual orbit cancels both. A slight handheld drift keeps a parked camera alive.
+
+### Performance choices
+
+Hundreds of small parts per prop (frets, lugs, knobs, tuners) are baked into one mesh per material at load; straps, cables, truss lacing, lasers, piano keys, LED lip and crowd are instanced. Fingers and faces drop out beyond 12 m. The projection wall renders once per frame into a small target and is reused for the wall and its floor smear. Resolution adapts downward if frames run long. Software WebGL gets a reduced tier: no post chain or shadows, fewer fixtures, crowd and particles, 12 fps — audio scheduling keeps priority. All art is procedural; no models, textures or fonts are downloaded.
+
+### Not implemented
+
+Skinned meshes and cloth simulation; real planar reflections; per-note finger choice on keys; audience members with individual faces; beat-accurate camera cuts; a recorded "concert film" export.
+
+## 2026-09-20 — Visual PR integration with v0.5
+
+**Authorized scope:** safely integrate Claude's visual PR with the latest remote main from a separate checkout, preserving the active development checkout and its previews. This does not authorize public deployment or a repository visibility change.
+
+**Integration decisions:** retain all v0.5 musical composition, long phrases and solos, causal scheduling, Luna director/theme queue, Patch mix, June patches, instrument rigs and audience controls. The stage uses the current performed `effectsTimeline` cue for pedal LEDs, foot presses and lens effects. Open hi-hats animate the hi-hat limb. Anticipation uses only a published upcoming frame and its timestamp; `continued` does not imply that the next chunk repeats. This supersedes the repeat assumption in the earlier visual design entry. Musical decisions and provenance are not modified by these visual signals. Audience recordings remain absent, with the procedural fallback explicitly labeled.
