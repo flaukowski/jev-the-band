@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { musicians, roles, type Frame, type Musician, type Role } from '../../shared/music';
+import { Bubbles } from './bubbles';
+import { Cat } from './cat';
+import { Chatter } from './chatter';
 import { Crowd } from './crowd';
 import { LightRig } from './lightrig';
 import { Particles } from './particles';
@@ -156,6 +159,11 @@ export function createStage(
   let rig!: LightRig;
   let crowd!: Crowd;
   let particles!: Particles;
+  let cat!: Cat;
+  let chatter: Chatter | null = null;
+  const bubbles = new Bubbles(container, camera);
+  const bubblePoint = new THREE.Vector3();
+  let nextLine = 4;
   let post: PostChain | null = null;
   let stations: THREE.Object3D[] = [];
   let emitters!: Record<Musician, THREE.Vector3>;
@@ -209,6 +217,11 @@ export function createStage(
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     raycaster.setFromCamera(pointer, camera);
+    if (raycaster.intersectObject(cat.group, true).length) {
+      cat.meow();
+      bubbles.say('cat', 'Le Chaton Fat: MEOW!', (out) => cat.anchor(out), 2.6, 'cat');
+      return;
+    }
     const hit = raycaster.intersectObjects(stations, true)[0];
     let o: THREE.Object3D | null = hit?.object ?? null;
     while (o && !o.userData.role) o = o.parent;
@@ -340,6 +353,30 @@ export function createStage(
       crowdDt = 0;
     }
     particles.update(sig, dt, emitters, feet, rig.palette, lowPower);
+    cat.update(sig, dt);
+    // Crowd talk: a line every few seconds from somebody the camera can actually see.
+    nextLine -= dt;
+    const ouch = crowd.takeBumped();
+    if (
+      chatter &&
+      ouch >= 0 &&
+      Math.random() < 0.35 &&
+      bubbles.count('fan') < 3 &&
+      bubbles.visible(crowd.anchor(ouch, bubblePoint), 22)
+    )
+      bubbles.say(`fan${ouch}`, chatter.ouch(), (out) => crowd.anchor(ouch, out), 2.8);
+    if (chatter && nextLine <= 0) {
+      nextLine = 1;
+      if (bubbles.count('fan') < 3)
+        for (let tries = 0; tries < 14; tries++) {
+          const i = Math.floor(Math.random() * crowd.count);
+          if (bubbles.has(`fan${i}`) || !bubbles.visible(crowd.anchor(i, bubblePoint), 26))
+            continue;
+          bubbles.say(`fan${i}`, chatter.line(), (out) => crowd.anchor(i, out));
+          nextLine = 2.5 + Math.random() * 5.5;
+          break;
+        }
+    }
     const t2 = performance.now();
     scene.environmentIntensity = damp(
       scene.environmentIntensity,
@@ -362,6 +399,7 @@ export function createStage(
       post.update(sig, dt, input.trip);
       post.render(dt);
     } else renderer.render(scene, camera);
+    bubbles.update(dt);
     camera.position.sub(sway);
 
     // Adaptive resolution: if frames run long for a few seconds, trade pixels for fluidity.
@@ -405,6 +443,9 @@ export function createStage(
     await pause();
     if (disposed) return;
     particles = new Particles(scene, lowPower);
+    crowd.onPuff = (p, vx, vy, vz, size) => particles.puff(p, vx, vy, vz, size, rig.palette[0]);
+    cat = new Cat(scene, camera);
+    chatter = new Chatter();
     post = lowPower ? null : new PostChain(renderer, scene, camera);
     stations = roles.map((r) => band[r].station);
     emitters = Object.fromEntries(musicians.map((r) => [r, band[r].emitter])) as Record<
@@ -456,6 +497,8 @@ export function createStage(
         const materials = Array.isArray(m.material) ? m.material : [m.material];
         materials.filter(Boolean).forEach((material) => material.dispose());
       });
+      bubbles.dispose();
+      crowd?.dispose();
       venue?.dispose();
       post?.dispose();
       environment.dispose();

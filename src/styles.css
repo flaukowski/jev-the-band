@@ -1799,3 +1799,47 @@ footer b {
     grid-column: 1 / -1;
   }
 }
+
+/* Crowd talk and the cat. */
+.stage-bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.stage-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 190px;
+  width: max-content;
+  padding: 6px 9px 7px;
+  border-radius: 10px;
+  background: #f4f0e4f2;
+  color: #171b16;
+  font: 600 11px/1.25 var(--sans, system-ui, sans-serif);
+  text-align: center;
+  box-shadow: 0 3px 14px #0009;
+  transform-origin: 50% 100%;
+  will-change: transform;
+  transition: opacity 0.25s;
+}
+.stage-bubble:after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-bottom: 0;
+  border-top: 7px solid #f4f0e4f2;
+}
+.stage-bubble.cat {
+  background: #ffb45cf5;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.stage-bubble.cat:after {
+  border-top-color: #ffb45cf5;
+}

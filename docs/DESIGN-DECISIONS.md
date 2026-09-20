@@ -252,3 +252,14 @@ The user supplied the production TypeSafe credential and explicitly requested it
 Railway runs the same TypeSafe transport, with a protected controller token and one shared room. The production service has no OpenRouter key, so the optional Luna brief is unavailable and Jev composes from the raw prompt. The public deployment does not make the Git repository public. The test jam was stopped after verification; performances begin only through an authorized host action.
 
 The release audition temporarily capped the room at 480 attempts, then restored the normal 6000-attempt ceiling. Five direct smoke calls and a 98-call hosted performance succeeded. Unknown provider dollar cost remains unknown. This brief muted browser check verifies mechanics, not a human listening judgment or long-run musical quality.
+
+## 2026-09-20 — Crowd talk, crowd characters and the cat
+
+**User requirements:** thousands of jam-band/AI jokes shown as speech bubbles that fire at random; smokers; a few wild dancers who bump into others; blanket sitters behind the pit; people filming with phones and cameras; a big fat cat on stage that says "Le Chaton Fat: MEOW!" when clicked.
+
+**Implementation assumptions:**
+
+- Jokes are content, not code. The editable source is `content/chatter/batch-*.json` (one comic angle per batch); `node scripts/build-chatter.mjs` cleans, dedupes and writes `public/chatter.json`. The stage fetches it once after the venue is built and falls back to the user's fourteen original lines if it is missing. Song titles are punned on; lyrics are not reproduced. `docs/chatter-lingo.md` is the uncited fan-vocabulary seed list.
+- Bubbles are DOM pinned to projected head positions, not scene geometry, so the words stay crisp and outside the bloom/feedback passes. At most three crowd bubbles at once, a new one every 2.5 to 8 seconds, and only from somebody the current camera can actually see. They are `aria-hidden` and never take pointer events. Crowd lines are jokes written ahead of time; they are never presented as model output or Jev decisions.
+- Crowd roles are assigned from the existing seeded generator: glowsticks 16%, phones 7%, cameras 2%, smokers 6%, nine spinners (three on software GL), fifteen blankets (four) with one to three sitters each and the odd cooler. Spinners roam a small orbit, twirl in episodes and soft-collide with neighbours, who stagger on a damped spring and sometimes complain in a bubble. Smokers take a drag every 9 to 18 seconds; the cherry brightens on the inhale and the exhale uses a new `smoke` particle kind tinted by the rig. Screens glow only on the face toward their holder. All of it holds still under reduced motion.
+- The cat patrols the downstage lip clear of the wedges, sits like a loaf now and then, and ignores the music. A click raycasts the cat before the performers, so it never opens a persona card.
