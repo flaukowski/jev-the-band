@@ -123,3 +123,10 @@ The independent privacy investigation's report is kept outside the repository. I
 - Initial verification used a 480-attempt cap. Normal deployment configuration restores 6000; neither is a dollar budget. No generated crowd recordings or production OpenRouter key were added. No Git visibility change and no GitHub Actions enablement occurred.
 
 Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.json`, `deployed-room-ended.json`, and the Railway screenshots. This is a short mechanics check, not a full ten-minute listening evaluation. Subsequent documentation-only release retains identical application/asset code; final HTTPS revision and asset verification is recorded in private release evidence.
+
+## 2026-09-20 — v0.7 boredom, lead gestures and leadership
+
+- `npm run check`: 73 unit tests pass, TypeScript and production build clean. New tests cover heat sampling and its limits, option fatigue without shared-table mutation, left-hand mass decoding, lead gesture expansion (legato run into a held bend, range turnaround, slides, June's comp), the advisory sketch, 22 modes, key leadership and follow cue, drummer tempo/feel, five dynamics, guitar gain stages, and a scheduler regression test that was confirmed to fail against the old rule ("bass composed 1 times").
+- Explicit bounded paid runs through OpenRouter Decisions: two `audit:solos` runs (37 and 43 requests, $0.011 and $0.012, zero fallbacks) and two `smoke:performance` runs (212 requests/$0.155 at the 240 cap, then 502 requests/$0.495 over 170 s with `SMOKE_CALLS=650 SMOKE_SECONDS=170`, zero fallbacks in the retained traces). Median lead-gesture latency 304 ms.
+- The direct TypeSafe key in the development environment returned **HTTP 402** on its first request, so these runs used OpenRouter. Production uses the same TypeSafe account and should be checked before the next public jam.
+- Not verified: listening quality, browser playback of the new articulations and gain stages (rendering code is type-checked and built, not auditioned), the Luna sketch against the real provider, a full ten-minute run, and the hosted deployment. Nothing was deployed.

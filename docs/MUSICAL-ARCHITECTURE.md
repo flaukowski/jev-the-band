@@ -1,6 +1,41 @@
 # Musical architecture — groove, phrasing and color
 
-2026-09-20, v0.5. This is the current implementation contract. Earlier prompt and design entries remain historical records.
+2026-09-20, v0.5 with a v0.7 addendum. This is the current implementation contract. Earlier prompt and design entries remain historical records.
+
+## v0.7 — how the band evolves
+
+Added 2026-09-20. Everything below this section still holds unless stated here.
+
+```mermaid
+flowchart LR
+  Used[Own recent choices] --> Fatigue[Option fatigue: a worn-out choice rests]
+  Stale[Unchanged direction + elapsed time + persona] --> Heat[Heat: temperature, nucleus, recency penalty]
+  Fatigue --> Menu[The menu Jev sees]
+  Menu --> Jev[Jev distribution]
+  Jev --> Heat --> Applied[Applied plan, raw answer preserved]
+  Applied --> Lead{Solo?}
+  Lead -- yes --> Cells[Lead gestures: one request per gesture]
+  Lead -- no --> Attacks[One request per attack]
+  Luna[Luna arranger sketch, off the clock] -. advice only .-> Cells
+  Applied --> Moves[Key move, tempo, feel, volume]
+  Moves --> Heard[Heard by the band once it sounds]
+```
+
+| Layer | Who decides | Speed | What it gives the music |
+|---|---|---|---|
+| Arranger sketch (optional) | `gpt-5.6-luna` | 5–20 s, off the clock | A 16-bar solo story: motif, energy arc, landing tones. Advice only |
+| Phrase plan | Jev, decoded with fatigue and heat | 1 request | Style, arc, register, texture, mode, keyboards, volume, feel, key move, tempo |
+| Lead gesture | Jev | 1 request per gesture, about 300 ms | Runs, cries, cells and riffs with bends, slides, hammer-ons and breaths |
+| Groove attack | Jev | 1 request per attack | Exact pitches, chord voices, rests and lengths |
+| Rig | Jev | 1 request | Seven pedals per bar; guitar overdrive or lead |
+
+**Why boredom is a harness rule.** Recorded traces showed Jev answering `rhodes 0.94`, `warm 0.99`, `settle 0.9`, `stay 1.00` phrase after phrase. A classifier changes its answer when its state or its options change, so the harness changes those: a choice used too long rests, the request says so, and Jev picks its best alternative. Heat then handles the decisions that are genuinely open (action, register, texture). In a 170-second live run this produced organ, analog, pad, piano and bell alongside Rhodes, three drum feels, four style branches, a player-led move to melodic minor, several guitar and keyboard solos and no fallbacks, where the previous recording held one plan throughout.
+
+**What a solo is now.** A gesture request asks for: `start`, `count`, `grid`, `step1`–`step7`, `landing`, `gap`, `technique`, `ornament`, `shape`, `level`, `next`, and for June `comp` plus three left-hand voices. A live audited guitar chunk: a sextuplet hammer-on run A4–B4–C5–D5 landing on a whole-step bend into F♯5, a second run with a pull-off, then a two-note cry. The previous audit's guitar solo alternated D5 and B4 in quarter notes. The first is from this pass's `audit:solos` run, the second from the previous recorded one; neither is a claim about taste.
+
+**Rendering.** Hammer-ons and pull-offs start the recorded sample past its pick transient with a 14 ms fade. Slides glide from the actual previous pitch. Bends can hold at the target, release, or start pre-bent; vibrato depth is a note property and begins after the bend arrives.
+
+**Known limits.** Harmony is still one tonal center at a time; there are no chord progressions. Accompaniment between a player's turns repeats exactly. Bass and rhythm guitar still compose one attack per request. Option fatigue constants are untuned. The arranger needs an OpenRouter key. A 170-second four-player run made 502 requests and OpenRouter reported $0.49; a full ten-minute jam is therefore on the order of $1.75 at that provider.
 
 ## Three responsibilities
 

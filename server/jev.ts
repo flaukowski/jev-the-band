@@ -39,7 +39,8 @@ export const choice = (
   instructions,
   criteria: Array.isArray(values)
     ? Object.fromEntries(values.map((v) => [v, v.replaceAll('_', ' ')]))
-    : (values as Record<string, string>),
+    : // Always a fresh object: harness rules delete options, and must never edit a shared table.
+      { ...(values as Record<string, string>) },
 });
 export function requestFor(role: Role, room: Snapshot, phrase: number, model: string): JevRequest {
   const elapsed = Math.max(0, (Date.now() - room.startedAt) / 1000);

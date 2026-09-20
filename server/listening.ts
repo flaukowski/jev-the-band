@@ -17,6 +17,10 @@ export function listeningState(room: Snapshot, role: Role, now = Date.now()) {
       players: f.parts.map((p) => ({
         role: p.role,
         effects: effectsAtBeat(p, throughBeat),
+        // Audible band cues, disclosed only once this part is actually sounding.
+        tonalCenter: p.tonalIntent,
+        volume: p.performance?.volume,
+        ...(p.role === 'drums' ? { feel: p.performance?.feel } : {}),
         notes: p.notes
           .filter((n) => n.beat <= throughBeat)
           .map((n) => ({

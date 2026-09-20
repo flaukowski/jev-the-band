@@ -1,4 +1,5 @@
 import { choice } from './jev.js';
+import { gestures, leadEnergy } from './lead.js';
 import type { Answer, JevRequest, Musician, Part, Snapshot, Trace } from '../shared/music.js';
 
 export function continuingSolo(part: Part | undefined): boolean {
@@ -47,6 +48,26 @@ export function soloPlanRequest(
       bars: choice(
         'Choose the full solo duration in bars based on mood, energy and available space. Preserve the chosen duration during a continuing solo.',
         total ? [String(total)] : ['8', '10', '12', '16', '20', '24', '28', '32'],
+      ),
+      energy: choice(
+        'Where is this solo right now? Shape a journey across the whole solo: most solos simmer, climb, peak near two thirds, then cool into the handoff.',
+        // A solo has a shape: it may not peak in its first bars or stay cool all the way through.
+        Object.fromEntries(
+          Object.entries(leadEnergy).filter(([name]) =>
+            (!total || played === 0
+              ? ['simmer', 'climb']
+              : played >= total - 2
+                ? ['cool']
+                : played / total < 0.4
+                  ? ['simmer', 'climb', 'peak']
+                  : ['climb', 'peak']
+            ).includes(name),
+          ),
+        ),
+      ),
+      opening: choice(
+        'Which kind of gesture opens these two bars? It continues from how your last phrase ended.',
+        Object.fromEntries(Object.entries(gestures).map(([name, g]) => [name, g.color])),
       ),
       attacks: choice(
         'Actual attacks across these two bars; vary rhythm and leave melodic breaths.',

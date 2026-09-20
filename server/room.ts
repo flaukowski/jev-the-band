@@ -14,6 +14,7 @@ import {
   type JevProvider,
 } from '../shared/music.js';
 import { compile, endingPressure, nextRoot, nextTempo, rehearsal } from '../shared/score.js';
+import { baseMode } from '../shared/performance.js';
 import { bootstrapRequest, callJev, requestFor, toLighting } from './jev.js';
 import { composePhrase, maxAttacks } from './composer.js';
 import { directJam } from './director.js';
@@ -21,6 +22,7 @@ import { defaultEngineerMix, type ChannelLevels } from '../shared/engineer.js';
 import { engineerRequest, readEngineer } from './engineer.js';
 import { continuingSolo, continuingPhrase } from './solo.js';
 import { nextThemeFrame } from '../shared/setlist.js';
+import { sketchSolo } from './sketch.js';
 
 export class Room extends EventEmitter {
   state: Snapshot;
@@ -30,11 +32,32 @@ export class Room extends EventEmitter {
   private lastKeyChange = 0;
   private root = 2;
   private scale: Frame['mode'] = 'dorian';
+  private modeName: string = 'dorian';
   private failures = 0;
   private due = new Map<Musician, number>();
   private votes = new Map<Musician, { d: Decision; frame: number }>();
   private engineerMix = defaultEngineerMix();
   private measurement?: { levels: ChannelLevels; at: number };
+  private sketchesRequested = 0;
+  /** Off-clock: ask the arranger for a solo arc ahead of time. Late or failed sketches are simply unused. */
+  private requestSketch(role: Musician) {
+    const key =
+      this.options.directorApiKey ?? (this.options.provider === 'typesafe' ? '' : this.apiKey);
+    if (!this.options.directorModel || !key || this.sketchesRequested >= 6) return;
+    if (this.state.soloSketches?.[role]) return;
+    this.sketchesRequested++;
+    this.state.soloSketches = {
+      ...this.state.soloSketches,
+      [role]: { status: 'planning', model: this.options.directorModel, requestedAt: Date.now() },
+    };
+    void sketchSolo(role, this.view(), this.options.directorModel, key, this.abort.signal).then(
+      (report) => {
+        if (this.abort.signal.aborted || !this.state.soloSketches?.[role]) return;
+        this.state.soloSketches[role] = report;
+        this.publish();
+      },
+    );
+  }
   queueTheme(prompt: string) {
     if (this.state.status !== 'playing' || this.state.mode !== 'live')
       throw new Error('Start a live jam before queueing a theme.');
@@ -168,6 +191,7 @@ export class Room extends EventEmitter {
         this.scale = t.answers.mode.choice as Frame['mode'];
         this.state.initialRoot = this.root;
         this.state.initialMode = this.scale;
+        this.modeName = this.scale;
       }
       if (this.abort.signal.aborted) return;
       this.state.startedAt = Date.now() + (this.state.mode === 'live' ? 7000 : 2500);
@@ -207,6 +231,7 @@ export class Room extends EventEmitter {
       if (this.state.director?.concept) {
         this.root = this.state.director.concept.root;
         this.scale = this.state.director.concept.mode;
+        this.modeName = this.scale;
       }
     }
     const openingOrder = [this.state.opener, ...musicians.filter((r) => r !== this.state.opener)];
@@ -219,7 +244,9 @@ export class Room extends EventEmitter {
         ? openingOrder[index]
         : eligible.find((r) => {
             const own = prior?.parts.find((p) => p.role === r);
-            return this.state.mode !== 'live' || (!own?.solo && !continuingPhrase(own));
+            // Only a committed guitar or keyboard solo composes on its own track. A bass or drum
+            // feature has no such track, so it must stay in the rotation or it would loop forever.
+            return this.state.mode !== 'live' || (!continuingSolo(own) && !continuingPhrase(own));
           });
     const soloAge = at - (this.state.lastSoloAt ?? this.state.startedAt);
     const inviteRole = this.state.lastSoloRole === 'guitar' ? 'keys' : 'guitar';
@@ -234,6 +261,8 @@ export class Room extends EventEmitter {
       urgency: Math.min(1, soloAge / 175000),
       required: soloDue && !transition,
     };
+    if (this.state.mode === 'live' && index >= 4 && soloAge >= 175000 * 0.55)
+      this.requestSketch(inviteRole);
     const selectedRoles: Musician[] = transition
       ? [...musicians]
       : [
@@ -241,9 +270,7 @@ export class Room extends EventEmitter {
             ...(selected ? [selected] : []),
             ...(this.state.mode === 'live'
               ? (prior?.parts
-                  .filter(
-                    (p) => continuingPhrase(p) || (p.solo && ['guitar', 'keys'].includes(p.role)),
-                  )
+                  .filter((p) => continuingPhrase(p) || continuingSolo(p))
                   .map((p) => p.role) ?? [])
               : []),
           ]),
@@ -262,6 +289,9 @@ export class Room extends EventEmitter {
     }
     const frozen = this.view();
     frozen.themeTransition = !!transition;
+    // One key change per sixteen bars at most, never while the band is still assembling.
+    frozen.keyLeadOpen = index >= 8 && index - this.lastKeyChange >= 8 && !transition;
+    frozen.keyAgeFrames = index - this.lastKeyChange;
     const phraseSignal = AbortSignal.any([
       this.abort.signal,
       AbortSignal.timeout(Math.max(1, Math.floor(at - Date.now() - 250))),
@@ -428,7 +458,16 @@ export class Room extends EventEmitter {
       if (source === 'jev' && composed.get(selected)?.solo && !continuingSolo(previous)) {
         this.state.lastSoloAt = at;
         this.state.lastSoloRole = selected;
+        // A spontaneous solo had no sketch; one requested now can still guide its later bars.
+        if (selected === 'guitar' || selected === 'keys') this.requestSketch(selected);
       }
+      // A finished solo retires its sketch so the next one gets a fresh story.
+      if (
+        previous?.solo &&
+        !(source === 'jev' && composed.get(selected)?.solo) &&
+        this.state.soloSketches?.[selected]?.status !== 'planning'
+      )
+        delete this.state.soloSketches?.[selected];
     }
     this.failures =
       this.state.mode === 'live' &&
@@ -444,9 +483,29 @@ export class Room extends EventEmitter {
     const recentVotes = [...this.votes.values()]
       .filter((v) => index - v.frame <= 6)
       .map((v) => v.d);
-    const bpm = nextTempo(prior?.bpm ?? this.state.baseBpm, this.state.baseBpm, ds);
-    const root = nextRoot(this.root, recentVotes, index, this.lastKeyChange);
-    if (root !== this.root) {
+    const drummer = decisions.get('drums');
+    const bpm = nextTempo(
+      prior?.bpm ?? this.state.baseBpm,
+      this.state.baseBpm,
+      ds,
+      drummer?.source === 'jev' ? drummer.d : undefined,
+    );
+    let root = nextRoot(this.root, recentVotes, index, this.lastKeyChange);
+    // Live: one player leads a key or mode change and the band's reference follows at once.
+    // Bandmates hear the cue after it sounds and choose to follow on their own next turns.
+    const leader = [...composed].find(
+      ([role, part]) => decisions.get(role)?.source === 'jev' && part.performance?.keyLead,
+    );
+    if (leader && frozen.keyLeadOpen) {
+      const lead = leader[1].performance!.keyLead!;
+      root = lead.root;
+      this.modeName = lead.mode;
+      this.scale = baseMode(lead.mode);
+      this.state.keyChange = { by: leader[0], root: lead.root, mode: lead.mode, atFrame: index };
+    }
+    if (this.state.keyChange && index - this.state.keyChange.atFrame > 8)
+      this.state.keyChange = undefined;
+    if (root !== this.root || (leader && frozen.keyLeadOpen)) {
       this.lastKeyChange = index;
       this.votes.clear();
     }
@@ -528,6 +587,7 @@ export class Room extends EventEmitter {
       bpm,
       root,
       mode: this.scale,
+      modeName: this.modeName,
       parts,
       lighting,
       ending,

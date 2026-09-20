@@ -4,6 +4,8 @@ These are proposed directions, not extra commitments or approved changes to the 
 
 **2026-09-19 update:** the first revision now delivers causal listening, independent phrase commitments, own-motif transformations, swing/tuplets/32nds, sampled guitar/bass/piano/drum accents, guitar articulation, independent visible pedalboards, local soundboard controls, note-driven animation and camera navigation. The dated decision log lists the twelve delivered additions. Items below describe further depth; basic versions of several are now implemented.
 
+**2026-09-20, v0.7:** option fatigue, heat, lead gestures with bends/slides/hammer-ons, player-led key and mode changes, drummer-led tempo and feel, five dynamic levels, guitar gain stages and an advisory Luna solo sketch are implemented. Highest-value next steps from that audit, in order: (1) chord progressions per section, chosen by Moss and June, so solos play over changes; (2) a one-request micro-variation for parts that currently repeat exactly between turns (ghost, drop, octave, fill at the bar line); (3) gesture cells for bass fills and rhythm guitar; (4) a motif ledger so a solo can quote a theme from minutes earlier; (5) tune the patience and pressure constants by listening.
+
 ## Next: listen, remember, answer
 
 **Revision 0.3 supersedes template transformation:** live notes now come from sequential Jev event decisions, with probability sampling disclosed in traces. Motif memory below should guide newly chosen notes rather than reinstate the procedural live compiler. RMS-matched drive and per-instrument compression are implemented.

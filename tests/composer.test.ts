@@ -124,22 +124,28 @@ test('keyboard chooses every chord pitch and cannot exceed five held notes per h
     chord: 'major9',
   });
   const q = eventRequest('keys', room, 0, 'test', plan.answers, 0, []);
-  const overrides: Record<string, string> = { leftCount: '0', rightCount: '5', duration: '8' };
+  assert.ok(!('0' in q.questions.leftCount.criteria), 'a comping left hand must enter');
+  const overrides: Record<string, string> = {
+    leftCount: '1',
+    left0: '48',
+    rightCount: '5',
+    duration: '8',
+  };
   for (let i = 0; i < 5; i++) overrides[`right${i}`] = String([60, 62, 64, 67, 71][i]);
   const first = reply(q, overrides);
   const notes = readEvents('keys', first, 0, defaultDecision(), []);
   assert.deepEqual(
     notes.map((n) => n.midi),
-    [60, 62, 64, 67, 71],
+    [48, 60, 62, 64, 67, 71],
   );
   const laterRequest = eventRequest('keys', room, 0, 'test', plan.answers, 4, notes);
   assert.ok('60' in laterRequest.questions.right0.criteria);
   assert.ok(!('72' in laterRequest.questions.right0.criteria));
   const later = reply(laterRequest, { leftCount: '0', rightCount: '1', right0: '60' });
   const restruck = readEvents('keys', later, 4, defaultDecision(), notes);
-  assert.equal(restruck.length, 6);
-  assert.equal(restruck[0].duration, 4);
-  assert.equal(notes[0].duration, 8, 'do not mutate prior request state');
+  assert.equal(restruck.length, 7);
+  assert.equal(restruck[1].duration, 4);
+  assert.equal(notes[1].duration, 8, 'do not mutate prior request state');
 });
 test('bootstrap harmony reaches the opener before any sound', () => {
   const room = new Room('Minor morning', 'live', '');

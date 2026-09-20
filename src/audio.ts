@@ -2,7 +2,7 @@ import { clamp, musicians, type Frame, type Musician, type Note, type Part } fro
 import { channelGain, defaultMix, effectiveEffects, type Mix } from '../shared/mixer';
 import { guitarSamples } from './guitar';
 import { SampleBank } from './samples';
-import { drumSampleLifetime, effectsAtBeat } from '../shared/performance';
+import { drumSampleLifetime, effectsAtBeat, volumes } from '../shared/performance';
 import { rigProfiles, instrumentEffects } from '../shared/rigs';
 import { AudiencePlayer } from './audience';
 import {
@@ -376,7 +376,9 @@ export class BandAudio {
         this.seen.add(mixKey);
       }
       for (const part of frame.parts) {
-        const cues = part.effectsTimeline ?? [{ beat: 0, effects: part.decision.effects }];
+        const cues: NonNullable<Part['effectsTimeline']> = part.effectsTimeline ?? [
+          { beat: 0, effects: part.decision.effects, traceId: '' },
+        ];
         for (const [index, cue] of cues.entries()) {
           const time = frame.at + (cue.beat * 60000) / frame.bpm;
           const busKey = `${frame.id}:${part.role}:fx:${cue.beat}`;
@@ -391,6 +393,7 @@ export class BandAudio {
             frame.bpm,
             frame.parts.some((p) => p.solo),
             cue.effects,
+            cue.driveLevel,
           );
         }
         part.notes.forEach((note, index) => {
@@ -413,6 +416,7 @@ export class BandAudio {
     bpm: number,
     hasSolo: boolean,
     effects = part.decision.effects,
+    driveLevel?: 'overdrive' | 'lead',
   ) {
     const bus = this.buses.get(part.role)!;
     const e = instrumentEffects(part.role, effectiveEffects(this.mix[part.role], effects));
@@ -424,11 +428,17 @@ export class BandAudio {
           ? 0.6
           : 0.87
         : 1;
-    bus.level.gain.setTargetAtTime((part.role === 'keys' ? 0.47 : 0.7) * focus, at, 0.15);
+    // Band dynamics: a whisper really is quieter. Eased over a beat so swells feel played.
+    const dynamics = volumes[part.performance?.volume ?? 'bold'].gain;
+    bus.level.gain.setTargetAtTime((part.role === 'keys' ? 0.47 : 0.7) * focus * dynamics, at, 0.3);
     bus.distortion.parameters.get('enabled')!.setTargetAtTime(e.drive ? 1 : 0, at, 0.03);
     bus.distortion.parameters
       .get('amount')!
-      .setTargetAtTime(this.mix[part.role].drive * profile.drive, at, 0.03);
+      .setTargetAtTime(
+        this.mix[part.role].drive * profile.drive * (driveLevel === 'overdrive' ? 0.32 : 1),
+        at,
+        0.03,
+      );
     bus.filter.frequency.setTargetAtTime(e.wah ? profile.wahHz : 12000, at, 0.08);
     bus.wah.gain.setTargetAtTime(e.wah ? profile.wahDepth : 0, at, 0.08);
     bus.echo.gain.setTargetAtTime(e.delay ? profile.echo : 0, at, 0.06);
@@ -479,7 +489,8 @@ export class BandAudio {
     const sample = this.samples.select(
       bank,
       note.midi,
-      note.velocity,
+      // Quiet playing reaches for softer recorded layers; Jev's chosen velocity is unchanged.
+      Math.min(1, note.velocity * volumes[part.performance?.volume ?? 'bold'].velocity),
       note.articulation ?? 'natural',
     );
     if (sample && (role !== 'drums' || sample.midi === note.midi)) {
@@ -495,9 +506,14 @@ export class BandAudio {
         duration,
         sample.buffer.duration / source.playbackRate.value,
       );
+      // Hammer-ons and pull-offs are sounded by the fretting hand: no new pick attack.
+      const slurred = note.articulation === 'hammer' || note.articulation === 'pull';
       gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.linearRampToValueAtTime(level, at + 0.003);
-      gain.gain.setValueAtTime(level, at + Math.max(0.004, sustain));
+      gain.gain.linearRampToValueAtTime(
+        level * (slurred ? 0.82 : 1),
+        at + (slurred ? 0.014 : 0.003),
+      );
+      gain.gain.setValueAtTime(level * (slurred ? 0.82 : 1), at + Math.max(0.016, sustain));
       gain.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.01, sustain) + 0.12);
       this.expression(source, note, at, duration, role);
       source.connect(gain).connect(target);
@@ -513,7 +529,7 @@ export class BandAudio {
         }
         this.openHat = note.midi === 46 ? { source, gain } : undefined;
       }
-      source.start(at);
+      source.start(at, slurred ? Math.min(0.035, sample.buffer.duration / 4) : 0);
       this.track(source, at + Math.max(0.01, sustain) + 0.14, [gain, ...extraNodes]);
       return;
     }
@@ -557,25 +573,7 @@ export class BandAudio {
       gain.gain.setValueAtTime(note.velocity * 0.85, at + duration);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + duration + 0.12);
       const nodes: AudioNode[] = [gain, ...extraNodes];
-      if (note.articulation === 'slide') {
-        source.detune.setValueAtTime(-180, at);
-        source.detune.linearRampToValueAtTime(0, at + Math.min(0.12, duration / 2));
-      }
-      if (note.bend) {
-        source.detune.setValueAtTime(0, at);
-        source.detune.linearRampToValueAtTime(note.bend * 100, at + Math.min(0.2, duration * 0.5));
-        source.detune.linearRampToValueAtTime(0, at + duration);
-      }
-      if (duration > 0.35) {
-        const vibrato = c.createOscillator();
-        const depth = c.createGain();
-        vibrato.frequency.value = 5.1;
-        depth.gain.setValueAtTime(0, at);
-        depth.gain.linearRampToValueAtTime(9, at + Math.min(duration, 0.45));
-        vibrato.connect(depth).connect(source.detune);
-        vibrato.start(at);
-        this.track(vibrato, at + duration + 0.13, [depth]);
-      }
+      this.expression(source, note, at, duration, role);
       source.connect(gain).connect(target);
       source.start(at);
       this.track(source, at + duration + 0.13, nodes);
@@ -644,21 +642,31 @@ export class BandAudio {
     duration: number,
     role: Musician,
   ) {
+    const bendTime = Math.min(0.2, duration / 2);
     if (note.articulation === 'slide') {
-      source.detune.setValueAtTime(-150, at);
-      source.detune.linearRampToValueAtTime(0, at + Math.min(0.1, duration / 2));
+      // Slide from the previous fret when known, otherwise a short scoop.
+      source.detune.setValueAtTime((note.slideFrom ?? -1.5) * 100, at);
+      source.detune.linearRampToValueAtTime(0, at + Math.min(0.14, duration / 2));
     }
     if (note.bend && role === 'guitar') {
-      source.detune.setValueAtTime(0, at);
-      source.detune.linearRampToValueAtTime(note.bend * 100, at + Math.min(0.2, duration / 2));
-      source.detune.linearRampToValueAtTime(0, at + duration);
+      if (note.bendShape === 'pre') {
+        source.detune.setValueAtTime(note.bend * 100, at);
+        source.detune.setValueAtTime(note.bend * 100, at + duration * 0.35);
+        source.detune.linearRampToValueAtTime(0, at + duration * 0.35 + bendTime);
+      } else {
+        source.detune.setValueAtTime(0, at);
+        source.detune.linearRampToValueAtTime(note.bend * 100, at + bendTime);
+        // A held bend stays at the target pitch; the default bend falls back by the note's end.
+        if (note.bendShape !== 'hold') source.detune.linearRampToValueAtTime(0, at + duration);
+      }
     }
-    if (role === 'guitar' && duration > 0.4) {
+    if (role === 'guitar' && (duration > 0.4 || note.vibrato)) {
       const osc = this.context!.createOscillator();
       const depth = this.context!.createGain();
       osc.frequency.value = 5.2;
-      depth.gain.setValueAtTime(0, at);
-      depth.gain.linearRampToValueAtTime(8, at + 0.35);
+      const onset = note.bend ? bendTime : 0;
+      depth.gain.setValueAtTime(0, at + onset);
+      depth.gain.linearRampToValueAtTime(8 + 30 * (note.vibrato ?? 0), at + onset + 0.35);
       osc.connect(depth).connect(source.detune);
       osc.start(at);
       this.track(osc, at + duration + 0.14, [depth]);
