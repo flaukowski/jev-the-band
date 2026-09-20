@@ -56,6 +56,8 @@ Browser checks mute physical output; most make no provider calls. Paid diagnosti
 - [Deployment: Railway, Vercel and ChatGPT Sites](docs/DEPLOYMENT.md)
 - [Audience generation and review](docs/AUDIENCE.md), [verification evidence](docs/VERIFICATION.md)
 
-Build a single Node service with `npm run build && npm start` (port 4310). Railway is the selected demo host; deployment and live TypeSafe verification are pending the dedicated production key. Use one replica, a server-only host token, and a dedicated provider key. Room state is in memory; restarting ends the jam. See the deployment guide for exact limits.
+**[Open the live demo](https://jev-the-band-production.up.railway.app).** It runs direct TypeSafe Jev on Railway; starting a performance requires host access. The optional Luna director is not configured on this deployment, so Jev composes from the submitted theme directly. Spectators can join without a host token.
+
+Build your own single Node service with `npm run build && npm start` (port 4310). Use one replica, a server-only host token and a dedicated provider key. Room state is in memory; restarting ends the jam. See the deployment guide for exact limits.
 
 Code is [MIT licensed](LICENSE); recordings have their own [attribution and licenses](public/samples/CREDITS.md). Normal installation needs no ffmpeg or sample CDN. The repository's current history remains private pending publication curation; a credential scan alone does not make old commits and prompt history privacy-safe. Independent project; no affiliation with TypeSafe or Phish is implied. The musicians are original personas.

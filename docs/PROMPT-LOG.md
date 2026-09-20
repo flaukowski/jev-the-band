@@ -244,3 +244,15 @@ Make sure readme discusses project and add license mit or w/e
 ```
 
 The README describes the musical concept, personas, real decision composition, controls, setup and hosting. The existing root MIT license is retained, package metadata now declares MIT, and the deployed image includes the license. Instrument samples retain their separately documented CC0/CC-BY terms.
+
+## 2026-09-20 — Configure the dedicated TypeSafe key and deploy
+
+```text
+here is the typesafe key for the railway deployment: [REDACTED CREDENTIAL]
+
+---
+
+and the .env of the dev repo
+```
+
+Only the credential value is omitted from this record. It is stored in the ignored development environment and the Railway secret store, never documentation, source, screenshots or traces. The user explicitly authorized both destinations and deployment. Existing local OpenRouter configuration remains local; it was not copied to production.

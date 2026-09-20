@@ -12,7 +12,7 @@
 
 References: [Railway Express guide](https://docs.railway.com/guides/express), [Vercel Function limits](https://vercel.com/docs/functions/limitations). The Sites assessment comes from the installed hosting workflow inspected during this task, not an actual Sites deployment.
 
-A dedicated Railway project/service and domain have been prepared. **No deployment has run yet; the dedicated production key is pending.** A domain allocation is not a live release. Git history remains private; hosting the compiled demo does not require publishing it.
+**Deployed 2026-09-20:** [JEV the band](https://jev-the-band-production.up.railway.app). Direct TypeSafe is configured with the dedicated key and protected host actions. HTTPS health, actual JS/CSS hashes, instrument assets, shared spectators and a real live performance have been verified. The optional OpenRouter/Luna director is not configured in production; Jev uses the raw theme. Git history remains private; hosting this demo does not publish it. Exact release evidence is in `VERIFICATION.md`.
 
 ## Runtime configuration
 

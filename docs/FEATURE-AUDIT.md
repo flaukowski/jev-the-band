@@ -2,7 +2,7 @@
 
 2026-09-20, v0.6 after v0.5 and Claude's visual PR #1. Scope: the founding prompt and all follow-ups visible in this development conversation, plus the recorded visual and CI requests. This is not a search of every external conversation. Product wording is in `ORIGINAL-PROMPT.md` and `PROMPT-LOG.md`; ambient browser and system/tool metadata are excluded. Historical decisions remain dated even when superseded.
 
-**Most requested mechanisms are implemented.** Generated audience recordings, real direct-TypeSafe verification, public deployment verification and privacy-safe source publication remain outstanding. Tests cannot certify musical taste or realism.
+**Most requested mechanisms are implemented.** Direct TypeSafe and the Railway deployment have now passed real verification. Generated audience recordings and privacy-safe source publication remain outstanding; the optional Luna director still needs a dedicated OpenRouter key in production. Tests cannot certify musical taste or realism.
 
 | Request | Current implementation / evidence | Limits |
 |---|---|---|
@@ -33,13 +33,13 @@
 | ~100 generated crowd clips, crossfade, mood and mix level | Bounded generator, reviewed bank loader, crossfades, Patch and manual controls | **No generated bank yet**; audio key/audition/rights review pending; explicit procedural fallback works |
 | Full prompt/taste history | Founding prompt, visible follow-ups and dated decision log | Public edition requires privacy curation |
 | GitHub checkpoint and visual merge worker | v0.5 pushed; PR #1 merged into main and incorporated locally | Actions disabled at user request; local validation remains available |
-| Direct TypeSafe + OpenRouter; README and CONTRIBUTING | Provider adapter, mocked wire/room tests, root guides and provider docs | Real TypeSafe calls await dedicated key |
+| Direct TypeSafe + OpenRouter; README and CONTRIBUTING | Provider adapter, mocked wire/room tests, real TypeSafe smoke/hosted audition, root guides | Verified; production Luna needs a separate OpenRouter key |
 | Separate public-source investigation | Independent private mirror/history/assets/bundle/GitHub-surface audit | No credentials found; **existing history not privacy-safe to publish** |
-| Host selection and deployment with new key | Railway chosen; Docker asset packaging fixed, service/domain prepared | **Deployment pending dedicated key** |
+| Host selection and deployment with new key | Railway Docker service deployed; HTTPS revision/assets, protected controls, shared audience and real TypeSafe music verified | Live; room state remains in memory |
 
 ## Remaining work
 
-1. Configure the dedicated TypeSafe key, run a bounded live check, deploy, and verify the HTTPS artifact and protected controls. Luna requires a separate dedicated OpenRouter key.
+1. Optionally add a dedicated OpenRouter key to enable Luna in production. Direct TypeSafe deployment and the bounded real verification are complete.
 2. Generate and audition a small crowd bank, verify redistribution rights, then expand toward 100 if useful. Generation stays private until approved promotion.
 3. Approve a sanitized independent source snapshot for publication. Preserve the full original history privately; do not flip the current repository public or rewrite its history incidentally.
 4. Continue varied-prompt and longer-session listening. Freshness and solo constraints improve behavior without guaranteeing compelling melodies.

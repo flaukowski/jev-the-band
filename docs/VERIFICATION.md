@@ -111,3 +111,15 @@ No paid API calls, public deployment, repository visibility change or computer r
 - Railway project/service/domain, exact origin and random server-only host token are prepared. No deployment or paid call was made in this pass. No repository visibility change or history rewrite occurred.
 
 The independent privacy investigation's report is kept outside the repository. It found no credentials in its examined history/source/bundle and verified all 162 sample hashes, sources and licenses, but old commit and GitHub metadata still require publication curation. New commits use a noreply identity; this does not sanitize old history. Vite retains the large-stage-chunk advisory. Musical taste, phone/Safari/Firefox coverage, full ten-minute listening and capacity tests are not claimed.
+
+## 2026-09-20 — Direct TypeSafe and first Railway release
+
+- Dedicated key stored in the ignored dev environment and Railway secret store. Exact-value readback matched without printing the value. Dev backend health confirms TypeSafe, v0.6.0 and the existing optional local director; the completed dev jam was not interrupted.
+- Five real TypeSafe smoke calls succeeded: 93 validated answers, 482–598 ms latency. All reported `source: jev`; dollar cost was absent and remains unknown.
+- Initial hosted revision `736059746b7c2759d197102fd61780ec462422e7`, deployment `07739e0c-8bb7-4660-86d2-2d01c9c32499`, built successfully on Railway. HTTPS health reports v0.6.0, TypeSafe `jev-1.13.0`, protected host actions and the expected revision. The optional production Luna director is unconfigured.
+- Actual served assets match local SHA-256: `index-CqujLkAD.css`, `index-SEJVvLI5.js`, and `Stage-BfqLQqXE.js`. Public manifest contains 162 recordings; representative guitar/bass/piano/drum bytes match their hashes. The browser loaded all 162.
+- Anonymous POSTs to start/stop/queue/levels return 401; a foreign Origin returns 403. An authorized browser starts and stops the room. A second spectator joins the shared performance and makes zero POSTs.
+- Hosted live audition: 98 attempts and 98 accepted Jev traces, zero fallbacks. Roles include the opener, all four musicians, Lux and Patch. Patch receives real browser meters. The four-player frame starts before the test ends. Real master peak 0.41466, below clipping; physical browser sound was muted. Desktop and 390px mobile views have zero page errors and no horizontal overflow. Screenshots were visually reviewed. The test jam is confirmed ended.
+- Initial verification used a 480-attempt cap. Normal deployment configuration restores 6000; neither is a dollar budget. No generated crowd recordings or production OpenRouter key were added. No Git visibility change and no GitHub Actions enablement occurred.
+
+Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.json`, `deployed-room-ended.json`, and the Railway screenshots. This is a short mechanics check, not a full ten-minute listening evaluation. Subsequent documentation-only release retains identical application/asset code; final HTTPS revision and asset verification is recorded in private release evidence.

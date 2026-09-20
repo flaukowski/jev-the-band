@@ -244,3 +244,11 @@ Skinned meshes and cloth simulation; real planar reflections; per-note finger ch
 **Completeness:** `FEATURE-AUDIT.md` maps each visible request to implementation and remaining limits. Musical mechanics are implemented, but listening quality, generated audience recordings, direct-provider live validation, hosting verification and publication curation are not claimed complete. GitHub Actions stays disabled; checks run locally.
 
 **License follow-up:** the user asked for a project-focused README and an MIT-style license. Retain the existing MIT code license, declare it in package metadata, and include it in the container. The MIT grant does not replace the recordings' separate licenses; README and credits make that distinction explicit.
+
+## 2026-09-20 — Dedicated-key Railway release
+
+The user supplied the production TypeSafe credential and explicitly requested it in both Railway and the development repo's environment. Credential values are redacted from prompt history. Development now explicitly selects TypeSafe and retains its existing local OpenRouter director configuration. The idle dev backend was reloaded and its health confirmed TypeSafe/v0.6.0; no computer restart occurred.
+
+Railway runs the same TypeSafe transport, with a protected controller token and one shared room. The production service has no OpenRouter key, so the optional Luna brief is unavailable and Jev composes from the raw prompt. The public deployment does not make the Git repository public. The test jam was stopped after verification; performances begin only through an authorized host action.
+
+The release audition temporarily capped the room at 480 attempts, then restored the normal 6000-attempt ceiling. Five direct smoke calls and a 98-call hosted performance succeeded. Unknown provider dollar cost remains unknown. This brief muted browser check verifies mechanics, not a human listening judgment or long-run musical quality.
