@@ -2,6 +2,7 @@ import { clamp, musicians, type Frame, type Musician, type Note, type Part } fro
 import { channelGain, defaultMix, effectiveEffects, type Mix } from '../shared/mixer';
 import { guitarSamples } from './guitar';
 import { SampleBank } from './samples';
+import { drumSampleLifetime, effectsAtBeat } from '../shared/performance';
 
 interface Bus {
   input: GainNode;
@@ -25,6 +26,7 @@ export class BandAudio {
   context?: AudioContext;
   private master?: GainNode;
   private initializing?: Promise<void>;
+  private openHat?: { gain: GainNode; source: AudioBufferSourceNode };
   private buses = new Map<Musician, Bus>();
   private frames: Frame[] = [];
   private seen = new Set<string>();
@@ -61,6 +63,7 @@ export class BandAudio {
           at,
           frame.bpm,
           frame.parts.some((p) => p.solo),
+          effectsAtBeat(part, ((Date.now() + this.offset - frame.at) * frame.bpm) / 60000),
         );
   }
   levels(): Record<Musician, number> {
@@ -122,6 +125,7 @@ export class BandAudio {
       }
     }
     this.sources.clear();
+    this.openHat = undefined;
   }
   dispose() {
     this.stop();
@@ -249,15 +253,22 @@ export class BandAudio {
     for (const frame of this.frames) {
       if (frame.at + frame.durationMs < now || frame.at > now + 180) continue;
       for (const part of frame.parts) {
-        const busKey = `${frame.id}:${part.role}:fx`;
-        if (!this.seen.has(busKey)) {
+        const cues = part.effectsTimeline ?? [{ beat: 0, effects: part.decision.effects }];
+        for (const [index, cue] of cues.entries()) {
+          const time = frame.at + (cue.beat * 60000) / frame.bpm;
+          const busKey = `${frame.id}:${part.role}:fx:${cue.beat}`;
+          if (this.seen.has(busKey) || time > now + 180) continue;
+          this.seen.add(busKey);
+          // A late listener starts with the current bar's rig, never an unplayed future cue.
+          const next = cues[index + 1];
+          if (next && frame.at + (next.beat * 60000) / frame.bpm <= now) continue;
           this.fx(
             part,
-            Math.max(c.currentTime, c.currentTime + (frame.at - now) / 1000),
+            Math.max(c.currentTime, c.currentTime + (time - now) / 1000),
             frame.bpm,
             frame.parts.some((p) => p.solo),
+            cue.effects,
           );
-          this.seen.add(busKey);
         }
         part.notes.forEach((note, index) => {
           const time = frame.at + (note.beat * 60000) / frame.bpm;
@@ -273,9 +284,15 @@ export class BandAudio {
       }
     }
   }
-  private fx(part: Part, at: number, bpm: number, hasSolo: boolean) {
+  private fx(
+    part: Part,
+    at: number,
+    bpm: number,
+    hasSolo: boolean,
+    effects = part.decision.effects,
+  ) {
     const bus = this.buses.get(part.role)!;
-    const e = effectiveEffects(this.mix[part.role], part.decision.effects);
+    const e = effectiveEffects(this.mix[part.role], effects);
     const focus = part.solo
       ? 1.18
       : hasSolo
@@ -307,7 +324,7 @@ export class BandAudio {
     const role = part.role;
     const c = this.context!;
     let target: AudioNode = this.buses.get(role)!.input;
-    const effects = effectiveEffects(this.mix[role], part.decision.effects);
+    const effects = effectiveEffects(this.mix[role], effectsAtBeat(part, note.beat));
     const extraNodes: AudioNode[] = [];
     if (effects.envelope) {
       // Each performed attack opens its own filter; chords never cancel each other's envelopes.
@@ -343,13 +360,29 @@ export class BandAudio {
       const level =
         note.velocity *
         (role === 'keys' ? 0.3 : role === 'bass' ? 0.62 : role === 'drums' ? 0.6 : 0.5);
-      const sustain = Math.min(duration, sample.buffer.duration / source.playbackRate.value - 0.06);
+      const sustain = drumSampleLifetime(
+        role,
+        duration,
+        sample.buffer.duration / source.playbackRate.value,
+      );
       gain.gain.setValueAtTime(0.0001, at);
       gain.gain.linearRampToValueAtTime(level, at + 0.003);
       gain.gain.setValueAtTime(level, at + Math.max(0.004, sustain));
       gain.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.01, sustain) + 0.12);
       this.expression(source, note, at, duration, role);
       source.connect(gain).connect(target);
+      if (role === 'drums' && [42, 46].includes(note.midi)) {
+        if (this.openHat) {
+          this.openHat.gain.gain.cancelScheduledValues(at);
+          this.openHat.gain.gain.setTargetAtTime(0.0001, at, 0.008);
+          try {
+            this.openHat.source.stop(at + 0.04);
+          } catch {
+            /* already finished */
+          }
+        }
+        this.openHat = note.midi === 46 ? { source, gain } : undefined;
+      }
       source.start(at);
       this.track(source, at + Math.max(0.01, sustain) + 0.14, [gain, ...extraNodes]);
       return;

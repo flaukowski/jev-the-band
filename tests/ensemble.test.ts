@@ -25,6 +25,10 @@ test('a player hears only performed notes and elapsed durations, never peers pri
     { beat: 0, duration: 7, midi: 60, velocity: 0.5 },
     { beat: 6, duration: 1, midi: 95, velocity: 0.5 },
   ];
+  part.effectsTimeline = [
+    { beat: 0, effects: part.decision.effects, traceId: 'old' },
+    { beat: 4, effects: { ...part.decision.effects, drive: true }, traceId: 'future-rig' },
+  ];
   const f: Frame = {
     id: 0,
     at: 10000,
@@ -46,7 +50,9 @@ test('a player hears only performed notes and elapsed durations, never peers pri
     { beat: 0, midi: 60, velocity: 0.5, heardDuration: 2 },
   ]);
   assert.equal(heard.ownMemory, null);
-  assert.doesNotMatch(JSON.stringify(heard), /envelope|development|95/);
+  assert.doesNotMatch(JSON.stringify(heard), /development|95|future-rig|effectsTimeline/);
+  assert.equal(heard.recent[0].players[0].effects.envelope, true);
+  assert.equal(heard.recent[0].players[0].effects.drive, part.decision.effects.drive);
   assert.equal(
     listeningState(room.view(), 'guitar', 12180).ownMemory?.decision.effects.envelope,
     true,

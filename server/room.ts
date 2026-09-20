@@ -114,7 +114,7 @@ export class Room extends EventEmitter {
     const active = [...(selected ? [selected] : []), 'lights' as const];
     if (
       this.state.mode === 'live' &&
-      this.state.requests + (selected ? maxAttacks + 2 : 1) > this.maxRequests
+      this.state.requests + (selected ? maxAttacks + 3 : 1) > this.maxRequests
     ) {
       this.stop('Jev request limit reached');
       return;

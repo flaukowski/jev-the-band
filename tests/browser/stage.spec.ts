@@ -39,14 +39,18 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   console.log('Stage loaded');
   await expect(page.getByText('STAGE CONNECTED', { exact: true })).toBeVisible();
   await expect(page.locator('canvas')).toBeVisible();
-  await page.getByRole('button', { name: 'Enable sound' }).click();
-  await expect(page.getByTestId('sample-status')).toHaveText('162 recorded samples ready', {
-    timeout: 30000,
-  });
-  console.log('Recorded voices ready');
+  await expect(page.getByRole('button', { name: 'Enable sound' })).toHaveCount(0);
+  const promptBox = await page.locator('.prompt-panel').boundingBox();
+  const stageBox = await page.locator('.stage-wrap').boundingBox();
+  expect(promptBox!.y + promptBox!.height).toBeLessThan(stageBox!.y);
   await page.getByLabel('Decision mode').selectOption('rehearsal');
   await page.getByLabel('Jam title or description').fill('Lanterns on the river');
   await page.getByRole('button', { name: 'Play demo' }).click();
+  await expect(page.getByTestId('sample-status')).toHaveText('162 recorded samples ready', {
+    timeout: 30000,
+  });
+  await expect(page.getByRole('button', { name: 'Mute sound', exact: true })).toBeVisible();
+  console.log('Play enabled recorded voices');
   await expect(page.getByText('DEMO · NO AI', { exact: true }).first()).toBeVisible();
   await expect
     .poll(
@@ -65,6 +69,9 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   ]);
   const second = await context.newPage();
   await second.goto('/');
+  await expect(
+    second.getByRole('button', { name: 'Listen to this jam', exact: true }),
+  ).toBeVisible();
   await expect(second.getByText('Lanterns on the river', { exact: true }).first()).toBeVisible();
   await expect
     .poll(
@@ -103,6 +110,7 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   await page.getByRole('button', { name: 'Reset mix' }).click();
   await page.getByLabel('ROOK Distortion', { exact: true }).selectOption('on');
   await page.getByLabel('ROOK Envelope', { exact: true }).selectOption('on');
+  await expect(page.locator('.effects-rig small').filter({ hasText: 'overridden' })).toHaveCount(2);
   await page
     .getByRole('article', { name: 'MOSS mixer' })
     .getByRole('button', { name: 'Effects rig' })

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Performance } from './performance.js';
 
 export const roles = ['guitar', 'bass', 'keys', 'drums', 'lights'] as const;
 export type Role = (typeof roles)[number];
@@ -191,6 +192,7 @@ export const noteSchema = z.object({
   articulation: z.enum(articulations).optional(),
   bend: z.number().min(-2).max(2).optional(),
   provenance: z.object({ traceId: z.string(), slot: z.string() }).optional(),
+  string: z.number().int().min(0).max(5).optional(),
 });
 export type Note = z.infer<typeof noteSchema>;
 export interface Part {
@@ -204,6 +206,8 @@ export interface Part {
   continued?: boolean;
   phraseFormat?: 'events-v1';
   tonalIntent?: { root: number; mode: string };
+  performance?: Performance;
+  effectsTimeline?: { beat: number; effects: Effects; traceId: string }[];
 }
 export interface Frame {
   id: number;

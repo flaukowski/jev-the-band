@@ -17,7 +17,7 @@ cp .env.example .env
 npm run dev
 ```
 
-On PowerShell, use `Copy-Item .env.example .env`. Open **http://127.0.0.1:5178**. Live Jev is selected automatically when a key is available. Enter a title or description and press **Let's jam**. The **Instrument demo · no AI** option uses procedural music and does not interpret the title. Press **Enable sound** to listen; playback never starts automatically.
+On PowerShell, use `Copy-Item .env.example .env`. Open **http://127.0.0.1:5178**. Live Jev is selected automatically when a key is available. Enter a title or description at the top and press **Let's jam**; Play loads the instruments and enables sound. The **Instrument demo · no AI** option uses procedural music and does not interpret the title. Spectators joining a running performance press **Listen to this jam**. Playback never starts without a gesture.
 
 For a single production-style local process:
 
@@ -40,11 +40,13 @@ Open **http://127.0.0.1:4310**. The server serves both the compiled stage and it
 
 - Jev chooses an opener, tempo, tonic, and mode; the opener plays alone before the others join across subsequent phrases.
 - Only one musician revises a phrase at a time. Each sees only notes already played, with a reaction delay, plus private memory of its own part.
-- Live musicians compose sequential attacks: exact pitches, rests, spacing, durations, velocities, articulation, guitar bends, actual keyboard chord voices and actual drum hits. Each decision sees its own preceding notes. Jev chooses an independent tonal intention and register per player.
-- Creative fields sample Jev's probabilities, with raw and applied answers recorded separately. Live does not use the demo's rhythm or voicing templates. Phrases contain up to twelve attacks (eight for keys), with 32nd and tuplet intervals. Validation enforces timing and five held notes per keyboard hand.
+- Jev chooses style, groove and tension/release direction before composing actual notes. Eight stylistic branches guide composition; they are not loop presets. Sustained building is followed by settle/release/space, and score-based motif memory distinguishes an actual variation from a relabeled repeat.
+- Guitar can play single lines, double stops, rhythmic chords, strums and swells, choosing exact notes on up to six strings. Keys can comp with both hands, play stabs or sustained chords, or split chords and melody. Five held notes per hand remains the limit.
+- Pitched phrases contain up to twelve sequential attacks (eight for keys), with exact pitches, durations, dynamics, bends, 32nd and tuplet intervals. Drum composition uses two full bars of individually chosen hits/rests on its own elected subdivision; recorded cymbals ring naturally.
+- Creative fields sample Jev's probabilities, with raw and applied answers recorded separately. Keyboard voice decoding avoids duplicate pitches within a hand using only nonzero model probabilities. Live does not use the demo's rhythm or voicing templates.
 - Tempo changes gradually within ±10% of its starting value. Key changes require matching proposals from two musicians and four phrases between changes.
 - Solos are independent; two or more musicians can step forward together. Choosing support ends a solo.
-- Every player has a separate distortion, auto-wah, envelope filter, chorus, tremolo, delay and reverb rig. Jev controls it unless a listener overrides a pedal. RMS-matched distortion and per-channel compression keep drive from overwhelming the mix.
+- Every player has a separate distortion, auto-wah, envelope filter, chorus, tremolo, delay and reverb rig. Jev chooses the bar's sonic character, then every pedal independently: 128 possible combinations per bar. The desk shows Jev's current states and your overrides. RMS-matched distortion and per-channel compression keep drive from overwhelming the mix.
 - The soundboard provides level, mute, isolation solo, pan, tone, drive amount and actual signal meters. Musical soloists are labeled LEAD in the desk; listening SOLO does not change their decisions.
 - Camera presets, orbit, zoom, reset and solo following complement animations synchronized to performed notes.
 - Lux combines 12 washes, 12 beam arrangements, and 8 laser choices. These are stylized virtual presets, with smooth transitions and no strobe.
@@ -63,6 +65,10 @@ Every decision is labeled `jev`, `rehearsal`, or `fallback`. Notes reference the
 shared/music.ts     Types, schemas, personas, lighting vocabulary
 shared/score.ts     Declarative score compiler and musical constraints
 server/composer.ts  Sequential live note decisions; no preset accompaniment
+server/drummer.ts   Full-bar hit/rest decisions on the elected drum subdivision
+server/rig.ts       Independent pedal decisions conditioned on bar timbre
+server/musical-context.ts  Own motif/arc memory and heard musical feedback
+shared/performance.ts  Style/texture palettes and performed rig lookup
 shared/mixer.ts     Listening mix and isolated effect override rules
 server/listening.ts Causal symbolic hearing; no peer future notes
 server/jev.ts       Typed Jev requests, strict response validation, provenance
@@ -92,7 +98,11 @@ npm run smoke:live
 npm run smoke:performance
 # Two isolated prompt openings: at most 140 total calls:
 npm run audit:prompts
+# Three actual chord/drum compositions, at most 28 calls:
+npm run audit:groove
 ```
+
+See [Musical architecture](docs/MUSICAL-ARCHITECTURE.md) for composition layers, instrument capabilities, preserved features and current limits.
 
 Browser verification launches Chromium muted and checks the actual master signal without playing sound through speakers. CI runs deterministic tests and builds only; it never reads a key or calls Jev. See [verification evidence](docs/VERIFICATION.md).
 

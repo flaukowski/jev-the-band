@@ -78,3 +78,36 @@ This is not at all what I had envisioned. jev needs to make actual phrase by phr
 ```text
 distortion increases the level too much, we need to turn down the distortion level or add some dynamic range compression to keep a more even mix
 ```
+
+## 2026-09-19 — Polyphony, groove and musical architecture
+
+```text
+this is actually pretty dope!
+am i write current set up is montonics.
+
+allow instruments guitar and keyboard, to have full polyphony modes where they can play rhythmic chords in addition to monotonic&#x20;
+
+seems like the drums are cut off and not really find a groove.
+
+this is a cool proof of concept, how do we get jev's choices to have more stylistic branches?
+
+it's like it's all tension no release you know what i mean, i feel like the instruments should strive to groove.&#x20;
+
+we're getting there&#x20;
+
+seems like we lost some of things from previous turns, jev choosing effects etc. ; maybe we need to step back and think about a architecture here...
+```
+
+## 2026-09-19 — Playback controls at the top
+
+```text
+is the enable sound button have a purpose?? it seems weird.
+
+prompt and play should be at top of UI not bottom
+```
+
+## 2026-09-19 — Effects as a major musical dimension
+
+```text
+the effects sound dope by the way, jev should make heavy use of them! it should be able to classify bars at any combination of effects on or off right? that will make a big big difference. playing around with them manually they add a TON of texture and interest!
+```

@@ -183,6 +183,10 @@ export default function App() {
     setBusy(true);
     setError('');
     try {
+      setAudioLoading(true);
+      await audio.current.enable();
+      setSound(true);
+      setAudioLoading(false);
       const response = await fetch(`${API}/api/room`, {
         method: 'POST',
         headers: {
@@ -198,6 +202,7 @@ export default function App() {
       setError(e instanceof Error ? e.message : 'The jam could not start.');
     } finally {
       setBusy(false);
+      setAudioLoading(false);
     }
   }
   async function stop() {
@@ -277,6 +282,105 @@ export default function App() {
             {connected ? 'STAGE CONNECTED' : 'CONNECTING TO STAGE'}
           </div>
         </div>
+        <section className="prompt-panel">
+          <div className="prompt-label">
+            <span className="eyebrow">
+              {running ? 'NOW WANDERING' : 'GIVE THEM A PLACE TO BEGIN'}
+            </span>
+            <h2>
+              {(running ? room.mode : mode) === 'rehearsal'
+                ? 'Try the instruments.'
+                : running
+                  ? 'The band takes it from here.'
+                  : 'What does tonight sound like?'}
+            </h2>
+            <p>
+              {(running ? room.mode : mode) === 'rehearsal'
+                ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
+                : running
+                  ? 'They listen to one another. The prompt is just the first spark.'
+                  : 'A title, a feeling, or a whole story. See where they take it.'}
+            </p>
+          </div>
+          <div className="prompt-form">
+            {running ? (
+              <div className="playing-controls">
+                <span className="current-prompt">“{room?.title}”</span>
+                <button className="end-button" onClick={stop}>
+                  <Square size={15} /> End jam
+                </button>
+              </div>
+            ) : (
+              <>
+                <label className="sr-only" htmlFor="jam-prompt">
+                  Jam title or description
+                </label>
+                <textarea
+                  id="jam-prompt"
+                  value={prompt}
+                  maxLength={4000}
+                  rows={2}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="A midnight drive through a city made of glass…"
+                />
+                <div className="form-bottom">
+                  <label className="mode-select">
+                    <select
+                      aria-label="Decision mode"
+                      value={mode}
+                      disabled={!healthReady}
+                      onChange={(e) => setChosenMode(e.target.value as typeof mode)}
+                    >
+                      <option value="rehearsal">Instrument demo · no AI</option>
+                      <option value="live" disabled={!liveAvailable}>
+                        Live Jev{!liveAvailable ? ' · host key needed' : ''}
+                      </option>
+                    </select>
+                    <ChevronDown size={13} />
+                  </label>
+                  <button
+                    className="start-button"
+                    disabled={
+                      busy ||
+                      !connected ||
+                      !healthReady ||
+                      (mode === 'live' && !liveAvailable) ||
+                      !prompt.trim()
+                    }
+                    onClick={start}
+                  >
+                    <Play size={16} fill="currentColor" />
+                    {audioLoading
+                      ? 'Loading instruments…'
+                      : busy
+                        ? 'Opening the room…'
+                        : mode === 'live'
+                          ? 'Let’s jam'
+                          : 'Play demo'}
+                  </button>
+                </div>
+              </>
+            )}
+            {hostRequired && (
+              <label className="host-key">
+                Host access{' '}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={controller}
+                  onChange={(e) => setController(e.target.value)}
+                  placeholder="Controller token · kept in memory"
+                />
+              </label>
+            )}
+          </div>
+        </section>
+
+        {(error || room?.error) && (
+          <div className="error-message" role="alert">
+            {error || room?.error}
+          </div>
+        )}
         <div
           className={`generation-status ${effectiveMode === 'rehearsal' ? 'demo-status' : ''}`}
           role="status"
@@ -343,14 +447,20 @@ export default function App() {
                   </span>
                   <p>{running ? room?.title : 'Four musicians. One lighting artist. All ears.'}</p>
                 </div>
-                <button
-                  className={`sound-pill ${sound ? 'sound-on' : ''}`}
-                  onClick={toggleAudio}
-                  disabled={audioLoading}
-                >
-                  {sound ? <Volume2 size={17} /> : <VolumeX size={17} />}
-                  {audioLoading ? 'Loading instruments…' : sound ? 'Sound on' : 'Enable sound'}
-                </button>
+                {(running || sound) && (
+                  <button
+                    className={`sound-pill ${sound ? 'sound-on' : ''}`}
+                    onClick={toggleAudio}
+                    disabled={audioLoading}
+                  >
+                    {sound ? <Volume2 size={17} /> : <VolumeX size={17} />}
+                    {audioLoading
+                      ? 'Loading instruments…'
+                      : sound
+                        ? 'Mute sound'
+                        : 'Listen to this jam'}
+                  </button>
+                )}
               </div>
               {!running && (
                 <div className="stage-caption">
@@ -448,109 +558,28 @@ export default function App() {
                 );
               })}
             </section>
-            <Mixer audio={audio.current} frame={activeFrame} />
-            <section className="prompt-panel">
-              <div className="prompt-label">
-                <span className="eyebrow">
-                  {running ? 'NOW WANDERING' : 'GIVE THEM A PLACE TO BEGIN'}
-                </span>
-                <h2>
-                  {(running ? room.mode : mode) === 'rehearsal'
-                    ? 'Try the instruments.'
-                    : running
-                      ? 'The band takes it from here.'
-                      : 'What does tonight sound like?'}
-                </h2>
-                <p>
-                  {(running ? room.mode : mode) === 'rehearsal'
-                    ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
-                    : running
-                      ? 'They listen to one another. The prompt is just the first spark.'
-                      : 'A title, a feeling, or a whole story. See where they take it.'}
-                </p>
-              </div>
-              <div className="prompt-form">
-                {running ? (
-                  <div className="playing-controls">
-                    <span className="current-prompt">“{room?.title}”</span>
-                    <button className="end-button" onClick={stop}>
-                      <Square size={15} /> End jam
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <label className="sr-only" htmlFor="jam-prompt">
-                      Jam title or description
-                    </label>
-                    <textarea
-                      id="jam-prompt"
-                      value={prompt}
-                      maxLength={4000}
-                      rows={2}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="A midnight drive through a city made of glass…"
-                    />
-                    <div className="form-bottom">
-                      <label className="mode-select">
-                        <select
-                          aria-label="Decision mode"
-                          value={mode}
-                          disabled={!healthReady}
-                          onChange={(e) => setChosenMode(e.target.value as typeof mode)}
-                        >
-                          <option value="rehearsal">Instrument demo · no AI</option>
-                          <option value="live" disabled={!liveAvailable}>
-                            Live Jev{!liveAvailable ? ' · host key needed' : ''}
-                          </option>
-                        </select>
-                        <ChevronDown size={13} />
-                      </label>
-                      <button
-                        className="start-button"
-                        disabled={
-                          busy ||
-                          !connected ||
-                          !healthReady ||
-                          (mode === 'live' && !liveAvailable) ||
-                          !prompt.trim()
-                        }
-                        onClick={start}
-                      >
-                        <Play size={16} fill="currentColor" />
-                        {busy ? 'Opening the room…' : mode === 'live' ? 'Let’s jam' : 'Play demo'}
-                      </button>
-                    </div>
-                  </>
-                )}
-                {hostRequired && (
-                  <label className="host-key">
-                    Host access{' '}
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      value={controller}
-                      onChange={(e) => setController(e.target.value)}
-                      placeholder="Controller token · kept in memory"
-                    />
-                  </label>
-                )}
-              </div>
-            </section>
+            <Mixer
+              audio={audio.current}
+              frame={activeFrame}
+              beat={frame ? ((currentTime - frame.at) * frame.bpm) / 60000 : 0}
+            />
             <details className="composition-contract">
               <summary>What does Jev actually control?</summary>
               <p>
-                Live Jev composes each phrase one attack at a time: exact pitches, time until the
-                next attack, held duration, velocity and articulation. Each decision sees its own
-                earlier notes. Keyboard chords and drum hits are chosen individually too. Creative
-                note choices sample Jev’s probabilities; the trace shows both the raw provider
-                answer and the applied choice.
+                Live Jev chooses a style, groove and tension/release arc, then composes exact
+                pitches, timing, duration, velocity and articulation. Guitar can play single lines,
+                double stops or up to six-string chords; keys can comp, sustain chords or split
+                chords and melody, with five held notes per hand. Drums choose their pulse and every
+                hit/rest across two full bars. Samples ring naturally.
               </p>
               <p>
-                Each player chooses a tonal intention, musical role and independent effects. Players
-                take turns revising phrases and hear only notes already played by peers. The harness
-                keeps time, enforces instrument limits and caps the jam at ten minutes. Live phrases
-                use no preset rhythm, voicing or drum pattern. Recorded samples are individual
-                notes.
+                Each player chooses a tonal intention, musical role and any combination of seven
+                independent pedals for each bar. Your mixer overrides take priority. Players take
+                turns revising phrases and hear only notes already played by peers. The harness
+                keeps time, enforces instrument limits, asks for a release after sustained building,
+                and caps the jam at ten minutes. Live phrases use no preset licks, voicings or drum
+                patterns. Creative pitch choices use Jev’s probabilities, more conservatively in
+                settled passages; the trace shows raw answers and applied choices.
               </p>
               <p>
                 The instrument demo makes no Jev calls and uses three built-in motifs with
@@ -558,11 +587,6 @@ export default function App() {
                 to inspect real requests and their results.
               </p>
             </details>
-            {(error || room?.error) && (
-              <div className="error-message" role="alert">
-                {error || room?.error}
-              </div>
-            )}
             <div className="below-note">
               <span>
                 <AudioLines size={15} />
