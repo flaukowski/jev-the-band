@@ -16,6 +16,7 @@ test('audience crossfades remain bounded, quiet really fades out, and disposal l
     const { AudiencePlayer } = await import(modulePath);
     const ctx = new OfflineAudioContext(2, 36 * 22050, 22050);
     const audience = new AudiencePlayer(ctx);
+    await audience.loadBank();
     audience.start('test-room');
     audience.tick(9.4);
     audience.tick(18.9);
@@ -56,8 +57,8 @@ test('audience crossfades remain bounded, quiet really fades out, and disposal l
       stillOpen,
     };
   });
-  expect(result.status.source).toBe('procedural');
-  expect(result.status.label).toContain('no generated voices');
+  expect(result.status.source).toBe('generated');
+  expect(result.status.label).toContain('elevenlabs.io');
   expect(result.early).toBeGreaterThan(0.001);
   expect(result.crossfade).toBeGreaterThan(result.early * 0.6);
   expect(result.reaction).toBeGreaterThan(0.001);
@@ -112,7 +113,7 @@ test('unreviewed generated clips never download or claim to be ready', async ({ 
     player.dispose();
     return status;
   });
-  expect(status.source).toBe('procedural');
+  expect(status.source).toBe('unavailable');
   expect(status.approvedSamples).toBe(0);
   expect(status.readySamples).toBe(0);
   expect(clipRequests).toBe(0);
@@ -134,6 +135,7 @@ test('an immediate audience override wins over queued Jev cues and a new room dr
     const render = async (restart: boolean) => {
       const context = new OfflineAudioContext(2, 5 * 22050, 22050);
       const player = new AudiencePlayer(context);
+      await player.loadBank();
       player.start('old-room');
       if (restart) {
         player.setDirection({ mood: 'quiet', levelDb: -24 }, 0.2);
@@ -156,4 +158,110 @@ test('an immediate audience override wins over queued Jev cues and a new room dr
   });
   expect(result.manualQuiet).toBeLessThan(0.000001);
   expect(result.newRoom).toBeGreaterThan(0.001);
+});
+
+test('missing audience assets stay silent instead of generating white noise', async ({ page }) => {
+  await page.route('**/audience-harness', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Missing bank</title>' }),
+  );
+  await page.route('**/audience/manifest.json', (route) => route.fulfill({ status: 404 }));
+  await page.goto('/audience-harness');
+  const result = await page.evaluate(async () => {
+    const audienceModule = '/src/audience.ts';
+    const { AudiencePlayer } = await import(audienceModule);
+    const context = new OfflineAudioContext(2, 22050 * 4, 22050);
+    const player = new AudiencePlayer(context);
+    await player.loadBank();
+    player.start('missing', true);
+    player.tick(1);
+    const data = (await context.startRendering()).getChannelData(0);
+    const peak = data.reduce((p, n) => Math.max(p, Math.abs(n)), 0);
+    const status = player.status;
+    player.dispose();
+    return { peak, status };
+  });
+  expect(result.peak).toBe(0);
+  expect(result.status.source).toBe('unavailable');
+});
+
+test('welcome and manual reactions play with no musical frames, respect mute, and cancel cleanly', async ({
+  page,
+}) => {
+  await page.route('**/audience-harness', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><title>Opening crowd</title>',
+    }),
+  );
+  await page.goto('/audience-harness');
+  const result = await page.evaluate(async () => {
+    const audienceModule = '/src/audience.ts';
+    const { AudiencePlayer } = await import(audienceModule);
+    const render = async (welcome: boolean, muted = false) => {
+      const ctx = new OfflineAudioContext(2, 22050 * 4, 22050);
+      const player = new AudiencePlayer(ctx);
+      await player.loadBank();
+      player.setControls({ enabled: !muted, reactions: true, levelDb: 0 });
+      player.start('welcome-test', welcome);
+      const accepted = player.triggerReaction('applause');
+      const data = (await ctx.startRendering()).getChannelData(0);
+      const power = data.slice(22050, 22050 * 3).reduce((p, n) => p + n * n, 0) / (22050 * 2);
+      player.dispose();
+      return { rms: Math.sqrt(power), accepted };
+    };
+    return {
+      welcome: await render(true),
+      manual: await render(false),
+      muted: await render(true, true),
+    };
+  });
+  expect(result.welcome.rms).toBeGreaterThan(0.001);
+  expect(result.welcome.accepted).toBe(false); // no stacking a second reaction over the welcome
+  expect(result.manual.accepted).toBe(true);
+  expect(result.manual.rms).toBeGreaterThan(0.001);
+  expect(result.muted.rms).toBe(0);
+  expect(result.muted.accepted).toBe(false);
+});
+
+test('Start sounds the crowd before slow instrument downloads, then failure stops it', async ({
+  page,
+}) => {
+  await page.route('**/audience-harness', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Band startup</title>' }),
+  );
+  await page.goto('/audience-harness');
+  const result = await page.evaluate(async () => {
+    const audioModule = '/src/audio.ts';
+    const { BandAudio } = await import(audioModule);
+    const band = new BandAudio();
+    let release!: () => void;
+    band.samples.load = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    const enabling = band.enable(true);
+    const began = performance.now();
+    while (
+      (!release || band.audienceStatus?.source !== 'generated') &&
+      performance.now() - began < 10000
+    )
+      await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 1200));
+    const before = { status: band.audienceStatus, notes: band.scheduledNotes };
+    const firstSpectrum = Array.from(band.spectrum() as Uint8Array).some((n) => n > 0);
+    release();
+    await enabling;
+    band.update('new-room', []);
+    const preserved = band.audienceStatus?.active;
+    band.cancelPrelude();
+    const stopped = !band.audienceStatus?.active;
+    band.dispose();
+    return { before, firstSpectrum, preserved, stopped };
+  });
+  expect(result.before.status.source).toBe('generated');
+  expect(result.before.status.active).toBe(true);
+  expect(result.before.notes).toBe(0);
+  expect(result.firstSpectrum).toBe(true);
+  expect(result.preserved).toBe(true);
+  expect(result.stopped).toBe(true);
 });

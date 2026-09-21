@@ -234,7 +234,7 @@ export default function App() {
     setError('');
     try {
       setAudioLoading(true);
-      await audio.current.enable();
+      await audio.current.enable(true);
       setSound(true);
       setAudioLoading(false);
       const response = await fetch(`${API}/api/room`, {
@@ -250,6 +250,7 @@ export default function App() {
       setRoom(data);
       setReferenceRoom(data.id);
     } catch (e) {
+      audio.current.cancelPrelude();
       setError(e instanceof Error ? e.message : 'The jam could not start.');
     } finally {
       setBusy(false);

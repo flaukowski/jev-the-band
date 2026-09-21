@@ -2,7 +2,7 @@
 
 2026-09-20, v0.6 after v0.5 and Claude's visual PR #1. Scope: the founding prompt and all follow-ups visible in this development conversation, plus the recorded visual and CI requests. This is not a search of every external conversation. Product wording is in `ORIGINAL-PROMPT.md` and `PROMPT-LOG.md`; ambient browser and system/tool metadata are excluded. Historical decisions remain dated even when superseded.
 
-**Most requested mechanisms are implemented.** Direct TypeSafe and the Railway deployment have now passed real verification. Generated audience recordings and privacy-safe source publication remain outstanding; the optional Luna director still needs a dedicated OpenRouter key in production. Tests cannot certify musical taste or realism.
+**Most requested mechanisms are implemented.** Direct TypeSafe and the Railway deployment have now passed real verification. Privacy-safe source publication remains outstanding; the optional Luna director still needs a dedicated OpenRouter key in production. Tests cannot certify musical taste or realism.
 
 | Request | Current implementation / evidence | Limits |
 |---|---|---|
@@ -30,7 +30,7 @@
 | Dozens of lighting options to combine | 12 washes + 12 beam recipes + 8 laser recipes, intensity/motion controls | 32 recipe choices across three combinable layers, not 32 individual physical fixtures |
 | Toggleable live request inspection | Under the hood, requests/results, hashes, raw/applied answers, provider/model exports | Application provenance, not independent provider attestation |
 | Twelve playful enhancements | Twelve delivered additions enumerated in design log, followed by musical/visual revisions | Separately labeled brainstorm is not claimed as delivered |
-| ~100 generated crowd clips, crossfade, mood and mix level | Bounded generator, reviewed bank loader, crossfades, Patch and manual controls | **No generated bank yet**; audio key/audition/rights review pending; explicit procedural fallback works |
+| ~100 generated crowd clips, crossfade, mood and mix level | Bounded generator, reviewed bank loader, crossfades, Patch and manual controls | 24 generated clips (216 seconds); opening cheer and manual cues implemented. Fewer than the suggested ~100; no human audition; free-plan noncommercial attribution restrictions apply. Missing clips stay silent. |
 | Full prompt/taste history | Founding prompt, visible follow-ups and dated decision log | Public edition requires privacy curation |
 | GitHub checkpoint and visual merge worker | v0.5 pushed; PR #1 merged into main and incorporated locally | Actions disabled at user request; local validation remains available |
 | Direct TypeSafe + OpenRouter; README and CONTRIBUTING | Provider adapter, mocked wire/room tests, real TypeSafe smoke/hosted audition, root guides | Verified; production Luna needs a separate OpenRouter key |
@@ -46,3 +46,4 @@
 4. Continue varied-prompt and longer-session listening. Freshness and solo constraints improve behavior without guaranteeing compelling melodies.
 
 Durable replay, MIDI/stem export, brush kits, arbitrary phrase boundaries, large-audience scaling and server-mixed audio remain roadmap possibilities. See `VERIFICATION.md` for dated evidence and limits.
+

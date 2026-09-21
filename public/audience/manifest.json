@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "source": "generated",
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v2",
+  "createdAt": "2026-09-21T00:38:17.205Z",
+  "license": "Festival audience - elevenlabs.io. Generated with ElevenLabs Sound Effects v2 on the free plan. Noncommercial use only with elevenlabs.io in the content title, subject to ElevenLabs terms. Excluded from the MIT code license. https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform",
+  "samples": [
+    {
+      "id": "cheering-5fba89a4",
+      "path": "/audience/cheering-5fba89a4.mp3",
+      "mood": "cheering",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b4b9de371bd112beb75638f44bc4c47fad929ed48f824cc0d74f6ed03ca85b21",
+      "approved": true
+    },
+    {
+      "id": "listening-8b6fa75a",
+      "path": "/audience/listening-8b6fa75a.mp3",
+      "mood": "listening",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "c88574965413f697fdfdd88821bc68bf37e2470ccca978417a000349edcf2d3b",
+      "approved": true
+    },
+    {
+      "id": "applause-85c60bea",
+      "path": "/audience/applause-85c60bea.mp3",
+      "mood": "applause",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "3b1bebbaf762940709a9e823f9439a202881614bbc26fb1ce01dd63cc44e31f8",
+      "approved": true
+    },
+    {
+      "id": "grooving-3dc90bb2",
+      "path": "/audience/grooving-3dc90bb2.mp3",
+      "mood": "grooving",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "63e42762ca63db43c1117b4b449f2e3e85d6b8dc8cef1dfef0ac28f3cafddab8",
+      "approved": true
+    },
+    {
+      "id": "cheering-8a90acd6",
+      "path": "/audience/cheering-8a90acd6.mp3",
+      "mood": "cheering",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "4c4e77e998b5e7fda20b17c9e33716696235d1ec5790d381cd2ef2132582db0f",
+      "approved": true
+    },
+    {
+      "id": "listening-1ff114da",
+      "path": "/audience/listening-1ff114da.mp3",
+      "mood": "listening",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "1c186f75aa720f726d5d769321f88aea20ff3cb34d8924267b420c5a1e4e4ddd",
+      "approved": true
+    },
+    {
+      "id": "applause-fa9c9307",
+      "path": "/audience/applause-fa9c9307.mp3",
+      "mood": "applause",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b7de56dad365e1f82ffe41f381553dcc066ffc0877ebb58131b88d0b8e68298a",
+      "approved": true
+    },
+    {
+      "id": "grooving-c3bd7ef8",
+      "path": "/audience/grooving-c3bd7ef8.mp3",
+      "mood": "grooving",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "70e6d68e04a42efca46ec43a443f6d09fdc15a6e9f6aae9218a73cded3194682",
+      "approved": true
+    },
+    {
+      "id": "cheering-768292c3",
+      "path": "/audience/cheering-768292c3.mp3",
+      "mood": "cheering",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "7b6ccf682b5867c0156daaeabe2d81c431623e09212af86580d4134ec25f4a83",
+      "approved": true
+    },
+    {
+      "id": "listening-f5406376",
+      "path": "/audience/listening-f5406376.mp3",
+      "mood": "listening",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "f72b360fc38abfbcf0bebb2a56e9da312510404f969941234fd0c1317ad26219",
+      "approved": true
+    },
+    {
+      "id": "applause-30476d75",
+      "path": "/audience/applause-30476d75.mp3",
+      "mood": "applause",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "e2ddcbd71622a2028a98627b5df42ae96e746b6ab4f1fd9d6df561539256f665",
+      "approved": true
+    },
+    {
+      "id": "grooving-7b3c182f",
+      "path": "/audience/grooving-7b3c182f.mp3",
+      "mood": "grooving",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "7b9f32b917ed7878e972c0f4f294f7aa51f405cbbf56482791e9ff75ecfcd7b9",
+      "approved": true
+    },
+    {
+      "id": "cheering-aea719bc",
+      "path": "/audience/cheering-aea719bc.mp3",
+      "mood": "cheering",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "14e662f62321b38a2e7866256589ad481ebe89a6cdb37934ddb0953fa4eddd9b",
+      "approved": true
+    },
+    {
+      "id": "listening-9b5c9fe7",
+      "path": "/audience/listening-9b5c9fe7.mp3",
+      "mood": "listening",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "057c602866bb32480585c3b4f505fd4431b98d3b81177cde4d9d3f49bdfc7fe3",
+      "approved": true
+    },
+    {
+      "id": "applause-9fb976d1",
+      "path": "/audience/applause-9fb976d1.mp3",
+      "mood": "applause",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "aa4fdba1fd4cc5db205d68edff14c523a71c9bd1d2f2a8230fd5cf297e7c3381",
+      "approved": true
+    },
+    {
+      "id": "grooving-79011807",
+      "path": "/audience/grooving-79011807.mp3",
+      "mood": "grooving",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "e47b5fd18051a57f2735198b3781d6ea64de6fb4629266a76c520fa6ff5025e5",
+      "approved": true
+    },
+    {
+      "id": "cheering-7b5e69d0",
+      "path": "/audience/cheering-7b5e69d0.mp3",
+      "mood": "cheering",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "89d61fab918cb1de487f416a1d79fd6788666d7997eba989c327116da2a4f7a0",
+      "approved": true
+    },
+    {
+      "id": "listening-638c9ede",
+      "path": "/audience/listening-638c9ede.mp3",
+      "mood": "listening",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "ce8f33e1edabf192630c4005a6d57a60e6529a8eaf9145054831761b272723eb",
+      "approved": true
+    },
+    {
+      "id": "applause-2acc6587",
+      "path": "/audience/applause-2acc6587.mp3",
+      "mood": "applause",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "42b389ec3340d1e058b9c68fafce780ae9593059c47ecd24e83168160b929241",
+      "approved": true
+    },
+    {
+      "id": "grooving-ff8234fd",
+      "path": "/audience/grooving-ff8234fd.mp3",
+      "mood": "grooving",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "4be3878d41416939ebcd9eff3338fca790fa07ec0f0d25fbd977f9d15791e499",
+      "approved": true
+    },
+    {
+      "id": "cheering-372a8130",
+      "path": "/audience/cheering-372a8130.mp3",
+      "mood": "cheering",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b954fb6e556a9d9da0fc09da44d123ff481e6f09c7b09c6ee8a530f353121721",
+      "approved": true
+    },
+    {
+      "id": "listening-f838b510",
+      "path": "/audience/listening-f838b510.mp3",
+      "mood": "listening",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b45ac0fc2374acfbfe344c73bc0e5316f0f28f5306603507f9f6e9ef3440d51e",
+      "approved": true
+    },
+    {
+      "id": "applause-97d60981",
+      "path": "/audience/applause-97d60981.mp3",
+      "mood": "applause",
+      "kind": "reaction",
+      "durationSeconds": 6,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b353cc67ca00607c1d586f42bd00a2c22c4902b2344103c8f27cc47f1ba9f7ec",
+      "approved": true
+    },
+    {
+      "id": "grooving-87267848",
+      "path": "/audience/grooving-87267848.mp3",
+      "mood": "grooving",
+      "kind": "bed",
+      "durationSeconds": 12,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b22ba9dd467e328a97e61e5b1f9d22e6e2451650b40db9a966b7e6bc63622757",
+      "approved": true
+    }
+  ]
+}

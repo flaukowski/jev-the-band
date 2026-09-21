@@ -337,3 +337,14 @@ Railway requires DATABASE_URL to avoid accidental ephemeral SQLite storage. Migr
 ## 2026-09-20 — Archive release integration (v0.8)
 
 The user authorized creating a PR, merging it into the primary branch (named main in this repository), and deploying to Railway. Integration starts from the released v0.7 branch and preserves its musical novelty, solo arranger, provider fallback, projection/sky controls and crowd characters. The archive is enabled through a dedicated Postgres service with an app-level variable reference; local databases are excluded from deployment uploads. Release verification uses no-call rehearsal and saved replay rather than starting a paid live jam.
+## 2026-09-20 — Real generated audience recordings
+
+**User requirement:** replace the unsatisfying noise with varied generated festival murmurs, cheers and applause, respect a 10,000-credit free budget, expose sound-desk triggers, and begin cheers on Start before music.
+
+**Implementation:** 24 distinct ElevenLabs Sound Effects v2 recordings, split evenly across listening, grooving, applause and cheering. Twelve 12-second beds and twelve six-second reactions total 216 seconds. The account billed 2,160 credits; 7,840 remain. This smaller first bank provides six takes per mood within the budget rather than claiming the earlier approximate 100-clip idea is complete. Generation is offline with a persistent conservative reservation ledger and no automatic retries. Secrets and original provider records stay ignored/private.
+
+**Playback:** crowd starts during instrument loading and first-decision preparation, carries across room creation, and cancels on failed startup. Spectators do not retrigger the entrance. Generated-only playback supersedes the old procedural-noise fallback; asset failures now stay silent. Independent manual applause/cheer cues respect mute, quiet and reaction controls. At most one reaction plays at a time, and the normal Patch-driven cadence remains sparse.
+
+**Licensing and review:** free-plan output is noncommercial with title attribution, excluded from the MIT code license. The page and crowd titles credit elevenlabs.io. Clips passed decode, duration, hash and Web Audio tests; no human listening approval or independent certification of no accidental music/words is claimed. Technical deployment approval is recorded distinctly from listening taste.
+
+**Integration:** audience work is isolated from the concurrent archive work and integrated onto the current release before deployment. Existing music, archive storage and provider configuration are preserved.

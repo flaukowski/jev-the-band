@@ -7,24 +7,25 @@ import { audienceBankSchema, type AudienceBank, type AudienceMood } from '../sha
 
 const descriptors: Record<Exclude<AudienceMood, 'quiet'>, string> = {
   listening:
-    'A small attentive concert audience, soft diffuse room murmur and tiny distant movements, very restrained and calm',
+    'An outdoor festival audience waiting for the band, soft overlapping indistinct conversations and relaxed human murmuring, spacious and calm',
   grooving:
-    'An intimate club audience listening happily to a jam band, low relaxed crowd murmur and gentle crowd movement, understated excitement',
+    'An outdoor festival crowd, happy indistinct conversational babble, scattered chuckles and gentle movement, warm low-key anticipation',
   applause:
-    'A small concert audience giving brief warm hand applause, dispersed natural hand claps in a room, gentle rise then decay, appreciative and restrained',
+    'A festival audience giving warm hand applause, many dispersed natural hand claps, appreciative swell then natural decay',
   cheering:
-    'A small concert audience warmly celebrating the end of a solo, soft applause and a few distant soft wordless cheers, gentle rise and decay, relaxed and friendly',
+    'An outdoor concert audience welcoming the band onto the stage, warm applause and joyful wordless human whoops and cheers, swell then natural decay',
 };
 export function audienceGenerationPlan(count = 3) {
   if (!Number.isInteger(count) || count < 1 || count > 100)
     throw new Error('Count must be an integer from 1 to 100');
-  const rotation = ['listening', 'grooving', 'applause', 'listening', 'cheering'] as const;
+  const rotation = ['cheering', 'listening', 'applause', 'grooving'] as const;
   const spaces = [
-    'small wooden music club',
-    'cozy theatre with soft room reflections',
-    'open-air garden venue',
-    'intimate brick-walled concert room',
-    'small seated listening room',
+    'grassy festival field with a few hundred people, middle distance',
+    'open-air garden venue with a small friendly audience, nearby but diffuse',
+    'large outdoor amphitheatre, heard from the sound desk behind the audience',
+    'park concert at dusk, a loosely scattered crowd across the lawn',
+    'tree-lined outdoor stage, a lively audience without reverberation',
+    'intimate open-air courtyard, mellow listeners at a summer concert',
   ];
   return Array.from({ length: count }, (_, i) => {
     const mood = rotation[i % rotation.length];
@@ -35,7 +36,7 @@ export function audienceGenerationPlan(count = 3) {
       kind,
       durationSeconds: kind === 'bed' ? 12 : 6,
       loop: kind === 'bed',
-      prompt: `${descriptors[mood]}. In a ${spaces[Math.floor(i / rotation.length) % spaces.length]}, from a high balcony, the audience sounds distant, wide stereo. Audience only, absolutely no music or instruments, no intelligible words, no screams, no whistles, no foreground voice, no abrupt loud transients. ${kind === 'bed' ? 'Steady seamless ambience without a dramatic event.' : 'One subtle human response, no stadium roar.'} Variation ${i + 1}.`,
+      prompt: `${descriptors[mood]}. ${spaces[Math.floor(i / rotation.length) % spaces.length]}. Stereo crowd ONLY: no music, instruments, singing, intelligible words, announcer, whistles or shrieks. ${kind === 'bed' ? 'Seamless murmur; no applause or wind hiss.' : 'Natural swell and fade.'} Take ${i + 1}.`,
     };
   });
 }
@@ -48,6 +49,8 @@ async function main() {
   };
   const count = Number(value('--count') ?? 3);
   const plan = audienceGenerationPlan(count);
+  if (plan.some((clip) => clip.prompt.length > 450))
+    throw new Error('Sound-effects prompts must be 450 characters or fewer.');
   const estimatedCredits = plan.reduce((sum, clip) => sum + clip.durationSeconds * 40, 0);
   const execute = args.includes('--execute');
   console.log(
@@ -61,7 +64,7 @@ async function main() {
         costBasis:
           'Conservative 40 credits per requested second from provider API overview; actual billing can differ by plan. No dollar conversion assumed.',
         requestLimit: count,
-        plan,
+        ...(execute ? {} : { plan }),
       },
       null,
       2,
@@ -81,7 +84,7 @@ async function main() {
   const license = value('--license');
   if (!license || license.length < 12 || license.length > 1200)
     throw new Error(
-      'Provide --license with the actual account/output-use grant. Paid commercial use is required for public use; raw asset redistribution also needs review.',
+      'Provide --license with the actual output-use terms. Free-plan publication requires attribution and noncommercial use; the code license does not cover these recordings.',
     );
   // Generation is private. Public assets are copied only by promote-audience after review.
   const directory = resolve('artifacts/audience-bank');
@@ -112,14 +115,42 @@ async function main() {
       'Existing bank provenance differs. Use a separate bank instead of mixing license grants.',
     );
   await mkdir(directory, { recursive: true });
+  // Reserve each request BEFORE sending it. A timeout can still be billed, and restarting
+  // this script must not silently reset the user's lifetime budget for this bank.
+  const ledgerPath = resolve(directory, 'credit-ledger.json');
+  let ledger: { reservedCredits: number; requests: number };
+  try {
+    ledger = JSON.parse(await readFile(ledgerPath, 'utf8'));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    ledger = {
+      reservedCredits: bank.samples.reduce(
+        (sum, s) => sum + Math.max(s.billedCredits ?? 0, s.durationSeconds * 40),
+        0,
+      ),
+      requests: bank.samples.length,
+    };
+  }
+  if (
+    !Number.isFinite(ledger.reservedCredits) ||
+    ledger.reservedCredits < 0 ||
+    !Number.isInteger(ledger.requests)
+  )
+    throw new Error('Invalid credit ledger');
+  if (ledger.reservedCredits + estimatedCredits > maxCredits)
+    throw new Error('This batch exceeds the remaining lifetime credit cap for this bank.');
   let completed = 0;
-  let accountedCredits = 0;
+  let accountedCredits = ledger.reservedCredits;
   // Sequential, no automatic retry: a lost response may still have consumed provider credits.
   for (const clip of plan) {
     if (accountedCredits + clip.durationSeconds * 40 > maxCredits)
       throw new Error(
         'The next request would exceed the estimated credit cap; generation stopped.',
       );
+    ledger.reservedCredits += clip.durationSeconds * 40;
+    ledger.requests++;
+    await writeFile(`${ledgerPath}.tmp`, JSON.stringify(ledger, null, 2) + '\n');
+    await rename(`${ledgerPath}.tmp`, ledgerPath);
     const response = await fetch(
       'https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128',
       {
@@ -135,10 +166,18 @@ async function main() {
         }),
       },
     );
-    if (!response.ok)
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => ({}))) as { detail?: { status?: unknown } };
+      const status =
+        typeof detail.detail?.status === 'string' &&
+        /^[a-z0-9_-]{1,80}$/i.test(detail.detail.status)
+          ? detail.detail.status
+          : 'unknown';
+      console.error(JSON.stringify({ http: response.status, providerStatus: status, completed }));
       throw new Error(
         `Generation stopped at clip ${completed + 1}, HTTP ${response.status}. No retry was made; earlier clips remain recorded.`,
       );
+    }
     const bytes = Buffer.from(await response.arrayBuffer());
     if (
       bytes.length < 1000 ||
@@ -150,7 +189,12 @@ async function main() {
     const rawCost = response.headers.get('character-cost');
     const cost = rawCost === null ? NaN : Number(rawCost);
     const billedCredits = Number.isFinite(cost) && cost >= 0 ? cost : undefined;
-    accountedCredits += billedCredits ?? clip.durationSeconds * 40;
+    accountedCredits = ledger.reservedCredits;
+    if ((billedCredits ?? 0) > clip.durationSeconds * 40) {
+      ledger.reservedCredits += billedCredits! - clip.durationSeconds * 40;
+      accountedCredits = ledger.reservedCredits;
+      await writeFile(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+    }
     await writeFile(resolve(directory, `${id}.mp3`), bytes, { flag: 'wx' });
     bank.samples.push({
       id,

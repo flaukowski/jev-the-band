@@ -1,72 +1,41 @@
-# Audience sound
+# Festival audience — elevenlabs.io
 
-Implemented 2026-09-20. The audience is a separate quiet stereo bus. It never writes notes, changes the players' plans, uploads microphone audio, or creates a model request in an audience browser.
+24 generated crowd recordings accompany the band: six quiet murmuring beds, six livelier festival beds, six applause reactions, and six cheers. They were generated offline with ElevenLabs Sound Effects v2 on 2026-09-20. Each bed lasts 12 seconds; each reaction lasts six seconds (216 seconds total). There are no runtime ElevenLabs calls or browser credentials.
 
-## What is available now
+Pressing Start unlocks audio and begins an opening cheer plus ambience while instrument samples and the first musical decisions load. This carries into the new room without a second entrance. Failed startup cancels the crowd. A late spectator joins the ongoing ambience without another opening cheer. Missing, invalid, or unavailable assets leave silence instead of the old white-noise fallback.
 
-The built-in fallback is **procedural room noise and soft synthesized handclaps**, not recordings, speech synthesis, or an audio generation model. Its UI label says so. There are no generated audience recordings in this checkout: no callable audio-generation tool or ElevenLabs, Stability, fal, or Replicate credential was available in this task. Only credential presence was checked. No new service was purchased and no paid audio generation ran.
+Patch still chooses crowd mood and level in its existing shared decision. The sound desk also offers local **Applause** and **Cheers** buttons. Reactions obey audience mute, quiet mood and the reactions checkbox, do not stack, and do not change Patch's shared settings. Automatic reactions remain spaced 22–46 seconds apart. Beds select different recordings and crossfade over up to 2.5 seconds. The browser caches at most 12 decoded clips with two concurrent downloads.
 
-`src/audience.ts` plays either the fallback or a reviewed local sample bank. Beds crossfade over up to 2.5 seconds, with seeded clip selection and avoidance of the previous generated clip when alternatives are ready. Reactions are separate brief events, with 22–46 seconds between them even if the mood remains celebratory. Sample gain ramps avoid abrupt entrances. The fallback has no human cheers: its `cheering` mood uses the same restrained handclap texture until generated reaction samples are installed.
+Samples are calibrated toward 0.1 RMS with a 0.5 peak ceiling. The audience bus defaults to -24 dB and caps at -12 dB, feeding the same protected master mix. Keep the crowd behind the band; use the audience fader to suit the performance.
 
-Decoded clips are calibrated toward 0.1 RMS (-20 dBFS), independently capped at 0.5 peak (-6 dBFS). The audience bus defaults to -24 dB attenuation. Its absolute maximum is -12 dB even with a listener boost; normal playback is intentionally well behind the music. Global mix processing still provides the final output protection. These bounds are engineering limits, not listening approval of an eventual generated recording.
+## Credits and use
 
-## Model research
+**These audio files are excluded from the MIT code license.** They were generated on the ElevenLabs free plan: noncommercial use only, with `elevenlabs.io` in the published content title, subject to the provider's terms. Attribution appears in the page title, audience heading and bank manifest. Do not claim unrestricted commercial redistribution rights for these clips. Generate a replacement bank with suitable rights for commercial releases. [ElevenLabs publication guidance](https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform).
 
-**ElevenLabs Sound Effects v2 is the implemented generation adapter.** Its API accepts a text description, explicit 0.5–30 second duration, prompt influence and a seamless-loop option. Authentication is a server-side `xi-api-key`; the script requests MP3. This is a sound-effects model rather than a music generator, which fits crowd-only beds and responses. [API reference](https://elevenlabs.io/docs/api-reference/text-to-sound-effects/convert).
+The 24 successful requests billed **2,160 credits**, confirmed against both response headers and the account's usage change. **7,840 of the initial 10,000 credits remained.** No upgrade or paid extension was enabled. The script reserved 9,120 conservatively, including two rejected overlength prompts before the 450-character check was added. A reservation is not a claim of a charge.
 
-The API overview lists **40 credits per second when duration is explicit**. The website's generation-based pricing presentation is different, so the script uses the duration-based figure as a conservative estimate and does not claim an exact dollar cost. A three-clip audition (12 + 12 + 6 seconds) estimates **1,200 credits**. The proposed 100-clip bank (60 twelve-second beds and 40 six-second responses) estimates **38,400 credits**. Billing and plan rates should be checked in the actual account before execution. [Sound-effects overview](https://elevenlabs.io/docs/overview/capabilities/sound-effects), [sound-effects pricing](https://elevenlabs.io/sound-effects).
+## Reproduce or replace the bank
 
-ElevenLabs says its free plan lacks commercial rights; paid non-beta outputs have commercial rights subject to its terms. That does not automatically apply the repository's MIT license to downloadable generated audio. Record the actual account/license grant and confirm raw asset redistribution before shipping the recordings in an open-source repository. The generator requires a license description and leaves every new clip unapproved. [Provider publication guidance](https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform).
+Keep `ELEVENLABS_API_KEY` only in an ignored local `.env` or server shell. Generation is a separate offline operation. The published site does not need that credential.
 
-**Alternative: Stable Audio.** Stability's hosted pricing lists Audio 2.5 at 20 credits, where one credit is $0.01, or $0.20 per generation at that listed rate. Its current open model family also includes a small SFX model intended for local inference. Local generation would avoid a per-clip API fee but requires a model/runtime install and compliance with the applicable model license; the Community License has an annual-revenue threshold. Neither route was installed, benchmarked, or billed here. [Hosted pricing](https://platform.stability.ai/pricing), [official model repository](https://github.com/Stability-AI/stable-audio-3), [model license](https://stability.ai/license).
-
-## Generate and review a bank
-
-The script is **dry-run by default**, can make at most 100 calls, uses sequential requests, and never retries a failed/uncertain paid request. It records the provider's `character-cost` when returned and stops before another call would exceed the credit estimate. This is an application estimate, not a provider-enforced billing ceiling: an unexpectedly expensive completed request cannot be undone. First review a small audition. The credential belongs only in a server shell or the ignored `.env`, never a `VITE_` variable.
-
-```powershell
-# Shows three prompts and the estimated credit bound; no credential required and no HTTP calls.
-npx tsx scripts/generate-audience.ts --count 3
-
-# After ELEVENLABS_API_KEY is configured and the account's actual license is known:
-npx tsx scripts/generate-audience.ts --execute --count 3 --max-credits 1200 --license 'Describe the actual paid account output and redistribution grant here'
-
-# Preview the complete proposed bank without generating it:
-npx tsx scripts/generate-audience.ts --count 100
+```sh
+npm run generate:audience -- --count 24
+# Executes only with an explicit budget and an accurate license statement:
+npm run generate:audience -- --execute --count 24 --max-credits 10000 --license "Your actual output-use terms"
 ```
 
-The script writes privately to ignored `artifacts/audience-bank/<id>.mp3` and its `manifest.json`, retaining prompts, provider/model, durations, account/license grant, hashes and review flags. The 100-item limit includes existing samples; partial batches remain documented after failure. New clips have `approved: false`. Listen for accidental music, intelligible speech, shrieks, odd cuts and level problems; confirm redistribution rights, then mark accepted clips `approved: true` in the private manifest.
+The dry run makes no requests. Execution uses sequential calls, no automatic retries, and a durable private credit ledger that reserves each request before sending it. A timeout may still be billed, so a restart does not reset the bank's credit budget. The estimate remains 40 credits per requested second as documented by the [API overview](https://elevenlabs.io/docs/overview/capabilities/sound-effects); actual response billing may differ. The generated prompt is validated against the [450-character limit](https://help.elevenlabs.io/hc/en-us/articles/25735182995985-What-is-Sound-Effects).
 
-Publish the reviewed subset with `npm run promote:audience -- --public-license "Reviewed public redistribution statement here"`. This verifies approved hashes before publication, copies only approved audio into `public/audience`, strips private prompts and billing data, and uses the explicit public license statement. A previous public bank moves back into private staging so revoked files cannot remain downloadable. Provenance and approval records remain private. Do not include account details in the public statement. An `approved: false` flag alone does not protect a file inside `public/`: every such file is downloadable. Do not relabel the synthetic fallback as model output.
+Private `artifacts/audience-bank` retains original prompts, output hashes, actual billing, approval flags and the reservation ledger. After reviewing desired files and their use terms, mark the selected clips approved and run:
 
-The browser accepts only same-origin `/audience/` asset paths, validates the manifest, verifies each file's SHA-256, rejects oversized clips, limits two downloads concurrently, and retains up to twelve decoded clips. It falls back explicitly when a clip or bank is missing or invalid. There is no runtime call to ElevenLabs or any generation provider.
-
-## Integration contract
-
-```ts
-import { AudiencePlayer } from './audience';
-import { defaultAudienceControls, defaultAudienceDirection } from '../shared/audience';
-
-// Destination should be the band mix input, before the existing master compression/limiter.
-const audience = new AudiencePlayer(audioContext, mixInput);
-await audience.loadBank(); // optional; missing bank keeps the procedural fallback
-audience.setControls(defaultAudienceControls());
-audience.setDirection(defaultAudienceDirection());
-audience.start(room.id);
-audience.tick(); // call from the existing 25–250 ms audio scheduler
-audience.setDirection(frame.engineerMix.audience, frameAudioTime);
-audience.stop(); // graceful fade on room stop; start again for another room
-audience.dispose(); // disconnects only its nodes; never closes the band's AudioContext
+```sh
+npm run promote:audience -- --public-license "Accurate public audio-use statement"
 ```
 
-- `AudienceDirection`: `{ mood, levelDb }`. Mood is `quiet`, `listening`, `grooving`, `applause`, or `cheering`. `levelDb` is absolute bus attenuation from -48 to -12; default -24. `quiet` silences the bus regardless of level.
-- `AudienceControls`: `{ enabled, levelDb, reactions }`. Defaults are true / 0 / true. This level is a listener trim from -48 to +6 dB, with the absolute -12 dB ceiling retained. Turning off reactions preserves ambience. Turning off the audience fades the whole bus.
-- `status` exposes `source`, `label`, ready/approved sample counts, active state and a safe error message. Display `label` to distinguish generated recordings from procedural sound. `referenceLevel()` provides post-audience-bus RMS/peak if needed, independently of the four instrument meters.
-- Add audience mood and absolute level to **the existing shared Patch request**, not another Jev agent per listener. Patch should classify only performed musical context: attentive silence during space, groove ambience under music, restrained applause after a heard solo ending/release. A solo status label alone is not a completed musical payoff. Retain the last accepted direction when Patch has no fresh evidence.
-- Manual master mode can set mood/level without changing the band. Per-listener audience enable, reactions and trim remain local. No audience sound should feed the musicians' symbolic peer-note context.
+Promotion verifies hashes, strips private prompts/billing, publishes only approved files, and removes revoked public clips. The browser accepts only same-origin files, validates SHA-256, and rejects oversized or invalid decoded audio.
 
-The shared control decision is consistent across viewers; waveform alignment is not a synchronized broadcast guarantee. Browser joining times, decode availability and local controls can change which texture is currently heard. A future server-rendered stream could make crowd waveforms identical across clients.
+## Verification and limits
 
-## Verification
+All 24 files have distinct SHA-256 hashes, decode successfully, and have the requested duration and supported channel count. Browser tests render the real recordings through Web Audio and check crossfades, gain limits, silence, reaction spacing, failed-start cleanup, and crowd playback before delayed instrument loading with zero notes scheduled. No model calls are needed for playback verification.
 
-Audience unit tests exercise gain limits, true quiet/mute, deterministic but varied stereo fallback, peak calibration, bad sample values, local-path/provenance validation, duplicate/oversized manifests, and the bounded 100-clip plan. A standalone browser harness renders actual Web Audio crossfades, reacts, fades to silence, verifies shared-context ownership, and ensures unreviewed clips are never downloaded. These checks do not replace a human audition of real generated crowd samples, which are not present yet.
+This release received technical playback validation, **not human listening approval**. The generation prompts explicitly exclude music, instruments, singing and intelligible speech; that semantic content is not independently certified by file/level tests. A human audition remains useful for selecting favorite takes or rejecting an odd model artifact.

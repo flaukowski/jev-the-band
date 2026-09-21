@@ -147,3 +147,10 @@ Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.js
 - Railway deployment `29d17fab-1ea2-4877-956e-a54a1353fc2d` succeeded from a clean checkout of that commit. HTTPS health reports v0.7.0, that revision, TypeSafe `jev-1.13.0`, protected host actions and `directorAvailable: true`: the production OpenRouter key added the same day is present, which also gives the room its provider fallback and the solo arranger.
 - The served JavaScript bundle contains the lead-gesture interface text. An anonymous POST to `/api/room` returns 401.
 - Not verified on this release: a production jam, browser playback of the new articulations and gain stages, the Luna solo sketch and the provider fallback against the real providers. Health does not report whether a fallback is configured.
+
+## 2026-09-20 — v0.8.1 generated crowd
+
+- 24 distinct ElevenLabs Sound Effects v2 MP3s: 12 twelve-second beds and 12 six-second reactions. All decode and match their recorded hashes/durations. Generation used 2,160 credits, confirmed by response billing and subscription delta; 7,840 free credits remained. No subscription upgrade or paid extension.
+- Free-plan recordings carry noncommercial/title-attribution terms and are excluded from MIT. No generation credential, original prompt or private account metadata enters the shipped sample manifest. Key stored only in ignored local environment files; exact-key staged-file scan is clean.
+- Integrated on archive release `182acd0`. `npm run check`: 84 tests pass and TypeScript/Vite build succeeds. Seven selected browser checks pass, including real crowd crossfades/mute, silence on missing assets, opening and manual reactions, crowd playback while instrument loading is delayed with zero musical notes scheduled, failed-start cancellation, and archive replay isolation.
+- Physical browser output was muted. This is technical playback validation, not a human listening review or certification that every generated take is free of accidental words/music. Browser tests make no paid model calls. Stage chunk-size advisories remain unchanged.
