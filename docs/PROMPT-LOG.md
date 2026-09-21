@@ -536,3 +536,13 @@ director needs to do more directoring, e.g. always move carmera every 30-90 seco
 ```text
 the crowd cam get's swallowed by a sign lol
 ```
+
+
+## 2026-09-20 — Archive player reliability
+
+User: "throws recording could not load plus no player / skip to next song plus needs ability to play a song"
+
+
+## 2026-09-20 — Streamed archive audio and synchronized visuals
+
+User: "implement the playback method you currently recoomend, i think the decision log streaming probably might be needed for the visuals to work...."

@@ -1,3 +1,4 @@
+import type { Frame } from '../shared/music';
 import {
   audienceBankSchema,
   audienceGain,
@@ -342,6 +343,19 @@ export class AudiencePlayer {
     }
   }
 
+  async scheduleOffline(frames: Frame[], from: number, to: number) {
+    await this.loadBank();
+    this.start('archive-master');
+    this.pending = [];
+    let index = 0;
+    for (let now = 0; now < (to - from) / 1000; now += 0.25) {
+      while (frames[index] && frames[index].at <= from + now * 1000) {
+        this.direction = frames[index++].engineerMix?.audience ?? defaultAudienceDirection();
+        this.applyGain(now);
+      }
+      this.tick(now);
+    }
+  }
   private choose(kind: 'bed' | 'reaction', mood: AudienceMood, previous: string): Clip | undefined {
     const approved = this.bank?.samples.filter((s) => s.approved && s.kind === kind) ?? [];
     const matching = approved.filter((s) => s.mood === mood);
@@ -357,7 +371,7 @@ export class AudiencePlayer {
         this.cache.set(sample.id, ready);
         return ready;
       }
-      void this.loadClip(sample);
+      if (!(this.context instanceof OfflineAudioContext)) void this.loadClip(sample);
     }
     const available = [...this.cache.values()].filter(
       (s) => s.kind === kind && (!matching.length || s.mood === mood),
@@ -369,7 +383,7 @@ export class AudiencePlayer {
 
   private play(clip: Clip, at: number, fade: number, level: number) {
     // The scheduler cannot accumulate an unbounded number of sources after tab suspension.
-    if (this.voices.size >= 5) return;
+    if ([...this.voices].filter((voice) => voice.end > at).length >= 5) return;
     const source = this.context.createBufferSource(),
       envelope = this.context.createGain();
     source.buffer = clip.buffer;

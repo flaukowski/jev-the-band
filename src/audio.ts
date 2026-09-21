@@ -42,7 +42,7 @@ interface Bus {
   referenceData: Float32Array<ArrayBuffer>;
 }
 export class BandAudio {
-  context?: AudioContext;
+  context?: AudioContext | OfflineAudioContext;
   private master?: GainNode;
   private scopeNode?: AnalyserNode;
   private readonly scopeBins = new Uint8Array(1024);
@@ -162,7 +162,7 @@ export class BandAudio {
   async enable(welcome = false) {
     if (!this.context) this.initializing = this.init();
     await this.initializing;
-    await this.context!.resume();
+    if (this.context instanceof AudioContext) await this.context.resume();
     this.enabled = true;
     if (welcome) {
       this.prelude = true;
@@ -224,10 +224,10 @@ export class BandAudio {
     this.stop();
     this.audience?.dispose();
     window.clearInterval(this.timer);
-    void this.context?.close();
+    if (this.context instanceof AudioContext) void this.context.close();
   }
-  private async init() {
-    const c = (this.context = new AudioContext({ latencyHint: 'interactive' }));
+  private async init(context?: OfflineAudioContext) {
+    const c = (this.context = context ?? new AudioContext({ latencyHint: 'interactive' }));
     await c.audioWorklet.addModule(new URL('./drive-processor.js', import.meta.url));
     const master = (this.master = c.createGain());
     master.gain.value = 0;
@@ -260,7 +260,7 @@ export class BandAudio {
     const mixInput = c.createGain();
     this.audience = new AudiencePlayer(c, mixInput);
     this.audience.setControls(this.audienceControls);
-    void this.audience.loadBank();
+    if (!context) void this.audience.loadBank();
     const glue = c.createDynamicsCompressor();
     glue.threshold.value = -14;
     glue.ratio.value = 2;
@@ -376,6 +376,42 @@ export class BandAudio {
     });
     this.setMix(this.mix);
     this.setMasterControls(this.masterControls);
+  }
+  /** Render the same instruments/effects once; never contacts a model. */
+  async renderOffline(frames: Frame[], from: number, to: number): Promise<AudioBuffer> {
+    const context = new OfflineAudioContext(2, Math.ceil(((to - from) / 1000) * 32000), 32000);
+    await this.init(context);
+    await this.samples.load(context);
+    if (this.samples.loaded !== this.samples.total || !this.samples.total)
+      throw new Error('Archive render requires the complete instrument bank');
+    this.master!.gain.value = this.volume * 0.65;
+    // Schedule in chronological order so later automation never cancels earlier cues.
+    for (const frame of frames) {
+      const at = Math.max(0, (frame.at - from) / 1000);
+      this.applyMaster(frame.engineerMix ?? defaultEngineerMix(), at);
+      for (const part of frame.parts) {
+        for (const cue of part.effectsTimeline ?? [
+          { beat: 0, effects: part.decision.effects, traceId: '' },
+        ])
+          this.fx(
+            part,
+            at + (cue.beat * 60) / frame.bpm,
+            frame.bpm,
+            frame.parts.some((p) => p.solo),
+            cue.effects,
+            cue.driveLevel,
+          );
+        for (const note of part.notes)
+          this.note(
+            part,
+            note,
+            at + (note.beat * 60) / frame.bpm,
+            (note.duration * 60) / frame.bpm,
+          );
+      }
+    }
+    await this.audience?.scheduleOffline(frames, from, to);
+    return context.startRendering();
   }
   private tick() {
     const c = this.context;

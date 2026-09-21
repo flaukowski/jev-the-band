@@ -32,6 +32,7 @@ export function Stage({
   levels,
   spectrum,
   traces,
+  onDecisionStream,
 }: {
   frame: Frame | null;
   upcoming: Frame | null;
@@ -42,7 +43,8 @@ export function Stage({
   loadingAudio: boolean;
   levels?: () => Record<Musician, number>;
   spectrum?: () => Uint8Array | null;
-  traces?: Trace[];
+  onDecisionStream?: (needed: boolean) => void;
+  traces?: Pick<Trace, 'id' | 'at' | 'role' | 'source' | 'answers'>[];
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [view, setView] = useState('wide');
@@ -54,8 +56,17 @@ export function Stage({
   const [overlay, setOverlay] = useState<WallOverlay | ''>('');
   const [sky, setSky] = useState<Sky | ''>('');
   const [place, setPlace] = useState<Place | ''>('');
+  const needsDecisions =
+    (visual || frame?.lighting.visual) === 'decision stream' ||
+    (overlay || frame?.lighting.overlay) === 'decision stream';
+  useEffect(() => {
+    onDecisionStream?.(needsDecisions);
+  }, [needsDecisions, onDecisionStream]);
   // The wall's "decision stream" shows the room's raw decision records, exactly as received.
-  const stream = useRef<{ from?: Trace[]; lines: string[] }>({ lines: [] });
+  const stream = useRef<{
+    from?: Pick<Trace, 'id' | 'at' | 'role' | 'source' | 'answers'>[];
+    lines: string[];
+  }>({ lines: [] });
   const readStream = useRef(() => stream.current.lines).current;
   if (stream.current.from !== traces) {
     stream.current = {

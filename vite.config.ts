@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
+  build: { rollupOptions: { input: { main: 'index.html', archive: 'archive-render.html' } } },
   server: {
     // Overridable so a second checkout can run beside the default dev stack.
     port: Number(process.env.STAGE_PORT) || 5178,

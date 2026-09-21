@@ -12,12 +12,12 @@ export class SampleBank {
   status = 'Recorded instruments not loaded';
   loaded = 0;
   total = 0;
-  load(context: AudioContext): Promise<void> {
+  load(context: BaseAudioContext): Promise<void> {
     if (this.loading) return this.loading;
     this.loading = this.fetchAll(context);
     return this.loading;
   }
-  private async fetchAll(context: AudioContext) {
+  private async fetchAll(context: BaseAudioContext) {
     try {
       this.status = 'Loading recorded instruments…';
       const response = await fetch('/samples/manifest.json', {

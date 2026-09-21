@@ -2050,3 +2050,46 @@ footer b {
   border-radius: 6px;
   font: inherit;
 }
+
+.archive-song > button {
+  margin-top: 0.65rem;
+}
+.replay-controls {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 15;
+  box-shadow: 0 8px 30px #0008;
+}
+.replay-controls strong {
+  overflow-wrap: anywhere;
+}
+
+.replay-controls {
+  gap: 10px;
+  border-radius: 8px;
+}
+.replay-controls > strong {
+  flex-basis: 100%;
+}
+.replay-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (max-width: 600px) {
+  .replay-controls {
+    position: static;
+    padding: 12px;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .replay-controls button {
+    padding: 7px 9px;
+  }
+  .replay-controls label {
+    width: 100%;
+  }
+  .replay-controls input[type='range'] {
+    flex: 1;
+    min-width: 0;
+  }
+}

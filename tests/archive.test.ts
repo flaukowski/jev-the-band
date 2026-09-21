@@ -50,6 +50,10 @@ test('SQLite retains complete frames and raw responses across reopen; recovery i
     assert.equal(saved.status, 'ended');
     assert.match(saved.error!, /interrupted/);
     assert.equal(saved.traces.length, state.traces.length);
+    const playback = (await db.recording(state.id, true))!;
+    assert.deepEqual(playback.frames, saved.frames);
+    assert.deepEqual(playback.traces, []);
+    assert.ok(JSON.stringify(playback).length < JSON.stringify(saved).length);
     assert.equal((await db.list('Description')).length, 1);
     const replay = replaySnapshot(saved, saved.frames[0].at, 1000);
     assert.equal(replay.frames[0].at, 1300);
