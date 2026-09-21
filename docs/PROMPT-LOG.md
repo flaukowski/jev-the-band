@@ -445,6 +445,19 @@ Follow-up:
 
 The repository primary branch is named main, with no master branch. Treat the latter request as authorization to merge the archive PR to main and deploy it.
 
+## 2026-09-20 — Generated festival crowd and entrance
+
+[ElevenLabs API key supplied in chat; redacted from project documentation and stored only in ignored local environment files.] --- eleven labs api key, can you use the 10K credits free to generate audience sound efects? the white noise is not good.
+
+generate a variety of ambient audience (no music) festival voices, murming, cheers, applause, etc. that can be triggered by the sound desk
+
+should start ambient cheers as soon as the user presses start (before the band plays) like at a real jam band concert
+
+## 2026-09-20 — Audience follow-up
+
+did this ever happen?
+
+
 ## 2026-09-20 — Release check and song-title lettering
 
 ```text

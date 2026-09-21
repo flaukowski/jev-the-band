@@ -50,12 +50,19 @@ export class BandAudio {
   private masterControls = defaultMasterControls();
   private audience?: AudiencePlayer;
   private audienceControls = defaultAudienceControls();
+  private prelude = false;
   get audienceStatus() {
     return this.audience?.status;
   }
   setAudienceControls(controls: AudienceControls) {
     this.audienceControls = controls;
     this.audience?.setControls(controls);
+  }
+  triggerAudience(mood: 'applause' | 'cheering') {
+    return this.enabled && !!this.audience?.triggerReaction(mood);
+  }
+  cancelPrelude() {
+    if (this.prelude) this.stop();
   }
   private referencePower = new Map<Musician, { power: number; peak: number; count: number }>();
   private initializing?: Promise<void>;
@@ -152,15 +159,19 @@ export class BandAudio {
       }),
     ) as Record<Musician, number>;
   }
-  async enable() {
+  async enable(welcome = false) {
     if (!this.context) this.initializing = this.init();
     await this.initializing;
     await this.context!.resume();
-    await this.samples.load(this.context!);
     this.enabled = true;
-    if (this.frames.length) this.audience?.start(this.roomId);
+    if (welcome) {
+      this.prelude = true;
+      this.audience?.start(`welcome-${Date.now()}`, true);
+    } else if (this.frames.length) this.audience?.start(this.roomId);
     this.master!.gain.setTargetAtTime(this.volume * 0.65, this.context!.currentTime, 0.05);
     if (!this.timer) this.timer = window.setInterval(() => this.tick(), 25);
+    // Crowd recordings load independently and can play during instrument loading / Jev startup.
+    await this.samples.load(this.context!);
     this.tick();
   }
   setVolume(value: number) {
@@ -177,7 +188,7 @@ export class BandAudio {
   }
   update(roomId: string, frames: Frame[]) {
     if (roomId !== this.roomId) {
-      this.stop();
+      this.stop(this.prelude);
       this.roomId = roomId;
       this.seen.clear();
       this.scheduledNotes = 0;
@@ -185,11 +196,12 @@ export class BandAudio {
         this.master!.gain.setTargetAtTime(this.volume * 0.65, this.context.currentTime, 0.03);
     }
     this.frames = frames;
+    if (frames.length) this.prelude = false;
     if (frames.length && this.enabled) this.audience?.start(roomId);
     const earliest = frames[0]?.id ?? 0;
     for (const key of this.seen) if (Number(key.split(':')[0]) < earliest) this.seen.delete(key);
   }
-  stop() {
+  stop(preserveAudience = false) {
     this.frames = [];
     this.seen.clear();
     if (this.context) this.master!.gain.setTargetAtTime(0, this.context.currentTime, 0.01);
@@ -202,7 +214,10 @@ export class BandAudio {
     }
     this.sources.clear();
     this.openHat = undefined;
-    this.audience?.stop();
+    if (!preserveAudience) {
+      this.prelude = false;
+      this.audience?.stop();
+    }
     this.referencePower.clear();
   }
   dispose() {

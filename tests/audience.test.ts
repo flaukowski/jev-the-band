@@ -89,13 +89,20 @@ test('generated audience bank records provenance and rejects remote paths, dupli
 
 test('the offline generation plan bounds calls and distributes 100 clips across ambience and gentle reactions', () => {
   const plan = audienceGenerationPlan(100);
-  assert.equal(plan.filter((p) => p.kind === 'bed').length, 60);
-  assert.equal(plan.filter((p) => p.kind === 'reaction').length, 40);
+  assert.equal(plan.filter((p) => p.kind === 'bed').length, 50);
+  assert.equal(plan.filter((p) => p.kind === 'reaction').length, 50);
   assert.equal(new Set(plan.map((p) => p.prompt)).size, 100);
   assert.equal(
     plan.reduce((sum, p) => sum + p.durationSeconds * 40, 0),
-    38400,
+    36000,
   );
-  for (const clip of plan) assert.match(clip.prompt, /absolutely no music/);
+  for (const clip of plan) {
+    assert.match(clip.prompt, /no music/);
+    assert.ok(clip.prompt.length <= 450, 'Provider accepts at most 450 characters');
+  }
+  assert.equal(
+    audienceGenerationPlan(24).reduce((sum, clip) => sum + clip.durationSeconds * 40, 0),
+    8640,
+  );
   assert.throws(() => audienceGenerationPlan(101));
 });

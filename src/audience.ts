@@ -13,7 +13,7 @@ import {
 } from '../shared/audience';
 
 export interface AudienceStatus {
-  source: 'procedural' | 'generated' | 'mixed';
+  source: 'unavailable' | 'generated' | 'loading';
   label: string;
   readySamples: number;
   approvedSamples: number;
@@ -25,7 +25,7 @@ interface Voice {
   envelope: GainNode;
   end: number;
 }
-type Clip = { id: string; buffer: AudioBuffer; kind: 'bed' | 'reaction'; generated: boolean };
+type Clip = { id: string; buffer: AudioBuffer; kind: 'bed' | 'reaction'; mood: AudienceMood };
 function randomGenerator(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -114,13 +114,14 @@ export class AudiencePlayer {
   private cache = new Map<string, Clip>();
   private loading = new Set<string>();
   private failed = new Set<string>();
-  private fallback = new Map<string, Clip>();
   private abort = new AbortController();
   private random = randomGenerator(1);
   private playing = false;
   private disposed = false;
   private nextBed = 0;
   private nextReaction = Infinity;
+  private pendingReaction?: { mood: 'applause' | 'cheering'; expires: number };
+  private reactionUntil = 0;
   private lastBed = '';
   private lastReaction = '';
   private error: string | undefined;
@@ -144,15 +145,16 @@ export class AudiencePlayer {
     const ready = [...this.cache.values()];
     const hasBeds = ready.some((s) => s.kind === 'bed'),
       hasReactions = ready.some((s) => s.kind === 'reaction');
-    const source = hasBeds && hasReactions ? 'generated' : ready.length ? 'mixed' : 'procedural';
+    const source =
+      hasBeds && hasReactions ? 'generated' : this.loading.size ? 'loading' : 'unavailable';
     return {
       source,
       label:
         source === 'generated'
-          ? 'Generated audience samples'
-          : source === 'mixed'
-            ? 'Generated samples + procedural fallback'
-            : 'Procedural room + applause · no generated voices',
+          ? 'Festival audience · elevenlabs.io'
+          : source === 'loading'
+            ? 'Loading festival audience…'
+            : 'Audience recordings unavailable · silent',
       readySamples: ready.length,
       approvedSamples: approved.length,
       active: this.playing && this.controls.enabled && this.direction.mood !== 'quiet',
@@ -160,7 +162,7 @@ export class AudiencePlayer {
     };
   }
 
-  /** Missing/rejected banks leave the honest procedural fallback usable. Assets must be same-origin. */
+  /** Missing/rejected banks stay silent. Assets must be same-origin. */
   async loadBank(url = '/audience/manifest.json'): Promise<AudienceStatus> {
     if (this.disposed) return this.status;
     if (url !== '/audience/manifest.json')
@@ -177,14 +179,15 @@ export class AudiencePlayer {
       // A short warm cache: at most 12 decoded clips, two concurrent downloads.
       const approved = bank.samples.filter((s) => s.approved);
       const warm = [
-        ...approved.filter((s) => s.kind === 'bed').slice(0, 3),
-        ...approved.filter((s) => s.kind === 'reaction').slice(0, 2),
-      ];
+        approved.find((s) => s.mood === 'cheering'),
+        approved.find((s) => s.kind === 'bed'),
+        approved.find((s) => s.mood === 'applause'),
+        ...approved.filter((s) => s.kind === 'bed').slice(1, 3),
+      ].filter((s): s is AudienceSample => !!s);
       for (let i = 0; i < warm.length; i += 2)
         await Promise.all(warm.slice(i, i + 2).map((s) => this.loadClip(s)));
     } catch {
-      if (!this.disposed)
-        this.error = 'Audience sample bank unavailable; using procedural ambience.';
+      if (!this.disposed) this.error = 'Audience sample bank unavailable; crowd stays silent.';
     }
     return this.status;
   }
@@ -221,31 +224,50 @@ export class AudiencePlayer {
         Array.from({ length: buffer.numberOfChannels }, (_, n) => buffer.getChannelData(n)),
       );
       while (this.cache.size >= 12) this.cache.delete(this.cache.keys().next().value!);
-      this.cache.set(sample.id, { id: sample.id, buffer, kind: sample.kind, generated: true });
+      this.cache.set(sample.id, { id: sample.id, buffer, kind: sample.kind, mood: sample.mood });
     } catch {
       if (!this.disposed) {
         this.failed.add(sample.id);
-        this.error =
-          'Some audience samples were unavailable; procedural fallback remains available.';
+        this.error = 'Some audience recordings were unavailable; only loaded recordings will play.';
       }
     } finally {
       this.loading.delete(sample.id);
     }
   }
 
-  start(seed: string | number = 1) {
+  start(seed: string | number = 1, welcome = false) {
     if (this.disposed || this.playing) return;
     this.random = randomGenerator(typeof seed === 'string' ? hash(seed) : seed);
     this.playing = true;
     this.nextBed = this.context.currentTime + 0.03;
     this.nextReaction = this.context.currentTime + 12 + this.random() * 15;
+    this.reactionUntil = 0;
+    this.pendingReaction = welcome
+      ? { mood: 'cheering', expires: this.context.currentTime + 15 }
+      : undefined;
     this.applyGain(this.context.currentTime);
     this.tick();
   }
 
   setControls(value: AudienceControls) {
     this.controls = readAudienceControls(value);
+    if (!this.controls.enabled || !this.controls.reactions) this.pendingReaction = undefined;
     if (!this.disposed) this.applyGain(this.context.currentTime);
+  }
+  /** A local sound-desk cue; it never changes Patch's shared mood or starts a model call. */
+  triggerReaction(mood: 'applause' | 'cheering') {
+    if (
+      this.disposed ||
+      !this.playing ||
+      !this.controls.enabled ||
+      !this.controls.reactions ||
+      this.direction.mood === 'quiet' ||
+      this.context.currentTime < this.reactionUntil
+    )
+      return false;
+    this.pendingReaction = { mood, expires: this.context.currentTime + 5 };
+    this.tick();
+    return true;
   }
   setDirection(value: AudienceDirection, at = this.context.currentTime) {
     if (this.disposed) return;
@@ -278,6 +300,7 @@ export class AudiencePlayer {
       this.applyGain(now);
     }
     if (!this.controls.enabled || this.direction.mood === 'quiet') {
+      this.pendingReaction = undefined;
       this.nextBed = now + 0.05;
       this.nextReaction = Math.max(this.nextReaction, now + 3);
       return;
@@ -285,29 +308,41 @@ export class AudiencePlayer {
     if (this.nextBed <= now + 0.3) {
       const at = Math.max(now + 0.02, this.nextBed);
       const clip = this.choose('bed', this.direction.mood, this.lastBed);
-      this.lastBed = clip.id;
-      this.play(
-        clip,
-        at,
-        Math.min(2.5, clip.buffer.duration / 3),
-        this.direction.mood === 'grooving' ? 1 : 0.8,
-      );
-      this.nextBed = at + clip.buffer.duration - Math.min(2.5, clip.buffer.duration / 3);
+      if (clip) {
+        this.lastBed = clip.id;
+        this.play(
+          clip,
+          at,
+          Math.min(2.5, clip.buffer.duration / 3),
+          this.direction.mood === 'grooving' ? 1 : 0.8,
+        );
+        this.nextBed = at + clip.buffer.duration - Math.min(2.5, clip.buffer.duration / 3);
+      } else this.nextBed = now + 0.25;
     }
+    if (this.pendingReaction && (this.pendingReaction.expires < now || !this.controls.reactions))
+      this.pendingReaction = undefined;
     if (
       this.controls.reactions &&
-      ['applause', 'cheering'].includes(this.direction.mood) &&
-      this.nextReaction <= now + 0.3
+      now >= this.reactionUntil &&
+      (this.pendingReaction ||
+        (['applause', 'cheering'].includes(this.direction.mood) && this.nextReaction <= now + 0.3))
     ) {
-      const clip = this.choose('reaction', this.direction.mood, this.lastReaction);
+      const clip = this.choose(
+        'reaction',
+        this.pendingReaction?.mood ?? this.direction.mood,
+        this.lastReaction,
+      );
+      if (!clip) return;
       this.lastReaction = clip.id;
       this.play(clip, now + 0.03, Math.min(0.9, clip.buffer.duration / 3), 0.7);
       // Persistent applause classifications cannot create a never-ending roar.
       this.nextReaction = now + 22 + this.random() * 24;
+      this.reactionUntil = now + clip.buffer.duration + 1;
+      this.pendingReaction = undefined;
     }
   }
 
-  private choose(kind: 'bed' | 'reaction', mood: AudienceMood, previous: string): Clip {
+  private choose(kind: 'bed' | 'reaction', mood: AudienceMood, previous: string): Clip | undefined {
     const approved = this.bank?.samples.filter((s) => s.approved && s.kind === kind) ?? [];
     const matching = approved.filter((s) => s.mood === mood);
     const pool = matching.length ? matching : approved;
@@ -324,19 +359,12 @@ export class AudiencePlayer {
       }
       void this.loadClip(sample);
     }
-    const ready = [...this.cache.values()].filter((s) => s.kind === kind && s.id !== previous);
-    if (ready.length) return ready[Math.floor(this.random() * ready.length)];
-    const variant = Math.floor(this.random() * 3);
-    const id = `procedural-${kind}-${variant}`;
-    let clip = this.fallback.get(id);
-    if (!clip) {
-      const channels = proceduralAudience(kind, hash(id));
-      const buffer = this.context.createBuffer(2, channels[0].length, 22050);
-      channels.forEach((c, n) => buffer.copyToChannel(c as Float32Array<ArrayBuffer>, n));
-      clip = { id, buffer, kind, generated: false };
-      this.fallback.set(id, clip);
-    }
-    return clip;
+    const available = [...this.cache.values()].filter(
+      (s) => s.kind === kind && (!matching.length || s.mood === mood),
+    );
+    const fresh = available.filter((s) => s.id !== previous);
+    const ready = fresh.length ? fresh : available;
+    return ready[Math.floor(this.random() * ready.length)];
   }
 
   private play(clip: Clip, at: number, fade: number, level: number) {
@@ -389,6 +417,7 @@ export class AudiencePlayer {
     if (this.disposed) return;
     this.playing = false;
     this.pending = [];
+    this.pendingReaction = undefined;
     this.applyGain(this.context.currentTime);
     for (const voice of this.voices) {
       try {
@@ -415,7 +444,6 @@ export class AudiencePlayer {
     }
     this.voices.clear();
     this.cache.clear();
-    this.fallback.clear();
     this.input.disconnect();
     this.output.disconnect();
     this.meter.disconnect();
