@@ -207,3 +207,36 @@ test('the endpoint override is opt-in, and the provider table is untouched witho
     decisionEndpoints.typesafe,
   );
 });
+
+test('a caller that has stopped waiting stops the work, rather than queueing behind itself', async () => {
+  const request = lights();
+  const abort = new AbortController();
+  let started = 0;
+  // A model that never answers. Without a signal this hangs; with one it must throw.
+  const complete: Complete = (_s, _u, _m, signal) => {
+    started++;
+    return new Promise((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+    });
+  };
+  const run = answerLocally(request, { complete, concurrency: 8, signal: abort.signal });
+  await new Promise((r) => setTimeout(r, 20));
+  abort.abort(new Error('deadline'));
+  await assert.rejects(run, /deadline/);
+  assert.ok(started > 0, 'it really had work in flight when the caller gave up');
+});
+
+test('an already-abandoned request does no model work at all', async () => {
+  let called = 0;
+  const complete: Complete = async () => {
+    called++;
+    return { text: '', tokens: [] };
+  };
+  const abort = new AbortController();
+  abort.abort(new Error('deadline'));
+  await assert.rejects(
+    answerLocally(lights(), { complete, concurrency: 8, signal: abort.signal }),
+    /deadline/,
+  );
+  assert.equal(called, 0, 'nothing is asked of the model once the caller is gone');
+});

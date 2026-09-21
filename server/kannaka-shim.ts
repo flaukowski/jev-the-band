@@ -45,7 +45,12 @@ export interface Completion {
   tokens: CompletionToken[];
 }
 /** The one impure thing, injected so the shim is testable without a model. */
-export type Complete = (system: string, user: string, maxTokens: number) => Promise<Completion>;
+export type Complete = (
+  system: string,
+  user: string,
+  maxTokens: number,
+  signal?: AbortSignal,
+) => Promise<Completion>;
 
 export interface Distribution {
   probabilities: Record<string, number>;
@@ -162,6 +167,18 @@ async function pooled<T>(
 export interface AnswerOptions {
   complete: Complete;
   concurrency?: number;
+  /**
+   * Stop working when the caller has stopped waiting.
+   *
+   * Jev aborts a decision at 1.8 s and treats the miss as a fallback, holding
+   * the previous look. Without this the shim never learns that: it keeps
+   * computing an answer nobody will read, the next request queues behind the
+   * corpse of the last one, and latency climbs without bound. Observed on
+   * 2026-09-21 over a tunnel — 17 s, 24 s, 31 s, rising by about seven seconds
+   * a call, while every one of Jev's nine lighting traces read `fallback` at
+   * exactly 1800 ms. The band sounded fine and the lights were never ours.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -187,17 +204,20 @@ export async function answerLocally(
 
   const askSingle = (key: string) => async (): Promise<Record<string, Distribution>> => {
     const q = questions[key]!;
-    const completion = await options.complete(system, singlePrompt(q), 1);
+    options.signal?.throwIfAborted();
+    const completion = await options.complete(system, singlePrompt(q), 1, options.signal);
     const top = completion.tokens[0]?.top_logprobs ?? [];
     return { [key]: distribute(top, Object.keys(q.criteria)) };
   };
 
   const askBatch = (keys: string[]) => async (): Promise<Record<string, Distribution>> => {
     const optionKeys = Object.keys(questions[keys[0]!]!.criteria);
+    options.signal?.throwIfAborted();
     const completion = await options.complete(
       system,
       batchPrompt(keys, questions),
       keys.length * 3,
+      options.signal,
     );
     const out: Record<string, Distribution> = {};
     let position = 0;
@@ -217,6 +237,9 @@ export async function answerLocally(
 
   // Repair, then verify the repair. A question with no answer must never leave here.
   const missing = Object.keys(questions).filter((key) => !answers[key]);
+  // A repair costs another round trip. If the caller has already given up there
+  // is nothing to repair the answer for.
+  options.signal?.throwIfAborted();
   if (missing.length > 0) {
     repaired.push(...missing);
     Object.assign(answers, await pooled<Distribution>(missing.map(askSingle), concurrency));

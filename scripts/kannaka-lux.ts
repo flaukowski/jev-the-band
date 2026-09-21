@@ -24,6 +24,7 @@
  * running it cannot widen who can spend on the upstream account.
  */
 import express from 'express';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { parseAnswers } from '../server/jev.js';
 import { decisionEndpoints } from '../server/provider.js';
 import {
@@ -57,10 +58,50 @@ const UPSTREAM = (() => {
  */
 const KEEP_ALIVE = process.env.KANNAKA_KEEP_ALIVE || '30m';
 
+/**
+ * Who may ask this shim for a decision.
+ *
+ * On a laptop behind a firewall this is unnecessary. The moment the shim is
+ * reachable from the internet — which it must be for a hosted band to use it —
+ * it becomes two things worth guarding: a way to spend somebody's local GPU
+ * time for free, and an open relay to whatever upstream provider it forwards
+ * to. Neither leaks a credential, because this process holds none, and both are
+ * still somebody else's problem to be handed.
+ *
+ * The band already authenticates to its decisions endpoint: `callJev` sends the
+ * provider key as `Authorization: Bearer`. So the check costs nothing new to
+ * either side — set this to the same value the band sends, and the shim answers
+ * only the band. Unset, it answers anyone, which is right for localhost.
+ */
+const EXPECT_BEARER = process.env.KANNAKA_EXPECT_BEARER?.trim() || null;
+
+/**
+ * How long to work before admitting we will not make it.
+ *
+ * `callJev` aborts at 1800 ms and records the miss as a fallback, so an answer
+ * that arrives at 1801 ms is worth exactly nothing. Default 1500 ms leaves the
+ * network the difference. Blowing it FAST is the whole point: a refusal lets
+ * Jev fall back immediately and keeps the queue empty, where a slow success
+ * pushes the next request behind it and the latency climbs forever.
+ */
+const DEADLINE_MS = Number(process.env.KANNAKA_DEADLINE_MS || 1500);
+
+/** Fixed-width digests, so comparing them cannot leak a length. */
+const digest = (v: string) => createHash('sha256').update(v, 'utf8').digest();
+
+function callerAllowed(header: unknown): boolean {
+  if (!EXPECT_BEARER) return true;
+  const raw = typeof header === 'string' ? header : '';
+  const match = /^Bearer\s+(.+)$/i.exec(raw.trim());
+  if (!match) return false;
+  return timingSafeEqual(digest(match[1]!.trim()), digest(EXPECT_BEARER));
+}
+
 /** One question, one token, top-k over the option letters. */
-const complete: Complete = async (system, user, maxTokens) => {
+const complete: Complete = async (system, user, maxTokens, signal) => {
   const response = await fetch(ENDPOINT, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODEL,
@@ -101,6 +142,12 @@ async function handle(req: express.Request, res: express.Response) {
   const who = personaName(request) || 'unknown';
   const started = performance.now();
 
+  if (!callerAllowed(req.headers.authorization)) {
+    console.warn(`${who.padEnd(6)} → REFUSED  caller is not the band`);
+    res.status(401).json({ error: 'this decision shim answers one caller' });
+    return;
+  }
+
   if (!request?.questions || typeof request.questions !== 'object') {
     res.status(400).json({ error: 'not a decision request' });
     return;
@@ -131,8 +178,15 @@ async function handle(req: express.Request, res: express.Response) {
   }
 
   // Ours. Answer it, then hold the answer to Jev's own standard before sending.
+  // Two ways the caller stops caring: the deadline passes, or it hangs up.
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(new Error('deadline')), DEADLINE_MS);
+  req.on('close', () => abort.abort(new Error('caller hung up')));
   try {
-    const { answers, repaired } = await answerLocally(request, { complete });
+    const { answers, repaired } = await answerLocally(request, {
+      complete,
+      signal: abort.signal,
+    });
     const body = {
       id: `kannaka-${Date.now().toString(36)}`,
       model: MODEL,
@@ -150,11 +204,24 @@ async function handle(req: express.Request, res: express.Response) {
     );
     res.json(body);
   } catch (error) {
+    if (abort.signal.aborted) {
+      // Not a fault worth an error channel: the band moved on, and saying so
+      // quickly is the correct behaviour. Jev holds the previous look.
+      const ms = Math.round(performance.now() - started);
+      console.warn(
+        `${who.padEnd(6)} → local     GAVE UP after ${ms} ms (budget ${DEADLINE_MS} ms)`,
+      );
+      if (!res.headersSent) res.status(503).json({ error: 'local decision missed its deadline' });
+      return;
+    }
     // A refusal is better than a wrong answer: Jev treats a failed decision as a
     // fallback, holds the previous look, and discloses it. Answering badly would
     // be invisible instead.
     console.error(`${who.padEnd(6)} → local     REFUSED: ${(error as Error).message}`);
-    res.status(502).json({ error: `local decision failed: ${(error as Error).message}` });
+    if (!res.headersSent)
+      res.status(502).json({ error: `local decision failed: ${(error as Error).message}` });
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -183,6 +250,10 @@ app.listen(PORT, async () => {
   console.log(`  local     ${[...ROLES].join(', ')}  via ${MODEL} at ${ENDPOINT}`);
   console.log(`  other     → ${UPSTREAM}`);
   console.log(`  keepalive ${KEEP_ALIVE}`);
+  console.log(
+    `  callers   ${EXPECT_BEARER ? 'one, by bearer' : 'ANY — set KANNAKA_EXPECT_BEARER before exposing this'}`,
+  );
+  console.log(`  deadline  ${DEADLINE_MS} ms, then it gives up so the band can`);
   console.log(`  point Jev at  JEV_DECISIONS_ENDPOINT=http://127.0.0.1:${PORT}/v1/systemone`);
   await warm();
 });
