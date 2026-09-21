@@ -17,7 +17,7 @@ test('title/description, archive search and replay are isolated from live writes
   });
   await page.route('**/api/health', (r) =>
     r.fulfill({
-      json: { ok: true, serverTime: Date.now(), liveAvailable: false, hostAccessRequired: false },
+      json: { ok: true, serverTime: Date.now(), liveAvailable: false },
     }),
   );
   await page.route('**/api/events', (r) =>

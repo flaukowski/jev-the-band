@@ -15,6 +15,16 @@ test('title is mandatory and description combines with it as the original prompt
     'Dawn\nWarm bass',
   );
 });
+test('song text loses control, zero-width and bidi characters before it is stored', () => {
+  const song = songInput.parse({
+    title: 'Da\u0000wn\u202E\u200B',
+    description: "'); DROP TABLE jtb_archive;--\r\nline\u0007 two",
+  });
+  assert.equal(song.title, 'Dawn');
+  assert.equal(song.description, "'); DROP TABLE jtb_archive;--\nline two");
+  assert.equal(songInput.safeParse({ title: '\u200B\u0000' }).success, false);
+  assert.equal(songInput.safeParse({ title: 'a\rb' }).success, false);
+});
 test('SQLite retains complete frames and raw responses across reopen; recovery is explicit', async () => {
   const path = mkdtempSync(join(tmpdir(), 'jtb-'));
   const file = join(path, 'archive.sqlite');

@@ -1,25 +1,24 @@
 import 'dotenv/config';
 import express from 'express';
-import { timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { Archive, ArchiveWriter, stateRows } from './archive.js';
 import { songInput, songPrompt } from './song-input.js';
 import { Room } from './room.js';
+import { Chat, chatInput } from './chat.js';
 import { levelsSchema } from '../shared/engineer.js';
 import { jevConfig } from './provider.js';
 import { readFileSync } from 'node:fs';
 const app = express();
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 4310);
-const token = process.env.CONTROLLER_TOKEN || '';
+const local = ['127.0.0.1', 'localhost', '::1'].includes(host);
 const provider = jevConfig();
 const version = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 ).version;
-if (!['127.0.0.1', 'localhost', '::1'].includes(host) && token.length < 24)
-  throw new Error('Public binding requires a CONTROLLER_TOKEN of at least 24 characters');
 app.disable('x-powered-by');
+if (!local) app.set('trust proxy', 1);
 app.use(express.json({ limit: '12kb' }));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -39,24 +38,16 @@ app.use((req, res, next) => {
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   }
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
     return;
   }
-  if (req.method === 'POST' && token) {
-    const supplied = Buffer.from((req.headers.authorization || '').replace(/^Bearer /, ''));
-    const expected = Buffer.from(token);
-    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
-      res.status(401).json({ error: 'Host access required' });
-      return;
-    }
-  }
   // Reject remote Host headers in local mode, including DNS rebinding.
   if (
-    !token &&
+    local &&
     !['127.0.0.1', 'localhost', '[::1]'].some(
       (h) => req.headers.host === `${h}:${port}` || req.headers.host === `${h}:5178`,
     )
@@ -78,6 +69,7 @@ let room: Room | null = null;
 let committed: import('../shared/music.js').Snapshot | null = null;
 const recentOpeners: import('../shared/music.js').Musician[] = [];
 const clients = new Set<express.Response>();
+const chat = new Chat();
 const broadcast = (event: string, data: unknown) => {
   const wire = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const client of clients) {
@@ -97,7 +89,6 @@ app.get('/api/health', (_req, res) =>
     },
     serverTime: Date.now(),
     liveAvailable: !!provider.apiKey,
-    hostAccessRequired: !!token,
     model: provider.model,
     provider: provider.provider,
     directorAvailable: !!provider.directorModel,
@@ -117,6 +108,7 @@ app.get('/api/events', (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   res.write(`event: state\ndata: ${JSON.stringify(committed)}\n\n`);
+  res.write(`event: chat\ndata: ${JSON.stringify(chat.recent())}\n\n`);
   clients.add(res);
   const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 15000);
   req.on('close', () => {
@@ -137,7 +129,21 @@ app.get('/api/archive/:id', async (req, res) => {
   }
   res.json(recording);
 });
-app.post('/api/room', async (req, res) => {
+// The room is open to everyone, so song requests are paced per address.
+const requests = new Map<string, number[]>();
+const paced: express.RequestHandler = (req, res, next) => {
+  const now = Date.now();
+  const key = req.ip ?? '';
+  const recent = (requests.get(key) ?? []).filter((at) => now - at < 60_000);
+  if (recent.length >= 6) {
+    res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+    return;
+  }
+  requests.set(key, [...recent, now]);
+  if (requests.size > 5000) requests.clear();
+  next();
+};
+app.post('/api/room', paced, async (req, res) => {
   const parsed = songInput.extend({ mode: z.enum(['live', 'rehearsal']) }).safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -236,13 +242,13 @@ app.post('/api/room', async (req, res) => {
   res.status(201).json(room.view());
   void room.start();
 });
-app.post('/api/room/stop', (_req, res) => {
+app.post('/api/room/stop', paced, (_req, res) => {
   // A natural ending first; a second request while the band is landing stops immediately.
   room?.endSong();
   res.json({ ok: true });
 });
-app.post('/api/room/queue', (req, res) => {
-  const parsed = songInput.extend({ roomId: z.string() }).safeParse(req.body);
+app.post('/api/room/queue', paced, (req, res) => {
+  const parsed = songInput.extend({ roomId: z.string().max(64) }).safeParse(req.body);
   if (!parsed.success || parsed.data.roomId !== room?.state.id) {
     res.status(400).json({ error: 'Enter a theme for the current room.' });
     return;
@@ -256,13 +262,27 @@ app.post('/api/room/queue', (req, res) => {
   }
 });
 app.post('/api/room/levels', (req, res) => {
-  const parsed = z.object({ roomId: z.string(), levels: levelsSchema }).safeParse(req.body);
+  const parsed = z.object({ roomId: z.string().max(64), levels: levelsSchema }).safeParse(req.body);
   if (!parsed.success || parsed.data.roomId !== room?.state.id) {
     res.status(400).json({ error: 'Invalid reference measurement' });
     return;
   }
   room.recordLevels(parsed.data.levels);
   res.json({ ok: true });
+});
+app.post('/api/chat', (req, res) => {
+  const parsed = chatInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Say something in 280 characters or fewer.' });
+    return;
+  }
+  const message = chat.post(req.ip ?? '', parsed.data);
+  if (!message) {
+    res.status(429).json({ error: 'Easy on the tokens. One line a second.' });
+    return;
+  }
+  broadcast('chat', [message]);
+  res.status(201).json(message);
 });
 app.use(express.static(resolve('dist')));
 app.get('/{*path}', (_req, res) => res.sendFile(resolve('dist/index.html')));

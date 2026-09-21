@@ -61,7 +61,7 @@ test('real audio switches isolated pedal rigs by bar and lets recorded cymbals r
   });
   await page.route('**/api/health', (route) =>
     route.fulfill({
-      json: { ok: true, serverTime: Date.now(), liveAvailable: false, hostAccessRequired: false },
+      json: { ok: true, serverTime: Date.now(), liveAvailable: false },
     }),
   );
   await page.goto('/');
