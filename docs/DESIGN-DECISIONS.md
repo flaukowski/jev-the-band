@@ -446,3 +446,27 @@ User requirement: archive replay in a modal, with a day selector, one compact ro
 ## 2026-09-20 — Site title cleanup
 
 **User requirement:** the browser title is exactly `Jev the Band`. Remove the crowd-audio attribution from the title; audience-audio provenance remains documented in the appropriate product and licensing surfaces.
+
+## 2026-09-21 — The groove is the theme: drum moves
+
+**User questions and request:** is there a premade set of drum grooves; why does the kit go to a tuplet feel every eight bars; expand Kit's palette while keeping it groove-oriented, with theme and variation, fills and beat drops; keep the tuplet feel as one option; keep previous songs playable.
+
+**How drums worked.** There was no premade set. Kit chose a grid (quarters, eighths, triplets, sixteenths) and then, step by step across both bars, whether the kick sounds, snare or tom or rest, which cymbal or rest, and an accent level. Every drum turn rewrote all of it from nothing. The predictable tuplet was the v0.7 boredom rule, not Jev: `pulse` had a patience of five turns, so "sixteenths" was rested on a timer and Jev's next-best grid, triplets, won. Kit composes roughly every fourth boundary, hence "every eight bars".
+
+**Decision.** The groove is a persistent object and each drum turn is one **move** on it:
+
+| Move | What Jev decides | What stays |
+|---|---|---|
+| keep | nothing further | the whole groove |
+| vary cymbals / kick / snare | every step of that one limb, shown what the groove plays there now | the other limbs, and the accent of any unchanged hit |
+| fill | length (1, 2 or 4 beats), grid (sixteenths, triplets, sextuplets, eighths), idea, then every hit and accent, and how the groove lands afterwards | the groove up to the fill |
+| drop | what falls silent, for how long (up to both bars), and the landing | Jev's own remaining hits |
+| build | drum, acceleration shape, what continues underneath, landing | the groove before the build |
+| change subdivision | a new groove on another grid: the tuplet feel, or back to straight | nothing |
+| new groove | everything, as before | nothing; offered only after four drum turns on a groove |
+
+Fill, drop and build are moments: they sound once, the following repeat is the groove with the chosen landing (crash, splash, ride bell or none), and later repeats are the plain groove. A **groove grammar** keeps the kinds of move from repeating: no moment directly after a moment, at most two variations or two keeps in a row, and a new grid must settle before the next. This replaces timed fatigue for `pulse` and `feel`, which now change only through a deliberate move. The drum feel bandmates hear changes only when the groove was actually rewritten. The palette gains cross-stick, pedal hi-hat, ride bell and splash, plus flams inside fills.
+
+**Provenance.** Every kick, snare, tom and cymbal is still a Jev answer. Two things are harness arithmetic and are labelled as such: a build's rhythm is expanded from Jev's chosen drum, shape and span (slot `build`), and a landing cymbal is placed on the downbeat Jev chose it for (slot `landing`). Unasked steps are Jev's own earlier hits, kept.
+
+**Backwards compatibility.** Recordings store finished frames and replay them; nothing about stored notes changes. All new fields (`upNext`, `drumPulse`, `drumMove`, `grooveAge`, `pendingLanding`, `cutForNextSong`) are optional. Existing drum pitches render and animate exactly as before; the four new pitches never occur in older recordings. A drum part recorded or carried over without grid memory is simply offered `new_groove`.

@@ -684,8 +684,12 @@ export class Room extends EventEmitter {
             continued: true,
             repeated: previous.repeated + 1,
             // Preserve played notes exactly; a new shared tonic is context for future compositions.
+            // A drum fill, drop or build is a moment: its repeat is the groove coming back.
             notes:
-              selectedRoles.includes(role) && previous.solo ? [] : structuredClone(previous.notes),
+              selectedRoles.includes(role) && previous.solo
+                ? []
+                : structuredClone(previous.upNext?.[0] ?? previous.notes),
+            upNext: (previous.upNext?.length ?? 0) > 1 ? previous.upNext!.slice(1) : undefined,
           };
         return {
           role,

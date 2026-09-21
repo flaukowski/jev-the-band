@@ -36,7 +36,7 @@ import {
   drumFeels,
   type Performance,
 } from '../shared/performance.js';
-import { drumRequest, readDrums } from './drummer.js';
+import { availableMoves, composeDrums } from './groove.js';
 import { rigRequest, timbresFor } from './rig.js';
 import { continuingSolo, continuingPhrase, soloPlanRequest, sampleSoloLength } from './solo.js';
 import {
@@ -320,6 +320,10 @@ export function phrasePlanRequest(
       'Choose the groove feel you will realize with your own hits. Changing feel is how a drummer moves the whole band: they hear it and respond. Keep a feel while it serves; change it when the jam needs a new chapter.',
       drumFeels,
     );
+    questions.move = choice(
+      'What do you do with your groove this phrase? The groove is the theme. Most phrases keep it or vary one limb; a fill, drop or build marks a moment and then the groove returns; changing the subdivision or writing a new groove is a new chapter. Vary your moves: do not do the same kind of thing every time.',
+      availableMoves(own, !!room.windDown),
+    );
     questions.swingAmount = choice(
       'For eighths, delay offbeats by this fraction of a beat. Other subdivisions retain their own spacing.',
       { '0': 'Straight', '0.06': 'Light swing', '0.16': 'Deep shuffle' },
@@ -378,6 +382,7 @@ export function phrasePlanRequest(
       ),
     );
     only('density', { low: 'Few notes' });
+    if (questions.move) only('move', availableMoves(own, true));
   }
   if (phraseContinues && !invitedSolo) {
     // Continue an established idea; new notes and rhythm do not require a new theme.
@@ -1028,22 +1033,39 @@ export async function composePhrase(
       performance,
     };
     if (d.action === 'rest') return remember(part);
+    if (role === 'drums') {
+      // Holding is the keep move: it returns to the groove, never to a fill that was a moment.
+      if (d.action === 'hold' && previous)
+        plan.answers.move = { ...plan.answers.move, choice: 'keep' };
+      const drums = await composeDrums(
+        model,
+        context(role, room, phrase),
+        plan.answers,
+        previous,
+        decide,
+        random(room.seed + phrase * 211 + hash(role)),
+      );
+      part.notes = drums.notes;
+      part.upNext = drums.upNext;
+      Object.assign(performance, {
+        drumPulse: drums.pulse,
+        drumSwing: drums.swing,
+        drumMove: drums.move,
+        grooveAge: drums.grooveAge,
+        pendingLanding: drums.landing,
+        // The feel bandmates hear only changes when the groove itself was rewritten.
+        feel: ['new_groove', 'change_subdivision'].includes(drums.move)
+          ? plan.answers.feel?.choice
+          : (previous?.performance?.feel ?? plan.answers.feel?.choice),
+      });
+      return remember(part);
+    }
     if (d.action === 'hold' && previous)
       return remember({
         ...part,
         notes: structuredClone(previous.notes),
         repeated: previous.repeated + 1,
       });
-    if (role === 'drums') {
-      for (let start = 0; start < 8; start += Math.min(4, 16 / Number(plan.answers.pulse.choice))) {
-        const trace = await decide(
-          drumRequest(model, context(role, room, phrase), plan.answers, start, part.notes),
-        );
-        if (trace.source !== 'jev') throw new Error('Drum decisions unavailable');
-        part.notes = readDrums(trace, plan.answers, start, part.notes);
-      }
-      return remember(part);
-    }
     let beat = Number(plan.answers.entry.choice);
     const rng = random(room.seed + phrase * 197 + hash(role));
     if (soloMode) {

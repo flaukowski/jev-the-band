@@ -579,3 +579,15 @@ User: "replay needs to be a modal; select day, one row pers song so you can fit 
 ## 2026-09-20 — Site title cleanup
 
 User: "change the site title to just Jev the Band in railway (drop the crow audio...) crap"
+
+## 2026-09-21 — A more expansive yet focused drum harness
+
+```text
+i think the drum grooves are good, I'm wondering how these work... is there a premade set?
+
+i wonder if we can incorporate more choice, and then just a choice for drum fills vs. "shift to a tuplet feel" which seems like the most like choice currently...
+
+can we somehow expand its pallet, yet simulataneously constrain it to move groove oriented. The tuplet feel is cool i want to keep it, but current it seems a bit too predictable, every eight bars goes to tuplet. I want that option to continue to exist, but also paths for theme and variation on a groove, insert fill, beat drops, etc etc. Think through a more expansive yet focused drum jev harness.
+
+ensure backwards compatibility of previous songs
+```

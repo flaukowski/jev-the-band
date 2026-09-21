@@ -78,13 +78,13 @@ export interface Signals {
 export const drumVoice = (midi: number) =>
   midi === 36
     ? 'kick'
-    : midi === 38
+    : midi === 38 || midi === 37
       ? 'snare'
-      : midi === 42 || midi === 46
+      : midi === 42 || midi === 46 || midi === 44
         ? 'hat'
-        : midi === 51
+        : midi === 51 || midi === 53
           ? 'ride'
-          : midi === 49
+          : midi === 49 || midi === 55
             ? 'crash'
             : midi === 50
               ? 'tomHi'

@@ -3,7 +3,8 @@ import { z } from 'zod';
 // text reaches the archive, the prompt or another audience member's screen.
 const UNSAFE =
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF]/g;
-export const clean = (text: string) => text.normalize('NFC').replace(/\r\n?/g, '\n').replace(UNSAFE, '');
+export const clean = (text: string) =>
+  text.normalize('NFC').replace(/\r\n?/g, '\n').replace(UNSAFE, '');
 export const songInput = z.object({
   title: z
     .string()
