@@ -14,8 +14,9 @@ test('paid studio audition: director, audible June, and Patch receiving actual b
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await page.goto('/');
+    await page.getByLabel('Title (required)').fill('Saturday after nursery rhymes');
     await page
-      .getByLabel('Jam title or description')
+      .getByLabel('Song description')
       .fill(
         'Saturday after nursery rhymes. June opens alone with a playful piano chord melody, then warm soul-funk guitar answers, a grounded bass and clear natural acoustic drums. Let the innocent theme blossom, build briefly, then give us a warm release. Rich melodic effects, with the kit sounding like a drum kit.',
       );
@@ -49,8 +50,9 @@ test('paid studio audition: director, audible June, and Patch receiving actual b
     ).toBe(true);
     expect(room.frames.at(-1).engineerMix.traceId).toBeTruthy();
     await expect(page.getByLabel('June keyboard sounds')).toBeVisible();
+    await page.getByLabel('Next song title').fill('The next movement');
     await page
-      .getByLabel('Next jam theme')
+      .getByLabel('Next song description')
       .fill(
         'The nursery lights dim into a spacious late-night A minor blues. New melodic guitar answers and warm organ, a restrained bass pulse, natural drums.',
       );
