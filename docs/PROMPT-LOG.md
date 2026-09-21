@@ -597,3 +597,9 @@ can we somehow expand its pallet, yet simulataneously constrain it to move groov
 
 ensure backwards compatibility of previous songs
 ```
+
+## 2026-09-21 — Empty title by default
+
+> Make there be no default string in the title. Otherwise, people are just going to hit "Let's Jam" without entering anything, and we'll have the same somewhere between the last train and the sunrise multiple times. Just put "Title the next jam."
+
+Follow-up: “merge to master push to prod.” This repository's canonical production branch is `main`; there is no `master` branch.

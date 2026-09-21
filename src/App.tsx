@@ -99,7 +99,7 @@ export default function App() {
     return () => document.removeEventListener('fullscreenchange', change);
   }, []);
   const [liveAvailable, setLiveAvailable] = useState(false);
-  const [prompt, setPrompt] = useState('Somewhere between the last train and the sunrise');
+  const [prompt, setPrompt] = useState('');
   const [nextPrompt, setNextPrompt] = useState('');
   const [chosenMode, setChosenMode] = useState<'live' | 'rehearsal' | null>(null);
   const [healthReady, setHealthReady] = useState(false);
@@ -800,7 +800,7 @@ export default function App() {
                     value={prompt}
                     maxLength={80}
                     onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="A midnight drive through a city made of glass…"
+                    placeholder="Title the next jam."
                   />
                   <label>
                     Description

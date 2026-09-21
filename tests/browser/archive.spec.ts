@@ -1,6 +1,23 @@
 import { test, expect } from '@playwright/test';
 import { Room } from '../../server/room.js';
 
+test('required jam title starts empty with an instructional placeholder', async ({ page }) => {
+  await page.route('**/api/health', (route) =>
+    route.fulfill({
+      json: { ok: true, serverTime: Date.now(), liveAvailable: false },
+    }),
+  );
+  await page.route('**/api/events', (route) =>
+    route.fulfill({ contentType: 'text/event-stream', body: 'event: state\ndata: null\n\n' }),
+  );
+  await page.goto('/');
+
+  const title = page.getByLabel('Title (required)');
+  await expect(title).toHaveValue('');
+  await expect(title).toHaveAttribute('placeholder', 'Title the next jam.');
+  await expect(page.getByRole('button', { name: 'Play demo', exact: true })).toBeDisabled();
+});
+
 test('title/description, archive search and replay are isolated from live writes', async ({
   page,
 }) => {

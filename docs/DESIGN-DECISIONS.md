@@ -476,3 +476,7 @@ Fill, drop and build are moments: they sound once, the following repeat is the g
 **Provenance.** Every kick, snare, tom and cymbal is still a Jev answer. Two things are harness arithmetic and are labelled as such: a build's rhythm is expanded from Jev's chosen drum, shape and span (slot `build`), and a landing cymbal is placed on the downbeat Jev chose it for (slot `landing`). Unasked steps are Jev's own earlier hits, kept.
 
 **Backwards compatibility.** Recordings store finished frames and replay them; nothing about stored notes changes. All new fields (`upNext`, `drumPulse`, `drumMove`, `grooveAge`, `pendingLanding`, `cutForNextSong`) are optional. Existing drum pitches render and animate exactly as before; the four new pitches never occur in older recordings. A drum part recorded or carried over without grid memory is simply offered `new_groove`.
+
+## 2026-09-21 — Empty required title
+
+**User requirement:** do not prefill the title with a reusable default. Start with an empty required title and show “Title the next jam.” as the field prompt, so the jam action remains unavailable until the listener enters a title.
