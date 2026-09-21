@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { conceptSchema, type DirectorReport } from '../shared/concept.js';
 import type { Musician } from '../shared/music.js';
 
+export const DIRECTOR_TIMEOUT_MS = 45_000;
+
 export async function directJam(
   prompt: string,
   model: string,
@@ -37,7 +39,10 @@ export async function directJam(
         'X-Title': 'JEV the band - sonic director',
       },
       body: JSON.stringify(request),
-      signal: AbortSignal.any([AbortSignal.timeout(25000), ...(signal ? [signal] : [])]),
+      signal: AbortSignal.any([
+        AbortSignal.timeout(DIRECTOR_TIMEOUT_MS),
+        ...(signal ? [signal] : []),
+      ]),
     });
     if (!response.ok) throw new Error('Director unavailable');
     const payload = await response.json();

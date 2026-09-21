@@ -579,3 +579,9 @@ User: "replay needs to be a modal; select day, one row pers song so you can fit 
 ## 2026-09-20 — Site title cleanup
 
 User: "change the site title to just Jev the Band in railway (drop the crow audio...) crap"
+
+## 2026-09-21 — Luna director timeout reliability
+
+User: "the gpt-luna call is often returning 'sonic director unavailable' what's going on with that? check railway logs"
+
+After production diagnosis showed successful Luna responses commonly taking 19–25 seconds and six failures landing exactly at the application's 25-second cutoff, the user requested: "great, please increase the timeout as suggested. send a message to the archive thread about the rendering errors. ship the fix to prod" and clarified "merge on master." This repository's canonical production branch is named `main`; there is no `master` branch.
