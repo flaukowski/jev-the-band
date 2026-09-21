@@ -10,6 +10,7 @@ import {
 } from '../../shared/music';
 import { Character, type Look } from './character';
 import { DrumKit, KeysRig, patchBoard } from './kitkeys';
+import { Dance, type DanceArea } from './moves';
 import { around, drumVoice, type DrumVoice, type PlayerSignal, type Signals } from './signals';
 import { Amp, Cable, Pedalboard, Ribbon, StringInstrument, sharedAmpTextures } from './strings';
 import { denim, rug, tieDye, weave } from './textures';
@@ -158,6 +159,8 @@ class Stomp {
     playing: boolean,
   ) {
     const key = effects ? fxNames.map((n) => (effects[n] ? 1 : 0)).join('') : '';
+    // `playing` is false while the player has wandered off the mark: the pedal still changes,
+    // but nobody stretches a leg across the stage to press it.
     if (playing && effects && this.last && key !== this.last) {
       const changed = fxNames.find((n, i) => (effects[n] ? '1' : '0') !== this.last[i])!;
       this.to.copy(this.board.switches.get(changed)!);
@@ -168,9 +171,11 @@ class Stomp {
     this.t = Math.min(1, this.t + dt / 0.62);
     const reach = Math.sin(smooth(this.t) * Math.PI);
     const press = this.t > 0.42 && this.t < 0.58 ? 1 : 0;
-    ch.target.footR.lerpVectors(home, this.to, reach);
-    ch.target.footR.y += reach * 0.09 * (1 - press) + (reach > 0.01 ? 0.03 : 0);
-    ch.footPitch.R = reach * 0.3 - press * 0.35;
+    if (reach > 0) {
+      ch.target.footR.lerpVectors(home, this.to, reach);
+      ch.target.footR.y += reach * 0.09 * (1 - press) + (reach > 0.01 ? 0.03 : 0);
+      ch.footPitch.R = reach * 0.3 - press * 0.35;
+    }
     return reach;
   }
 }
@@ -199,8 +204,9 @@ abstract class StringPlayer implements Performer {
     new THREE.Vector3(),
     new THREE.Vector3(),
   ];
-  private readonly footHomeR = new THREE.Vector3(-0.13, 0.07, 0.04);
   private readonly tmpJack = new THREE.Vector3();
+  readonly dance: Dance;
+  private stomping = false;
 
   constructor(
     readonly role: 'guitar' | 'bass',
@@ -210,6 +216,7 @@ abstract class StringPlayer implements Performer {
     ampOffset: THREE.Vector3,
     ampKind: 'combo' | 'fridge',
     private readonly seed: number,
+    area: DanceArea,
   ) {
     this.station = makeStation(role, scene);
     this.character = new Character(look);
@@ -236,7 +243,10 @@ abstract class StringPlayer implements Performer {
     this.station.updateMatrixWorld(true);
     const ampIn = this.amp.input.getWorldPosition(new THREE.Vector3());
     const jack = this.instrument.jack.getWorldPosition(new THREE.Vector3());
-    this.cable = new Cable(scene, jack, ampIn, 1.5, 0x0b0b0c, stagePositions[role][1] + 0.012);
+    // A long lead: these two do not stay on their marks.
+    this.cable = new Cable(scene, jack, ampIn, 1.9, 0x0b0b0c, stagePositions[role][1] + 0.012);
+    this.dance = new Dance(seed, area);
+    this.character.root.rotation.order = 'YXZ';
     this.attention = new Attention(seed, role);
     this.stomp = new Stomp(this.pedals);
     this.character.handL.curl = 0.9;
@@ -250,6 +260,26 @@ abstract class StringPlayer implements Performer {
     const t = sig.time;
     const bass = this.role === 'bass';
     const g = groove(ch, sig, p, t, this.seed, bass ? 1.15 : 1);
+    // Where the body is: on the mark, mid-stroll, in the air or flat on its back.
+    if (sig.reduced) this.dance.reset();
+    const pose = this.dance.update({
+      time: t,
+      dt: sig.reduced ? 0 : dt,
+      beat: sig.beat,
+      bpm: sig.bpm,
+      live: sig.playing && !sig.reduced,
+      active: p.active,
+      solo: p.solo,
+      energy: sig.energy,
+      ending: sig.ending,
+      hold: this.stomping,
+    });
+    ch.root.position.set(pose.x, pose.lift, pose.z);
+    ch.root.rotation.set(-pose.tip * Math.PI * 0.5, pose.yaw, 0);
+    ch.hips.position.y -= pose.crouch / ch.scale;
+    ch.hips.position.x += pose.shift / ch.scale;
+    ch.hips.rotation.z += pose.roll * 0.5;
+    ch.spine.rotation.z += pose.roll;
     this.soloAmount = damp(this.soloAmount, p.solo ? 1 : 0, 1.6, dt);
     const solo = this.soloAmount;
     const bendFace = p.bend * solo;
@@ -264,6 +294,13 @@ abstract class StringPlayer implements Performer {
     ch.face.eyesClosed = clamp01(solo * (0.4 + p.sustain * 0.6) * (p.level > 0.15 ? 1 : 0.3));
     ch.face.mouth = clamp01(bendFace * 0.9 + solo * p.impulse * 0.4);
     ch.face.brow = bendFace - solo * 0.3;
+    if (pose.tip > 0.02) {
+      // Going over: eyes wide, mouth open, and a grin about it once landed.
+      const shock = clamp01(pose.tip * 4);
+      ch.face.eyesClosed *= 1 - shock;
+      ch.face.mouth = Math.max(ch.face.mouth, shock * (pose.tip < 1 ? 1 : 0.55));
+      ch.face.brow = Math.max(ch.face.brow, shock);
+    }
     ch.root.updateMatrixWorld(true);
 
     // Fretting hand goes to the actual fret of the sounding pitch.
@@ -324,11 +361,22 @@ abstract class StringPlayer implements Performer {
     }
 
     // Feet: tap with the pulse, step on pedals when Jev changes the rig.
-    const reach = this.stomp.update(ch, p.effects, this.footHomeR, dt, sig.playing && !sig.reduced);
-    if (reach < 0.01 && sig.playing && !sig.reduced)
-      ch.footPitch.R =
-        -Math.max(0, Math.sin(sig.beatPhase * Math.PI * 2 + 0.6)) * 0.22 * (0.4 + p.level);
-    ch.target.footL.set(0.14, 0.07, -0.02);
+    const k = 1 / ch.scale;
+    ch.target.footL.set(pose.footL.x * k, pose.footL.y * k, pose.footL.z * k);
+    ch.target.footR.set(pose.footR.x * k, pose.footR.y * k, pose.footR.z * k);
+    ch.footPitch.L = pose.footL.pitch;
+    ch.footPitch.R = pose.footR.pitch;
+    const reach = this.stomp.update(
+      ch,
+      p.effects,
+      _a.copy(ch.target.footR),
+      dt,
+      sig.playing && !sig.reduced && pose.home,
+    );
+    this.stomping = reach > 0.01;
+    if (!this.stomping && pose.move === 'groove' && sig.playing && !sig.reduced)
+      ch.footPitch.R -=
+        Math.max(0, Math.sin(sig.beatPhase * Math.PI * 2 + 0.6)) * 0.22 * (0.4 + p.level);
 
     inst.localPoint(inst.fretX(this.fretNumber), this.string, 0, _c);
     this.attention.update(sig, ch, ctx, inst.group.localToWorld(_c), dt);
@@ -390,6 +438,7 @@ export class Guitarist extends StringPlayer {
       new THREE.Vector3(-0.35, 0, -1.25),
       'combo',
       1.7,
+      { minX: -0.9, maxX: 0.65, minZ: -0.45, maxZ: 0.12, fallX: 0.55 },
     );
   }
 }
@@ -417,6 +466,7 @@ export class Bassist extends StringPlayer {
       new THREE.Vector3(0.25, 0, -1.55),
       'fridge',
       4.1,
+      { minX: -0.6, maxX: 0.9, minZ: -0.45, maxZ: 0.12, fallX: -0.55 },
     );
   }
 }

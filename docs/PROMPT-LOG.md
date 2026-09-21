@@ -515,3 +515,9 @@ a few variation of horizon environment: mountains; city; night club; arena; etc.
 ```text
 merge to main push to prod when ready
 ```
+
+## 2026-09-20 — Band member dance moves
+
+```text
+add band member dance moves? at least for rook and moss; jumping swaying, walking around stage, occasionally falling over etc
+```

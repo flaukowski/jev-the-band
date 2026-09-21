@@ -542,6 +542,7 @@ export function createStage(
       orbit,
       view,
       stats: debugStats,
+      band: () => band,
     };
 
   return {
