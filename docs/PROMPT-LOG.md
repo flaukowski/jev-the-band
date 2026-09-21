@@ -467,3 +467,9 @@ can we add the song title animated lettering on the screen
 ```
 
 The visual release (PR #4) was confirmed merged into `main` and present in the production bundle at the revision health reports. The lettering request is recorded as new work and was not itself deployed by this request.
+
+## 2026-09-20 — Merge and deploy the title lettering
+
+```text
+yes merge and deploy it
+```
