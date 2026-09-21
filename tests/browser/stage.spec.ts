@@ -44,7 +44,7 @@ test('shared rehearsal, silent audio render, trace inspection, stop, and mobile 
   const stageBox = await page.locator('.stage-wrap').boundingBox();
   expect(promptBox!.y + promptBox!.height).toBeLessThan(stageBox!.y);
   await page.getByLabel('Decision mode').selectOption('rehearsal');
-  await page.getByLabel('Jam title or description').fill('Lanterns on the river');
+  await page.getByLabel('Title (required)').fill('Lanterns on the river');
   await page.getByRole('button', { name: 'Play demo' }).click();
   await expect(page.getByTestId('sample-status')).toHaveText('162 recorded samples ready', {
     timeout: 30000,

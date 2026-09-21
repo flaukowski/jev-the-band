@@ -11,5 +11,8 @@ docs
 .claude
 .codex
 tests
-scripts
+scripts/*
+!scripts/migrate-archive.ts
 AGENTS.md
+
+data/

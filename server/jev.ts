@@ -94,6 +94,8 @@ export function requestFor(role: Role, room: Snapshot, phrase: number, model: st
               'Late-90s media-player visualizer: warping feedback trails around a waveform',
             mandala: 'Randomly generated geometric mandala, a new pattern every phrase',
             'decision stream': 'Green rain of the raw decision JSON the band is made of',
+            'song title':
+              'The title of this song in big animated poster lettering; also works well as an overlay',
           },
         ),
         overlay: choice(

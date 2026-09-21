@@ -1,12 +1,12 @@
 {
   "name": "jev-the-band",
-  "version": "0.7.0",
+  "version": "0.8.1",
   "private": true,
   "type": "module",
   "description": "Six decision personas. One evolving live band.",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "scripts": {
     "dev": "concurrently -k -n server,stage \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
@@ -24,7 +24,8 @@
     "audit:solos": "tsx scripts/audit-solos.ts",
     "audit:transition": "tsx scripts/audit-transition.ts",
     "generate:audience": "tsx scripts/generate-audience.ts",
-    "promote:audience": "tsx scripts/promote-audience.ts"
+    "promote:audience": "tsx scripts/promote-audience.ts",
+    "archive:migrate": "tsx scripts/migrate-archive.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.0",
@@ -33,7 +34,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "three": "^0.180.0",
-    "zod": "^4.1.0"
+    "zod": "^4.1.0",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -47,6 +49,7 @@
     "prettier": "^3.9.8",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
-    "vite": "^7.1.0"
+    "vite": "^7.1.0",
+    "@types/pg": "^8.23.1"
   }
 }

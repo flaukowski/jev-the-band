@@ -34,7 +34,7 @@ For live music, configure either provider in the server's ignored `.env`:
 - Queue another prompt while playing: the band brings the current song to a natural close, falls silent, and starts the new one from nothing. Players develop their own phrases, negotiate tempo/harmony, and can overlap solos. Ending pressure grows after five minutes; ten minutes is the hard maximum.
 - Explore camera views, orbit/zoom, automatic direction, solo following, lens effects and reduced movement. Open **Under the hood** for provenance.
 
-The 162 bundled recordings are individual notes, not backing loops. Other voices use synthesis. Generated crowd recordings are **not included**: a clearly labeled procedural fallback plays until an approved bank is installed. Musical taste, guitar realism and long-run variation remain listening and tuning goals, not guarantees.
+The 162 bundled recordings are individual notes, not backing loops. Other voices use synthesis. The crowd uses 24 generated festival recordings: murmurs, cheers and applause, with an entrance on Start and manual sound-desk cues. These free-plan ElevenLabs recordings are noncommercial with attribution, separate from the MIT code license; see [audience credits](public/audience/CREDITS.md). Musical taste, guitar realism and long-run variation remain listening and tuning goals, not guarantees.
 
 ## Verify and contribute
 
@@ -61,3 +61,8 @@ Browser checks mute physical output; most make no provider calls. Paid diagnosti
 Build your own single Node service with `npm run build && npm start` (port 4310). Use one replica, a server-only host token and a dedicated provider key. Room state is in memory; restarting ends the jam. See the deployment guide for exact limits.
 
 Code is [MIT licensed](LICENSE); recordings have their own [attribution and licenses](public/samples/CREDITS.md). Normal installation needs no ffmpeg or sample CDN. The repository's current history remains private pending publication curation; a credential scan alone does not make old commits and prompt history privacy-safe. Independent project; no affiliation with TypeSafe or Phish is implied. The musicians are original personas.
+
+
+## Jtb archive
+
+Give each song a required title and optional description. Every new set is saved automatically: SQLite locally, PostgreSQL through `DATABASE_URL` on Railway. Open **Jtb archive** to search and replay daily shows, sets or songs without new model calls. See [local testing, storage guarantees and migration](docs/ARCHIVE.md).

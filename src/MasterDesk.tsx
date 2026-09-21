@@ -149,9 +149,14 @@ export function MasterDesk({
       </div>
       <div className="audience-desk" aria-label="Audience sound">
         <div>
-          <b>THE AUDIENCE</b>
+          <b>
+            THE AUDIENCE ·{' '}
+            <a href="https://elevenlabs.io" target="_blank" rel="noreferrer">
+              elevenlabs.io
+            </a>
+          </b>
           <small>
-            {audio.audienceStatus?.label ?? 'Procedural room + applause · no generated voices'}
+            {audio.audienceStatus?.label ?? 'Festival crowd recordings · ready when sound starts'}
           </small>
         </div>
         <label>
@@ -213,6 +218,22 @@ export function MasterDesk({
           />{' '}
           Occasional reactions
         </label>
+        <div className="audience-cues" aria-label="Audience reaction cues">
+          <button
+            className="board-reset"
+            disabled={!crowd.enabled || !crowd.reactions || !audio.audienceStatus?.active}
+            onClick={() => audio.triggerAudience('applause')}
+          >
+            Applause
+          </button>
+          <button
+            className="board-reset"
+            disabled={!crowd.enabled || !crowd.reactions || !audio.audienceStatus?.active}
+            onClick={() => audio.triggerAudience('cheering')}
+          >
+            Cheers
+          </button>
+        </div>
       </div>
       <div className="master-footnote">
         <span>

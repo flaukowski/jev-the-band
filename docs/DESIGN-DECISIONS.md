@@ -322,6 +322,43 @@ The release audition temporarily capped the room at 480 attempts, then restored 
 
 When both keys are configured, the other provider is the room's fallback unless `JEV_FALLBACK=0`. A room switches at most once: immediately on HTTP 401, 402 or 403, which waiting cannot cure, or after two consecutive phrases without any Jev response, or when the opening request fails. The whole room moves; requests already in flight fail and are disclosed as fallback traces, and the refused provider is not retried. The switch, its reason and frame are published as `providerSwitch`, and every trace continues to name the provider and endpoint that answered it. Each provider only ever receives its own key and its own model ID. Without a second key nothing changes: three failed phrases still stop the jam. Production currently has only the TypeSafe key, so it has no fallback until an OpenRouter key is added there.
 
+
+## 2026-09-20 — Durable event recordings (local implementation)
+
+**User requirements:** mandatory title plus optional description, interpreted together using the existing prompt path; automatic recordings of responses and performances; searchable Jtb archive with shows, sets and songs; SQLite locally, PostgreSQL on Railway, and local archive migration. Follow-up asks for safe accumulation and flushing.
+
+**Implementation:** a continuous Room is a set; queued themes are its songs. The existing eight-bar transition, room budget and ten-minute cap remain. Replay re-renders saved committed notes, rigs, lighting, engineer mix and raw/applied decision responses with the bundled renderer. It is an event recording, not an immutable mixed audio file: listener controls and future renderer/sample changes can change the sound. Replay has no provider path and disables reference measurements. Demo tapes are explicitly identified.
+
+A single bounded writer buffers at most 32 MiB, flushes responses within 100 ms or at 32 events, and flushes immediately for state/frame publication. Each batch uses one database transaction. Frame and response IDs are idempotent keys. Audiences receive committed data, including initial SSE/room reads. Three bounded attempts handle transient storage errors; persistent failure stops the performance and blocks another start. SQLite uses WAL/FULL durability. Abrupt process loss can discard the last uncommitted responses, but not previously committed recordings; startup marks incomplete sets as recovered/interrupted. Graceful shutdown drains the writer. One server replica owns the live room.
+
+Railway requires DATABASE_URL to avoid accidental ephemeral SQLite storage. Migration copies transactionally, refuses conflicting IDs and active source sets, verifies content hashes, and preserves the source. No deployment or production migration is part of this local change.
+
+
+## 2026-09-20 — Archive release integration (v0.8)
+
+The user authorized creating a PR, merging it into the primary branch (named main in this repository), and deploying to Railway. Integration starts from the released v0.7 branch and preserves its musical novelty, solo arranger, provider fallback, projection/sky controls and crowd characters. The archive is enabled through a dedicated Postgres service with an app-level variable reference; local databases are excluded from deployment uploads. Release verification uses no-call rehearsal and saved replay rather than starting a paid live jam.
+
+## 2026-09-20 — Real generated audience recordings
+
+**User requirement:** replace the unsatisfying noise with varied generated festival murmurs, cheers and applause, respect a 10,000-credit free budget, expose sound-desk triggers, and begin cheers on Start before music.
+
+**Implementation:** 24 distinct ElevenLabs Sound Effects v2 recordings, split evenly across listening, grooving, applause and cheering. Twelve 12-second beds and twelve six-second reactions total 216 seconds. The account billed 2,160 credits; 7,840 remain. This smaller first bank provides six takes per mood within the budget rather than claiming the earlier approximate 100-clip idea is complete. Generation is offline with a persistent conservative reservation ledger and no automatic retries. Secrets and original provider records stay ignored/private.
+
+**Playback:** crowd starts during instrument loading and first-decision preparation, carries across room creation, and cancels on failed startup. Spectators do not retrigger the entrance. Generated-only playback supersedes the old procedural-noise fallback; asset failures now stay silent. Independent manual applause/cheer cues respect mute, quiet and reaction controls. At most one reaction plays at a time, and the normal Patch-driven cadence remains sparse.
+
+**Licensing and review:** free-plan output is noncommercial with title attribution, excluded from the MIT code license. The page and crowd titles credit elevenlabs.io. Clips passed decode, duration, hash and Web Audio tests; no human listening approval or independent certification of no accidental music/words is claimed. Technical deployment approval is recorded distinctly from listening taste.
+
+**Integration:** audience work is isolated from the concurrent archive work and integrated onto the current release before deployment. Existing music, archive storage and provider configuration are preserved.
+
+
+## 2026-09-20 — Song title in animated lettering
+
+**User requirement:** put the song title on the screen in animated lettering.
+
+**Decisions:** "the screen" is read as the projection wall, where Lux's other pictures live. `song title` is a tenth wall picture that Lux can choose as the picture or as an overlay in its existing single request; viewers can also pick it locally. **Assumption:** independently of Lux, a new song or queued theme announces itself: its title is laid over whatever is on the wall for ten seconds, and a viewer who joins mid-song sees it once as "now playing". That card is application behavior tied to `themeTitle` changing, not a Jev decision, and it never alters the recorded lighting.
+
+The text is the room's existing `themeTitle` (first line of the prompt, at most 80 characters), upper-cased and balanced over up to three lines at the largest heavy system face that fits; no fonts are downloaded. Letters drop in one after another with an overshoot, ride a wave that travels along the line on the beat, lean with the bar, push slightly on the kick, and trail five echoes that step through Lux's palette. As the base picture a slow fan of rays sits behind the words; as an overlay the words go up alone. Each letter is inked once into a sprite and re-inked only when the echo colours step (about 1.5 times a second), so a frame is a few dozen image blits; measured wall cost rose from about 0.7 ms to about 1.4 ms while the title is up. With *Less movement* the title is drawn once, settled, with no entrance, wave or lean.
+
 ## 2026-09-20 — A queued song is a new song
 
 **User request:** queued themes stayed stuck on the previous song. Queueing should cue a natural ending; when every instrument is silent the next sequence starts as if it were the first prompt, with no residual memory. This supersedes the eight-bar lead-in and the all-four-players-change-at-once transition.
