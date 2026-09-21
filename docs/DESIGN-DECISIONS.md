@@ -375,6 +375,12 @@ The text is the room's existing `themeTitle` (first line of the prompt, at most 
 
 **User request:** ending should use the same natural wind-down as a queued song, not a hard cut. End jam now starts that wind-down at the next two-bar boundary (no 16-bar minimum), and the room closes 1.5 seconds into the silence so tails can ring. Any queued songs are dropped. A second press while the band is landing, or a press when nothing live is sounding (starting, demo mode, already silent), stops immediately; the button says so. The hard ten-minute stop, request cap and provider failure stop are still immediate.
 
+## 2026-09-20 — "How Jev works" liner notes
+
+**User requirement:** funky, whimsical but true docs in the stage's "How Jev works" panel: how Jev sees music, how it chooses notes and drives the samplers and synths, how probabilities become possibilities (boredom, LLM themes), credits naming Codex (gpt-6-astra) and Claude Code (fable 5.1), the license, and an about-me with Seth's public links.
+
+**Decisions:** the existing header modal becomes the docs (`src/HowJevWorks.tsx`), retitled "How Jev works", with six numbered sections and in-panel jump links. Tone is playful; every number is read from the code it describes (`server/listening.ts`, `server/musical-context.ts`, `server/composer.ts`, `server/heat.ts`, `server/director.ts`, `src/audio.ts`). The brief says "2 bars just heard"; the code sends the newest two-bar phrase trimmed to the sounded beat plus up to three earlier phrases, so the text says both. **Assumptions:** Jev (TypeSafe), Luna and the sample libraries are credited alongside the two coding agents the user named. The about-me uses the user's sentence plus his employer from his public GitHub and LinkedIn profiles. Links: `github.com/smcronin` (the repository owner), `linkedin.com/in/sethcronin`, `ipcg.com/team/seth-cronin`, and `x.com/SethCronin`, the last found by web search and not independently confirmed as his. The repository is private today, so the license section names MIT without linking to the source; add the link when the repository is published.
+
 ## 2026-09-20 — Every song is set somewhere
 
 **User request:** a few variations of the horizon environment (mountains, city, night club, arena, etc.), randomly selected for each song.
