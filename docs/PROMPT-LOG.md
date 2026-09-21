@@ -536,3 +536,21 @@ director needs to do more directoring, e.g. always move carmera every 30-90 seco
 ```text
 the crowd cam get's swallowed by a sign lol
 ```
+
+## 2026-09-20 — Open room and crowd chat
+
+```text
+take away the need for controller key. e.g. let anyone queue a song with or without key
+```
+
+```text
+also sanitize the input so there's no injection risk to the db or w/e
+```
+
+```text
+ad basic chat (random funky user names in the ai/jamband pun theme)
+```
+
+```text
+ship it all to prod once its ready
+```
