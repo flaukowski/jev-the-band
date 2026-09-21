@@ -92,6 +92,12 @@ export default function App() {
   const [nextDescription, setNextDescription] = useState('');
   const [connected, setConnected] = useState(false);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const change = () => setFullscreen(document.fullscreenElement === stage.current);
+    document.addEventListener('fullscreenchange', change);
+    return () => document.removeEventListener('fullscreenchange', change);
+  }, []);
   const [liveAvailable, setLiveAvailable] = useState(false);
   const [prompt, setPrompt] = useState('Somewhere between the last train and the sunrise');
   const [nextPrompt, setNextPrompt] = useState('');
@@ -951,6 +957,7 @@ export default function App() {
                   </button>
                 )}
               </div>
+              {fullscreen && !replay && <Chat api={API} messages={chat} overlay />}
               {!running && (
                 <div className="stage-caption">
                   {mode === 'live' ? 'JEV CHOOSES. CODE PLAYS.' : 'INSTRUMENT DEMO. NO AI.'}
@@ -998,7 +1005,7 @@ export default function App() {
                 />
               </div>
             </div>
-            {!replay && <Chat api={API} messages={chat} />}
+            {!replay && !fullscreen && <Chat api={API} messages={chat} />}
             <section className="players" aria-label="Meet the band">
               {roles.map((role, index) => {
                 const person = personas[role];
