@@ -38,6 +38,7 @@ import { MasterDesk } from './MasterDesk';
 import { ConceptCard } from './ConceptCard';
 import './styles.css';
 import { ArchivePanel } from './ArchivePanel';
+import { HowJevWorks } from './HowJevWorks';
 import { replaySnapshot } from '../shared/replay';
 
 const Stage = lazy(() => import('./Stage').then((module) => ({ default: module.Stage })));
@@ -372,7 +373,7 @@ export default function App() {
             Jtb archive
           </button>
           <button className="text-button" onClick={() => setAbout(true)}>
-            How it works <ArrowUpRight size={15} />
+            How Jev works <ArrowUpRight size={15} />
           </button>
           <button
             className={`console-toggle ${consoleOpen ? 'selected' : ''}`}
@@ -983,65 +984,12 @@ export default function App() {
         <span>
           JEV THE BAND <b>✳</b> ALWAYS BECOMING.
         </span>
+        <button className="footer-link" onClick={() => setAbout(true)}>
+          HOW JEV WORKS
+        </button>
         <span>BUILT WITH JEV / MADE FOR THE MOMENT</span>
       </footer>
-      {about && (
-        <div className="modal-backdrop" onClick={() => setAbout(false)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="about-title"
-            className="about-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              autoFocus
-              className="icon-button modal-close"
-              aria-label="Close how it works"
-              onClick={() => setAbout(false)}
-            >
-              <X />
-            </button>
-            <span className="eyebrow">A BAND THAT LISTENS</span>
-            <h2 id="about-title">
-              One spark.
-              <br />
-              Six points of view.
-            </h2>
-            <p>
-              Rook, Moss, June, and Kit choose musical gestures through separate Jev decision calls.
-              Lux shapes the lights. Patch listens to measured channel levels and balances the
-              sound. One initial LLM brief turns your prompt into a sonic concept and a loose
-              section map; the musicians still choose the actual notes through Jev.
-            </p>
-            <p>
-              Jev receives a delayed record of notes already played, never a peer’s unplayed score.
-              One musician can revise a phrase at a time; the others keep playing while they listen.
-              Recorded guitar, bass and piano notes bring their choices to life, with a separate
-              effects rig for each player.
-            </p>
-            <p>
-              Players enter one at a time, trade solos, propose new keys, and nudge the tempo. After
-              five minutes, they look for a landing. Every jam ends by ten.
-            </p>
-            <div className="about-label">INSTRUMENT DEMO · NO AI</div>
-            <p>
-              Try the stage without an API key. This mode uses procedural decisions and makes no Jev
-              calls. Live Jev is available when the host connects a server-side key.
-            </p>
-            <a href="/samples/CREDITS.md" target="_blank" rel="noreferrer">
-              Instrument recordings & credits <ArrowUpRight size={16} />
-            </a>
-            <a
-              href="https://typesafe.ai/blog/introducing-system-one-models-and-jev"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Meet the decision model <ArrowUpRight size={16} />
-            </a>
-          </section>
-        </div>
-      )}
+      {about && <HowJevWorks onClose={() => setAbout(false)} />}
     </div>
   );
 }

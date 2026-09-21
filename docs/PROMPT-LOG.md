@@ -473,3 +473,22 @@ The visual release (PR #4) was confirmed merged into `main` and present in the p
 ```text
 yes merge and deploy it
 ```
+
+## 2026-09-20 — "How Jev works" liner notes
+
+```text
+write and deploy some funky wimsickle but true docs to the "how jev works" 
+
+"How Jev "Sees" music" - description of Jev's rolling context window (2 bars just heard)
+"How Jev "Chooses" notes" - description of jev's output and how the instrument synth/samplers are controlled by it
+how to turn probabilities -> possibilities (boredom provocation, llm themes)
+---
+credits
+Codex (gpt-6-astra)
+Claude Code (fable 5.1)
+---
+license
+---
+about me (Seth Lives in Vermont with his wife and two kids, working as an intellectual property consultant
+(get sethcronin info, github linkedin x.com etc.)
+```
