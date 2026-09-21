@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Dices, Send } from 'lucide-react';
+import { Dices, MessageSquare, Minus, Send } from 'lucide-react';
 import { funkyName, type ChatMessage } from '../shared/chat';
 
 const hue = (name: string) => [...name].reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) % 360, 7);
 
-export function Chat({ api, messages }: { api: string; messages: ChatMessage[] }) {
+/** `overlay` is the see-through version that floats over the full-screen stage. */
+export function Chat({
+  api,
+  messages,
+  overlay = false,
+}: {
+  api: string;
+  messages: ChatMessage[];
+  overlay?: boolean;
+}) {
+  const [open, setOpen] = useState(true);
   const [name, setName] = useState(() => {
     try {
       return localStorage.getItem('jev-chat-name-v1') || funkyName();
@@ -25,7 +35,7 @@ export function Chat({ api, messages }: { api: string; messages: ChatMessage[] }
   useEffect(() => {
     const el = list.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, open]);
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const line = text.trim();
@@ -43,8 +53,19 @@ export function Chat({ api, messages }: { api: string; messages: ChatMessage[] }
       setError(e instanceof Error && e.message ? e.message : 'Could not send.');
     }
   }
+  if (overlay && !open)
+    return (
+      <button
+        type="button"
+        className="chat-reopen"
+        aria-label="Show chat"
+        onClick={() => setOpen(true)}
+      >
+        <MessageSquare size={16} /> Chat
+      </button>
+    );
   return (
-    <section className="chat" aria-label="Crowd chat">
+    <section className={`chat ${overlay ? 'chat-overlay' : ''}`} aria-label="Crowd chat">
       <div className="chat-header">
         <span className="eyebrow">THE LOT</span>
         <span className="chat-name">
@@ -58,6 +79,17 @@ export function Chat({ api, messages }: { api: string; messages: ChatMessage[] }
           >
             <Dices size={15} />
           </button>
+          {overlay && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Hide chat"
+              title="Hide chat"
+              onClick={() => setOpen(false)}
+            >
+              <Minus size={15} />
+            </button>
+          )}
         </span>
       </div>
       <ol className="chat-list" ref={list} aria-live="polite">

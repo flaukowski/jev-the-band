@@ -564,3 +564,9 @@ ad basic chat (random funky user names in the ai/jamband pun theme)
 ```text
 ship it all to prod once its ready
 ```
+
+## 2026-09-20 — Chat over the full-screen stage
+
+```text
+show (see through) chat in full screen mode so you can chat while watching the feed
+```

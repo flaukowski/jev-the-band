@@ -2138,3 +2138,50 @@ footer b {
 .chat-form button:disabled {
   opacity: 0.4;
 }
+.chat-overlay,
+.chat-reopen {
+  position: absolute;
+  right: 25px;
+  bottom: 96px;
+  z-index: 3;
+}
+.chat-overlay {
+  width: min(360px, calc(100% - 50px));
+  margin: 0;
+  border-color: #b6c49526;
+  background: #0d110b4d;
+  backdrop-filter: blur(3px);
+  text-shadow: 0 1px 2px #000c;
+  transition: background 0.2s;
+}
+.chat-overlay:hover,
+.chat-overlay:focus-within {
+  background: #0d110bb3;
+}
+.chat-overlay .chat-list {
+  height: min(240px, 32vh);
+  /* Older lines fade into the show. */
+  mask-image: linear-gradient(to bottom, transparent, #000 28%);
+}
+.chat-overlay .chat-form input {
+  background: #151b1066;
+  border-color: #b6c49540;
+}
+.chat-reopen {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #b6c49540;
+  border-radius: 3px;
+  background: #121b15bb;
+  color: #d9e3c6;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.chat-overlay .chat-list {
+  display: flex;
+  flex-direction: column;
+}
+.chat-overlay .chat-list li:first-child {
+  margin-top: auto;
+}
