@@ -139,3 +139,11 @@ Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.js
 - Not verified: listening quality, browser playback of the new articulations and gain stages (rendering code is type-checked and built, not auditioned), the Luna sketch against the real provider, a full ten-minute run, and the hosted deployment. Nothing was deployed.
 
 - Provider fallback: 75 unit tests pass. A mocked room whose TypeSafe endpoint returns 402 moves to OpenRouter after one refused request, uses the fallback's own key and model ID, keeps composing, and leaks no credential into room state. After the user renewed the TypeSafe balance, `smoke:live` returned 5 of 5 Jev answers in 505–629 ms; an earlier attempt the same minute had one 1.8 s timeout. The fallback has not been exercised against the real providers.
+
+## 2026-09-20 — v0.7 music release on Railway
+
+- Pull request #3 was merged into `main` as `da7ff580e3e72df1ea94cd2da4916639ef3e3a7f` after merging the visual release into it; only three append-only documents conflicted and both sides were kept. `npm run check` on the merged tree: 77 tests pass, production build clean.
+- A live jam was playing in production when the release was ready. The upload waited until that room had ended, because a deployment restarts the container and ends the room.
+- Railway deployment `29d17fab-1ea2-4877-956e-a54a1353fc2d` succeeded from a clean checkout of that commit. HTTPS health reports v0.7.0, that revision, TypeSafe `jev-1.13.0`, protected host actions and `directorAvailable: true`: the production OpenRouter key added the same day is present, which also gives the room its provider fallback and the solo arranger.
+- The served JavaScript bundle contains the lead-gesture interface text. An anonymous POST to `/api/room` returns 401.
+- Not verified on this release: a production jam, browser playback of the new articulations and gain stages, the Luna solo sketch and the provider fallback against the real providers. Health does not report whether a fallback is configured.

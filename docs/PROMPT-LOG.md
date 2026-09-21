@@ -402,3 +402,11 @@ Only the credential value is omitted. It is stored in the ignored development en
 ```text
 can you make sure this has been pushed to railway prod? merged on main and pushed
 ```
+
+## 2026-09-20 — Record the release
+
+```text
+ended, do it
+```
+
+The production jam had ended and the release was already live; this authorizes recording it in the verification log.
