@@ -61,3 +61,8 @@ Browser checks mute physical output; most make no provider calls. Paid diagnosti
 Build your own single Node service with `npm run build && npm start` (port 4310). Use one replica, a server-only host token and a dedicated provider key. Room state is in memory; restarting ends the jam. See the deployment guide for exact limits.
 
 Code is [MIT licensed](LICENSE); recordings have their own [attribution and licenses](public/samples/CREDITS.md). Normal installation needs no ffmpeg or sample CDN. The repository's current history remains private pending publication curation; a credential scan alone does not make old commits and prompt history privacy-safe. Independent project; no affiliation with TypeSafe or Phish is implied. The musicians are original personas.
+
+
+## Jtb archive
+
+Give each song a required title and optional description. Every new set is saved automatically: SQLite locally, PostgreSQL through `DATABASE_URL` on Railway. Open **Jtb archive** to search and replay daily shows, sets or songs without new model calls. See [local testing, storage guarantees and migration](docs/ARCHIVE.md).

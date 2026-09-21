@@ -1,6 +1,6 @@
 # Architecture and recommended workflow
 
-Updated 2026-09-20 for v0.7. See [Musical architecture](MUSICAL-ARCHITECTURE.md) for independently sized phrases, dedicated solos, queued themes, the sonic director, polyphony, instrument-specific rigs and global engineer. Earlier template behavior and its audit are preserved in the design history and `COMPOSITION-AUDIT.md`.
+Updated 2026-09-20 for v0.8. See [Musical architecture](MUSICAL-ARCHITECTURE.md) for independently sized phrases, dedicated solos, queued themes, the sonic director, polyphony, instrument-specific rigs and global engineer. Earlier template behavior and its audit are preserved in the design history and `COMPOSITION-AUDIT.md`.
 
 ## Live musical decisions
 
@@ -71,3 +71,8 @@ The instrument demo makes zero provider calls. `shared/score.ts` retains its thr
 3. Explicit paid diagnostics: `smoke:live` checks five persona plans; `smoke:performance` caps at 240 calls/90 seconds; `audit:prompts` compares two isolated openings, at most 70 calls each. `audit:groove` tests three isolated actual chord/drum compositions, capped at 28 calls. None run in CI or replace the audience room.
 4. Listen to a fresh live session and inspect raw/applied choices. Evaluate continuity, melodic identity, space, interaction and dynamics separately from mechanical checks.
 5. Record taste changes and user corrections in the prompt and decision logs. Public hosting still requires a dedicated key, protected controller, shared audience design and an explicit publishing action.
+
+
+## Durable archive
+
+See [archive operations](ARCHIVE.md). `server/archive.ts` stores complete frames, response traces and latest set metadata independently of the live rolling buffers. A bounded single-writer queue batches transactional upserts and publishes only after commit. SQLite WAL is the local default; DATABASE_URL selects PostgreSQL. Replay uses `shared/replay.ts` to remap stored timestamps into a private listener clock, preserving note/effect provenance and never invoking Room or a provider. Search and replay are read-only audience endpoints; start/queue/stop keep the existing controller authentication.

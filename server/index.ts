@@ -3,11 +3,12 @@ import express from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { Archive, ArchiveWriter, stateRows } from './archive.js';
+import { songInput, songPrompt } from './song-input.js';
 import { Room } from './room.js';
 import { levelsSchema } from '../shared/engineer.js';
 import { jevConfig } from './provider.js';
 import { readFileSync } from 'node:fs';
-
 const app = express();
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 4310);
@@ -65,7 +66,16 @@ app.use((req, res, next) => {
   }
   next();
 });
+if (process.env.RAILWAY_ENVIRONMENT_ID && !process.env.DATABASE_URL)
+  throw new Error('Railway requires DATABASE_URL for durable archives');
+const archive = new Archive();
+await archive.init();
+await archive.recover();
+let writer: ArchiveWriter | undefined;
+let archiveFailed = false;
+let starting = false;
 let room: Room | null = null;
+let committed: import('../shared/music.js').Snapshot | null = null;
 const recentOpeners: import('../shared/music.js').Musician[] = [];
 const clients = new Set<express.Response>();
 const broadcast = (event: string, data: unknown) => {
@@ -79,7 +89,12 @@ const broadcast = (event: string, data: unknown) => {
 };
 app.get('/api/health', (_req, res) =>
   res.json({
-    ok: true,
+    ok: !archiveFailed,
+    archive: {
+      backend: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
+      writable: !archiveFailed,
+      format: 1,
+    },
     serverTime: Date.now(),
     liveAvailable: !!provider.apiKey,
     hostAccessRequired: !!token,
@@ -90,7 +105,7 @@ app.get('/api/health', (_req, res) =>
     revision: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.BUILD_REVISION || null,
   }),
 );
-app.get('/api/room', (_req, res) => res.json(room?.view() ?? null));
+app.get('/api/room', (_req, res) => res.json(committed));
 app.get('/api/events', (req, res) => {
   if (clients.size >= 200) {
     res.status(503).end();
@@ -101,7 +116,7 @@ app.get('/api/events', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
-  res.write(`event: state\ndata: ${JSON.stringify(room?.view() ?? null)}\n\n`);
+  res.write(`event: state\ndata: ${JSON.stringify(committed)}\n\n`);
   clients.add(res);
   const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 15000);
   req.on('close', () => {
@@ -109,33 +124,55 @@ app.get('/api/events', (req, res) => {
     clients.delete(res);
   });
 });
-app.post('/api/room', (req, res) => {
-  const parsed = z
-    .object({ prompt: z.string().trim().min(1).max(4000), mode: z.enum(['live', 'rehearsal']) })
-    .safeParse(req.body);
-  if (!parsed.success) {
-    res
-      .status(400)
-      .json({ error: 'Enter a title or prompt, up to 4,000 characters, and select a mode.' });
+app.get('/api/archive', async (req, res) => {
+  await writer?.flush();
+  res.json(await archive.list(String(req.query.q || '').slice(0, 200)));
+});
+app.get('/api/archive/:id', async (req, res) => {
+  await writer?.flush();
+  const recording = await archive.recording(req.params.id);
+  if (!recording) {
+    res.status(404).json({ error: 'Recording not found' });
     return;
   }
-  if (room && room.state.status !== 'ended') {
+  res.json(recording);
+});
+app.post('/api/room', async (req, res) => {
+  const parsed = songInput.extend({ mode: z.enum(['live', 'rehearsal']) }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error:
+        'Enter a title (1-80 characters), optional description (up to 3,900 characters), and a mode.',
+    });
+    return;
+  }
+  if (starting || (room && room.state.status !== 'ended')) {
     res.status(409).json({ error: 'A jam is already playing. Join it or end it first.' });
     return;
   }
   if (parsed.data.mode === 'live' && !provider.apiKey) {
-    res
-      .status(503)
-      .json({
-        error:
-          'The host needs to configure the selected Jev provider key. Rehearsal works offline.',
-      });
+    res.status(503).json({
+      error: 'The host needs to configure the selected Jev provider key. Rehearsal works offline.',
+    });
+    return;
+  }
+  if (archiveFailed) {
+    res.status(503).json({
+      error: 'Archive unavailable; recording is required. Restart after restoring storage.',
+    });
+    return;
+  }
+  starting = true;
+  await writer?.flush();
+  if (archiveFailed) {
+    starting = false;
+    res.status(503).json({ error: 'Archive unavailable' });
     return;
   }
   if (room) recentOpeners.push(room.state.opener);
   if (recentOpeners.length > 4) recentOpeners.shift();
   room = new Room(
-    parsed.data.prompt,
+    songPrompt(parsed.data),
     parsed.data.mode,
     provider.apiKey,
     provider.model,
@@ -149,8 +186,53 @@ app.post('/api/room', (req, res) => {
       recentOpeners: [...recentOpeners],
     },
   );
-  room.on('state', (state) => broadcast('state', { ...state, traces: [] }));
-  room.on('trace', (trace) => broadcast('trace', trace));
+  const current = room;
+  try {
+    await archive.state(current.view());
+    committed = current.view();
+  } catch {
+    archiveFailed = true;
+    starting = false;
+    current.stop('Archive unavailable');
+    res.status(503).json({ error: 'Could not save recording; jam not started.' });
+    return;
+  }
+  writer = new ArchiveWriter(archive, () => {
+    archiveFailed = true;
+    current.stop('Archive write failed; performance stopped to protect recording.');
+    committed = {
+      ...(committed ?? current.view()),
+      status: 'ended',
+      endedAt: Date.now(),
+      error: current.state.error,
+    };
+    broadcast('state', committed);
+  });
+  const currentWriter = writer;
+  current.on('state', (state) =>
+    currentWriter.enqueue(
+      stateRows(state),
+      () => {
+        committed = {
+          ...state,
+          traces: committed && committed.id === state.id ? committed.traces : [],
+        };
+        broadcast('state', { ...state, traces: [] });
+      },
+      true,
+    ),
+  );
+  current.on('trace', (trace) =>
+    currentWriter.enqueue(
+      [{ id: current.state.id, kind: 'trace', key: trace.id, data: JSON.stringify(trace) }],
+      () => {
+        if (committed && committed.id === current.state.id)
+          committed.traces = [...committed.traces, trace].slice(-180);
+        broadcast('trace', trace);
+      },
+    ),
+  );
+  starting = false;
   res.status(201).json(room.view());
   void room.start();
 });
@@ -159,15 +241,13 @@ app.post('/api/room/stop', (_req, res) => {
   res.json({ ok: true });
 });
 app.post('/api/room/queue', (req, res) => {
-  const parsed = z
-    .object({ roomId: z.string(), prompt: z.string().trim().min(1).max(4000) })
-    .safeParse(req.body);
+  const parsed = songInput.extend({ roomId: z.string() }).safeParse(req.body);
   if (!parsed.success || parsed.data.roomId !== room?.state.id) {
     res.status(400).json({ error: 'Enter a theme for the current room.' });
     return;
   }
   try {
-    res.status(202).json(room.queueTheme(parsed.data.prompt));
+    res.status(202).json(room.queueTheme(songPrompt(parsed.data)));
   } catch (error) {
     res
       .status(409)
@@ -195,10 +275,12 @@ const server = app.listen(port, host, () =>
     `JEV the band: http://${host}:${port} · ${provider.apiKey ? `Jev configured via ${provider.provider}` : 'offline rehearsal available'}`,
   ),
 );
-function shutdown() {
+async function shutdown() {
   room?.stop();
   for (const client of clients) client.end();
   server.close();
+  await writer?.flush();
+  await archive.close();
 }
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

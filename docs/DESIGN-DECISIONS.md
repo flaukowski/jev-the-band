@@ -321,3 +321,19 @@ The release audition temporarily capped the room at 480 attempts, then restored 
 **User request:** keep OpenRouter as a fallback for the direct TypeSafe key. This supersedes the v0.6 rule that a selected provider never fails over.
 
 When both keys are configured, the other provider is the room's fallback unless `JEV_FALLBACK=0`. A room switches at most once: immediately on HTTP 401, 402 or 403, which waiting cannot cure, or after two consecutive phrases without any Jev response, or when the opening request fails. The whole room moves; requests already in flight fail and are disclosed as fallback traces, and the refused provider is not retried. The switch, its reason and frame are published as `providerSwitch`, and every trace continues to name the provider and endpoint that answered it. Each provider only ever receives its own key and its own model ID. Without a second key nothing changes: three failed phrases still stop the jam. Production currently has only the TypeSafe key, so it has no fallback until an OpenRouter key is added there.
+
+
+## 2026-09-20 — Durable event recordings (local implementation)
+
+**User requirements:** mandatory title plus optional description, interpreted together using the existing prompt path; automatic recordings of responses and performances; searchable Jtb archive with shows, sets and songs; SQLite locally, PostgreSQL on Railway, and local archive migration. Follow-up asks for safe accumulation and flushing.
+
+**Implementation:** a continuous Room is a set; queued themes are its songs. The existing eight-bar transition, room budget and ten-minute cap remain. Replay re-renders saved committed notes, rigs, lighting, engineer mix and raw/applied decision responses with the bundled renderer. It is an event recording, not an immutable mixed audio file: listener controls and future renderer/sample changes can change the sound. Replay has no provider path and disables reference measurements. Demo tapes are explicitly identified.
+
+A single bounded writer buffers at most 32 MiB, flushes responses within 100 ms or at 32 events, and flushes immediately for state/frame publication. Each batch uses one database transaction. Frame and response IDs are idempotent keys. Audiences receive committed data, including initial SSE/room reads. Three bounded attempts handle transient storage errors; persistent failure stops the performance and blocks another start. SQLite uses WAL/FULL durability. Abrupt process loss can discard the last uncommitted responses, but not previously committed recordings; startup marks incomplete sets as recovered/interrupted. Graceful shutdown drains the writer. One server replica owns the live room.
+
+Railway requires DATABASE_URL to avoid accidental ephemeral SQLite storage. Migration copies transactionally, refuses conflicting IDs and active source sets, verifies content hashes, and preserves the source. No deployment or production migration is part of this local change.
+
+
+## 2026-09-20 — Archive release integration (v0.8)
+
+The user authorized creating a PR, merging it into the primary branch (named main in this repository), and deploying to Railway. Integration starts from the released v0.7 branch and preserves its musical novelty, solo arranger, provider fallback, projection/sky controls and crowd characters. The archive is enabled through a dedicated Postgres service with an app-level variable reference; local databases are excluded from deployment uploads. Release verification uses no-call rehearsal and saved replay rather than starting a paid live jam.
