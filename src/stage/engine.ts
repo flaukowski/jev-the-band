@@ -435,7 +435,7 @@ export function createStage(
     crowdTick = !crowdTick;
     crowdDt += dt;
     if (crowdTick || lowPower) {
-      crowd.update(sig, crowdDt);
+      crowd.update(sig, crowdDt, camera.position);
       crowdDt = 0;
     }
     particles.update(sig, dt, emitters, feet, rig.palette, lowPower);

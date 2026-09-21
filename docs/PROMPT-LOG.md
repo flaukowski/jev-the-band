@@ -527,3 +527,7 @@ add band member dance moves? at least for rook and moss; jumping swaying, walkin
 ```text
 director needs to do more directoring, e.g. always move carmera every 30-90 seconds plus slow zooms and orbits
 ```
+
+```text
+the crowd cam get's swallowed by a sign lol
+```
