@@ -192,3 +192,10 @@ A physically muted browser loaded the deployed application and actual crowd reco
 - A live jam was starting when the release was ready. The upload waited about ten minutes until the room reported `ended`.
 - Railway deployment `5a59bda4-1e27-4f81-ae77-3e2a609d77b9` built from a clean archive of that commit. HTTPS health reports v0.8.3, that revision, the Postgres archive writable, TypeSafe `jev-1.13.0` and protected host actions. The served stage bundle contains the place shaders and the **Place** control; an anonymous POST to `/api/room` returns 401.
 - Not verified: the scenery change between two songs in one room (the sink-and-rise was only seen through the local Place override), the browser suite on this branch, software-GL/low-power rendering, phones, Safari/Firefox, and a production jam on this release.
+
+## 2026-09-20 — Rook and Moss dance moves on Railway (v0.8.4)
+
+- Pull request #14 was merged into `main` as `d0486c1cca292441d370995ba1cb5eb8d81f6d03` after merging `main` (v0.8.3, horizon places) into it; only the append-only decision log conflicted and both sides were kept. `npm run check` on the merged tree: 90 tests pass, production build clean; the secret scan passes.
+- Before the merge every move (sway, walk, jump, spin, fall and recovery) was cued through the dev-only stage hook and screenshotted in headless Chromium against a no-call rehearsal jam on a second local stack; `tests/browser/stage.spec.ts` passes.
+- Production had no room at release time. Railway deployment `69cc8bb7-71be-4e92-8753-813df7041b94` built from a clean `git archive` of that commit. HTTPS health reports v0.8.4, that revision, the Postgres archive writable, TypeSafe `jev-1.13.0` and protected host actions. The served `Stage` chunk matches the local build's SHA-256 and contains the choreographer; an anonymous POST to `/api/room` returns 401.
+- Not verified: the moves in a real browser on the hosted site, a production jam on this release, Safari/Firefox, and low-power devices. Known gap: solo pool and four pillars light cues aim at the players' marks, not at wandering players.
