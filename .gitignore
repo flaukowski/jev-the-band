@@ -12,3 +12,4 @@ playwright-report/
 .codex/
 
 data/
+scripts/jev-requests.json
