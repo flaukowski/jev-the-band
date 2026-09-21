@@ -444,6 +444,7 @@ Follow-up:
 > merge to master
 
 The repository primary branch is named main, with no master branch. Treat the latter request as authorization to merge the archive PR to main and deploy it.
+
 ## 2026-09-20 — Generated festival crowd and entrance
 
 [ElevenLabs API key supplied in chat; redacted from project documentation and stored only in ignored local environment files.] --- eleven labs api key, can you use the 10K credits free to generate audience sound efects? the white noise is not good.
@@ -455,3 +456,14 @@ should start ambient cheers as soon as the user presses start (before the band p
 ## 2026-09-20 — Audience follow-up
 
 did this ever happen?
+
+
+## 2026-09-20 — Release check and song-title lettering
+
+```text
+can make sure this has merged on master shipped to prod
+
+can we add the song title animated lettering on the screen
+```
+
+The visual release (PR #4) was confirmed merged into `main` and present in the production bundle at the revision health reports. The lettering request is recorded as new work and was not itself deployed by this request.

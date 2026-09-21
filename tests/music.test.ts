@@ -162,6 +162,7 @@ test('Lux chooses the wall picture, an overlay and the sky in its one existing r
     [look.visual, look.overlay, look.sky],
     ['piano roll', 'decision stream', 'alien abduction'],
   );
+  assert.ok(lightRecipes.visual.includes('song title'));
   // A picture laid over itself is just that picture.
   assert.equal(
     toLighting({ ...base, visual: pick('mandala'), overlay: pick('mandala'), sky: pick('rain') })

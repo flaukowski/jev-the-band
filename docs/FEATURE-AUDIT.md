@@ -37,6 +37,7 @@
 | Separate public-source investigation | Independent private mirror/history/assets/bundle/GitHub-surface audit | No credentials found; **existing history not privacy-safe to publish** |
 | Host selection and deployment with new key | Railway Docker service deployed; HTTPS revision/assets, protected controls, shared audience and real TypeSafe music verified | Live; room state remains in memory |
 | Backdrop visualizers with overlays, thousands-strong festival crowd, procedural weather, fretting-hand fix | Nine wall pictures plus overlay and eight skies chosen in Lux's existing call; shader crowd field on a bowl terrain; `weather.ts`; corrected left-hand pose | Viewer can override locally; no lightning (no-strobe rule); far crowd is impostor figures, not individuals |
+| Song title in animated lettering on the screen | `song title` wall picture/overlay in Lux's existing call, plus a ten-second title card when a song or theme begins | System fonts only; the automatic card is application behavior, not a Jev decision |
 
 ## Remaining work
 
