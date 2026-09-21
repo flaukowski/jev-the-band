@@ -487,3 +487,13 @@ cool "End Song" should have the same effect, natural band windown over 8 bars no
 ```
 
 The control is labelled **End jam** in the interface; the request is applied to it.
+
+## 2026-09-20 — Horizon variations per song
+
+```text
+a few variation of horizon environment: mountains; city; night club; arena; etc. randomly selected for each song
+```
+
+```text
+merge to main push to prod when ready
+```
