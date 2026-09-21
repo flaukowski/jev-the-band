@@ -154,3 +154,11 @@ Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.js
 - Free-plan recordings carry noncommercial/title-attribution terms and are excluded from MIT. No generation credential, original prompt or private account metadata enters the shipped sample manifest. Key stored only in ignored local environment files; exact-key staged-file scan is clean.
 - Integrated on archive release `182acd0`. `npm run check`: 84 tests pass and TypeScript/Vite build succeeds. Seven selected browser checks pass, including real crowd crossfades/mute, silence on missing assets, opening and manual reactions, crowd playback while instrument loading is delayed with zero musical notes scheduled, failed-start cancellation, and archive replay isolation.
 - Physical browser output was muted. This is technical playback validation, not a human listening review or certification that every generated take is free of accidental words/music. Browser tests make no paid model calls. Stage chunk-size advisories remain unchanged.
+
+## 2026-09-20 — Song-title lettering release on Railway
+
+- Pull request #8 was merged into `main` as `a98413dbfa2c556b92d431068461d8100379c8cb` after merging the archive release (PR #6) into it; only the two append-only logs conflicted and both sides were kept. `npm run check` on the merged tree: 84 tests pass, production build clean. Before that merge the browser suite passed 9 of 9 runnable tests against an isolated stack.
+- Production's room had ended before the upload, so no jam was interrupted.
+- Railway deployment `a61fef75-fc82-4ecc-8328-f98b5fe34e9b` built from a clean checkout of that commit. HTTPS health reports v0.8.0, that revision, the Postgres archive writable, TypeSafe `jev-1.13.0` and protected host actions. The served bundle contains the `song title` picture and its lettering; an anonymous POST to `/api/room` returns 401; the sample manifest is served.
+- Not verified on this release: a production jam showing the title card, Safari/Firefox, phones.
+- About a minute and a half later a separate release (PR #9, v0.8.1, `6f6b7ef525950d34d99d0a93bc5b3b5112db084b`, deployment `2cd80498-7b0a-43c0-963b-e8ce157f6cbe`) replaced this one. That commit descends from the title merge, and the bundle served afterwards still contains the `song title` picture and its lettering.
