@@ -18,6 +18,8 @@ RUN npm ci --include=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
 COPY --from=build /app/shared ./shared
+RUN mkdir -p /app/data && chown node:node /app/data
+COPY scripts/migrate-archive.ts ./scripts/migrate-archive.ts
 USER node
 EXPOSE 4310
 CMD ["npm", "start"]

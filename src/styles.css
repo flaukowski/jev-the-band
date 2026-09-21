@@ -1843,3 +1843,94 @@ footer b {
 .stage-bubble.cat:after {
   border-top-color: #ffb45cf5;
 }
+
+.archive-panel {
+  padding: 28px;
+  margin: 24px 0;
+  border: 1px solid #4c5740;
+  background: #151b14;
+  border-radius: 12px;
+}
+.archive-heading,
+.replay-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.archive-panel h2 {
+  font-size: 32px;
+  margin: 8px 0;
+}
+.archive-panel input {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0 24px;
+  color: #f1f0df;
+  background: #090e09;
+  border: 1px solid #56624b;
+}
+.archive-panel button,
+.replay-controls button {
+  color: #d8ed93;
+  background: #252e20;
+  border: 1px solid #526243;
+  padding: 9px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.archive-panel button:disabled {
+  opacity: 0.5;
+}
+.archive-show {
+  border-top: 1px solid #45503b;
+  margin-top: 16px;
+}
+.archive-set {
+  padding: 14px 0;
+  border-top: 1px solid #30392b;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.archive-set > div {
+  flex: 1;
+  min-width: 180px;
+}
+.archive-set h4 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.archive-set ol {
+  width: 100%;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.replay-controls {
+  padding: 20px;
+  background: #29341e;
+  border: 1px solid #a5bd71;
+  margin: 20px 0;
+}
+.replay-controls label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.prompt-form > label {
+  display: block;
+  margin-top: 8px;
+}
+.prompt-form input[type='text'] {
+  width: 100%;
+  color: var(--cream, #efeddb);
+  background: #10160f;
+  padding: 14px;
+  border: 1px solid #586047;
+  border-radius: 6px;
+  font: inherit;
+}

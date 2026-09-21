@@ -410,3 +410,37 @@ ended, do it
 ```
 
 The production jam had ended and the release was already live; this authorizes recording it in the verification log.
+
+
+## 2026-09-20 — Titles and durable show archive
+
+```text
+change the prompt interface:
+title (mandatory)
+Description
+
+their unity works the same way as the current prompt box
+
+but we also save the jev responses as replayable recordings
+SQLite local and postgres railway
+There's a 'Jtb archive" where you can replay old shows (Everything recorded that day) and each sets (songs that were queued one after the other)
+
+everyday jev is played in production, every song is recorded and replayable without any api calls
+
+add ui elements to support viewing replaying and searching the archives
+
+allow me to test locally and migrate archives to railway postgres
+```
+
+Follow-up:
+
+> yeah think of the best pattern to safely accumulate responses and flush to the db?
+
+
+## 2026-09-20 — Archive release authorization
+
+> PR and push to railway.
+
+> merge to master
+
+The repository primary branch is named main, with no master branch. Treat the latter request as authorization to merge the archive PR to main and deploy it.

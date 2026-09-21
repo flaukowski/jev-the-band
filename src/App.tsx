@@ -37,6 +37,8 @@ import { Mixer } from './Mixer';
 import { MasterDesk } from './MasterDesk';
 import { ConceptCard } from './ConceptCard';
 import './styles.css';
+import { ArchivePanel } from './ArchivePanel';
+import { replaySnapshot } from '../shared/replay';
 
 const Stage = lazy(() => import('./Stage').then((module) => ({ default: module.Stage })));
 
@@ -58,7 +60,16 @@ const elapsedLabel = (seconds: number) =>
     .toString()
     .padStart(2, '0')}`;
 export default function App() {
-  const [room, setRoom] = useState<Snapshot | null>(null);
+  const [liveRoom, setRoom] = useState<Snapshot | null>(null);
+  const [replay, setReplay] = useState<Snapshot | null>(null);
+  const replaySource = useRef<Snapshot | null>(null);
+  const playlist = useRef<Snapshot[]>([]);
+  const [paused, setPaused] = useState(false);
+  const pausedAt = useRef(0);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const room = replay ?? liveRoom;
+  const [description, setDescription] = useState('');
+  const [nextDescription, setNextDescription] = useState('');
   const [connected, setConnected] = useState(false);
   const [liveAvailable, setLiveAvailable] = useState(false);
   const [hostRequired, setHostRequired] = useState(false);
@@ -88,7 +99,7 @@ export default function App() {
   const spectrum = useRef(() => audio.current.spectrum()).current;
   const running = !!room && room.status !== 'ended';
   const effectiveMode = running ? room.mode : mode;
-  const currentTime = now + offset;
+  const currentTime = replay ? (paused ? pausedAt.current : now) : now + offset;
   const frame: Frame | null = room?.frames.filter((f) => f.at <= currentTime).at(-1) ?? null;
   const activeFrame = running ? frame : null;
   const upcomingFrame = running ? (room?.frames.find((f) => f.at > currentTime) ?? null) : null;
@@ -98,7 +109,7 @@ export default function App() {
     room?.setlist?.filter((c) => c.atFrame > (activeFrame?.id ?? -1) && c.id !== room.id) ?? [];
   const seconds = room ? Math.min(((room.endedAt ?? currentTime) - room.startedAt) / 1000, 600) : 0;
   const traces = (room?.traces ?? [])
-    .filter((t) => selected === 'all' || t.role === selected)
+    .filter((t) => (!replay || t.at <= currentTime) && (selected === 'all' || t.role === selected))
     .slice(-30)
     .reverse();
   useEffect(() => {
@@ -112,7 +123,7 @@ export default function App() {
         if (!mounted) return;
         const off = data.serverTime - (start + Date.now()) / 2;
         setOffset(off);
-        audio.current.sync(off);
+        if (!replaySource.current) audio.current.sync(off);
         setLiveAvailable(data.liveAvailable);
         setHostRequired(data.hostAccessRequired);
         setHealthReady(true);
@@ -154,13 +165,13 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    if (room) {
+    if (room && !paused) {
       audio.current.update(room.id, room.frames);
       if (room.status === 'ended') audio.current.stop();
     }
-  }, [room?.id, room?.frames, room?.status]);
+  }, [room?.id, room?.frames, room?.status, paused]);
   useEffect(() => {
-    if (!running || room.mode !== 'live' || referenceRoom !== room.id || !sound) return;
+    if (replay || !running || room.mode !== 'live' || referenceRoom !== room.id || !sound) return;
     const timer = window.setInterval(() => {
       const levels = audio.current.referenceLevels();
       if (levels)
@@ -174,7 +185,7 @@ export default function App() {
         }).catch(() => {});
     }, 2500);
     return () => clearInterval(timer);
-  }, [running, room?.id, room?.mode, referenceRoom, sound, controller]);
+  }, [replay, running, room?.id, room?.mode, referenceRoom, sound, controller]);
   useEffect(() => {
     if (!about) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -232,7 +243,7 @@ export default function App() {
           'Content-Type': 'application/json',
           ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
         },
-        body: JSON.stringify({ prompt, mode }),
+        body: JSON.stringify({ title: prompt, description, mode }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'The jam could not start.');
@@ -267,17 +278,54 @@ export default function App() {
           'Content-Type': 'application/json',
           ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
         },
-        body: JSON.stringify({ roomId: room.id, prompt: nextPrompt }),
+        body: JSON.stringify({ roomId: room.id, title: nextPrompt, description: nextDescription }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not queue the next theme.');
       setNextPrompt('');
+      setNextDescription('');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not queue theme.');
     } finally {
       setBusy(false);
     }
   }
+  async function playRecording(sets: Snapshot[], from?: number) {
+    audio.current.stop();
+    await audio.current.enable();
+    setSound(true);
+    audio.current.sync(0);
+    replaySource.current = sets[0];
+    playlist.current = sets.slice(1);
+    setPaused(false);
+    setReferenceRoom('');
+    setReplay(replaySnapshot(sets[0], from ?? sets[0].frames[0].at, Date.now()));
+    setArchiveOpen(false);
+  }
+  function returnLive() {
+    audio.current.stop();
+    audio.current.sync(offset);
+    replaySource.current = null;
+    playlist.current = [];
+    setReplay(null);
+    setPaused(false);
+  }
+  function seekReplay(from: number) {
+    if (!replaySource.current) return;
+    audio.current.stop();
+    setPaused(false);
+    setReplay(replaySnapshot(replaySource.current, from, Date.now()));
+  }
+  useEffect(() => {
+    if (!replay || paused || now < replay.endsAt) return;
+    if (playlist.current.length)
+      void playRecording(playlist.current).catch(() => setError('Could not continue replay.'));
+    else {
+      audio.current.stop();
+      pausedAt.current = replay.endsAt;
+      setPaused(true);
+    }
+  }, [now, replay, paused]);
   function exportTrace() {
     if (!room) return;
     const blob = new Blob(
@@ -319,6 +367,9 @@ export default function App() {
           ONE LONG, STRANGE JAM.
         </div>
         <nav>
+          <button className="text-button" onClick={() => setArchiveOpen(!archiveOpen)}>
+            Jtb archive
+          </button>
           <button className="text-button" onClick={() => setAbout(true)}>
             How it works <ArrowUpRight size={15} />
           </button>
@@ -344,155 +395,221 @@ export default function App() {
             {connected ? 'STAGE CONNECTED' : 'CONNECTING TO STAGE'}
           </div>
         </div>
-        <section className="prompt-panel">
-          <div className="prompt-label">
-            <span className="eyebrow">
-              {running ? 'NOW WANDERING' : 'GIVE THEM A PLACE TO BEGIN'}
-            </span>
-            <h2>
-              {(running ? room.mode : mode) === 'rehearsal'
-                ? 'Try the instruments.'
-                : running
-                  ? 'The band takes it from here.'
-                  : 'What does tonight sound like?'}
-            </h2>
-            <p>
-              {(running ? room.mode : mode) === 'rehearsal'
-                ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
-                : running
-                  ? 'Send the next theme whenever inspiration hits. An eight-bar lead-in begins at the next phrase boundary.'
-                  : 'A title, a feeling, or a whole story. See where they take it.'}
-            </p>
-          </div>
-          <div className="prompt-form">
-            {running ? (
-              <>
-                <div className="playing-controls">
-                  <span className="current-prompt">“{themeTitle}”</span>
-                  <button className="end-button" onClick={stop}>
-                    <Square size={15} /> End jam
-                  </button>
-                </div>
-                {room.mode === 'live' && (
-                  <form
-                    className="next-theme"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void queueTheme();
-                    }}
-                  >
-                    <label htmlFor="next-theme">Where should they go next?</label>
+        {archiveOpen && (
+          <ArchivePanel api={API} onPlay={playRecording} onClose={() => setArchiveOpen(false)} />
+        )}
+        {replay && (
+          <section className="replay-controls" aria-label="Recording playback">
+            <strong>REPLAY · {replay.title}</strong>
+            <span>Saved notes & responses · no model calls</span>
+            <button
+              onClick={() => {
+                if (paused) {
+                  const original = replaySource.current!;
+                  const position = pausedAt.current - (replay.startedAt - original.startedAt);
+                  seekReplay(
+                    position >= (original.endedAt ?? Infinity) ? original.frames[0].at : position,
+                  );
+                } else {
+                  pausedAt.current = Date.now();
+                  audio.current.stop();
+                  setPaused(true);
+                }
+              }}
+            >
+              {paused ? 'Resume replay' : 'Pause replay'}
+            </button>
+            <label>
+              Seek recording
+              <input
+                aria-label="Seek recording"
+                type="range"
+                min={0}
+                max={Math.max(1, replay.endsAt - replay.startedAt)}
+                value={Math.max(
+                  0,
+                  Math.min(replay.endsAt - replay.startedAt, currentTime - replay.startedAt),
+                )}
+                onChange={(e) =>
+                  seekReplay(replaySource.current!.startedAt + Number(e.target.value))
+                }
+              />
+            </label>
+            <button onClick={returnLive}>Return to live</button>
+          </section>
+        )}
+        {!replay && (
+          <section className="prompt-panel">
+            <div className="prompt-label">
+              <span className="eyebrow">
+                {running ? 'NOW WANDERING' : 'GIVE THEM A PLACE TO BEGIN'}
+              </span>
+              <h2>
+                {(running ? room.mode : mode) === 'rehearsal'
+                  ? 'Try the instruments.'
+                  : running
+                    ? 'The band takes it from here.'
+                    : 'What does tonight sound like?'}
+              </h2>
+              <p>
+                {(running ? room.mode : mode) === 'rehearsal'
+                  ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
+                  : running
+                    ? 'Send the next theme whenever inspiration hits. An eight-bar lead-in begins at the next phrase boundary.'
+                    : 'A title, a feeling, or a whole story. See where they take it.'}
+              </p>
+            </div>
+            <div className="prompt-form">
+              {running ? (
+                <>
+                  <div className="playing-controls">
+                    <span className="current-prompt">“{themeTitle}”</span>
+                    <button className="end-button" onClick={stop}>
+                      <Square size={15} /> End jam
+                    </button>
+                  </div>
+                  {room.mode === 'live' && (
+                    <form
+                      className="next-theme"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void queueTheme();
+                      }}
+                    >
+                      <label htmlFor="next-theme">Next song title (required)</label>
+                      <input
+                        type="text"
+                        id="next-theme"
+                        aria-label="Next song title"
+                        required
+                        value={nextPrompt}
+                        maxLength={80}
+                        onChange={(event) => setNextPrompt(event.target.value)}
+                        placeholder="A new title, mood, or direction…"
+                      />
+                      <label>
+                        Description
+                        <textarea
+                          aria-label="Next song description"
+                          value={nextDescription}
+                          maxLength={3900}
+                          onChange={(e) => setNextDescription(e.target.value)}
+                        />
+                      </label>
+                      <button
+                        className="start-button"
+                        type="submit"
+                        disabled={
+                          busy ||
+                          !nextPrompt.trim() ||
+                          queuedThemes.length >= 4 ||
+                          room.status !== 'playing'
+                        }
+                      >
+                        {busy ? 'Queueing…' : 'Queue next · 8-bar lead-in'}
+                      </button>
+                      {queuedThemes.length > 0 && (
+                        <ol className="theme-queue" aria-label="Queued themes">
+                          {queuedThemes.map((cue) => (
+                            <li key={cue.id}>
+                              <b>{cue.prompt.split('\n')[0].slice(0, 80)}</b>
+                              <span>
+                                {Math.max(
+                                  0,
+                                  Math.ceil(
+                                    (cue.atFrame - (activeFrame?.id ?? 0)) * 2 -
+                                      (activeFrame
+                                        ? ((currentTime - activeFrame.at) * activeFrame.bpm) /
+                                          240000
+                                        : 0),
+                                  ),
+                                )}{' '}
+                                bars to transition ·{' '}
+                                {cue.director?.status === 'planning' ? 'shaping concept' : 'queued'}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </form>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label htmlFor="jam-prompt">Title (required)</label>
+                  <input
+                    type="text"
+                    id="jam-prompt"
+                    required
+                    value={prompt}
+                    maxLength={80}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="A midnight drive through a city made of glass…"
+                  />
+                  <label>
+                    Description
                     <textarea
-                      id="next-theme"
-                      aria-label="Next jam theme"
-                      value={nextPrompt}
-                      rows={2}
-                      maxLength={4000}
-                      onChange={(event) => setNextPrompt(event.target.value)}
-                      placeholder="A new title, mood, or direction…"
+                      aria-label="Song description"
+                      value={description}
+                      maxLength={3900}
+                      rows={3}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="A feeling, a direction, or a whole story…"
                     />
+                  </label>
+                  <div className="form-bottom">
+                    <label className="mode-select">
+                      <select
+                        aria-label="Decision mode"
+                        value={mode}
+                        disabled={!healthReady}
+                        onChange={(e) => setChosenMode(e.target.value as typeof mode)}
+                      >
+                        <option value="rehearsal">Instrument demo · no AI</option>
+                        <option value="live" disabled={!liveAvailable}>
+                          Live Jev{!liveAvailable ? ' · host key needed' : ''}
+                        </option>
+                      </select>
+                      <ChevronDown size={13} />
+                    </label>
                     <button
                       className="start-button"
-                      type="submit"
                       disabled={
                         busy ||
-                        !nextPrompt.trim() ||
-                        queuedThemes.length >= 4 ||
-                        room.status !== 'playing'
+                        !connected ||
+                        !healthReady ||
+                        (mode === 'live' && !liveAvailable) ||
+                        !prompt.trim()
                       }
+                      onClick={start}
                     >
-                      {busy ? 'Queueing…' : 'Queue next · 8-bar lead-in'}
+                      <Play size={16} fill="currentColor" />
+                      {audioLoading
+                        ? 'Loading instruments…'
+                        : busy
+                          ? 'Opening the room…'
+                          : mode === 'live'
+                            ? 'Let’s jam'
+                            : 'Play demo'}
                     </button>
-                    {queuedThemes.length > 0 && (
-                      <ol className="theme-queue" aria-label="Queued themes">
-                        {queuedThemes.map((cue) => (
-                          <li key={cue.id}>
-                            <b>{cue.prompt.split('\n')[0].slice(0, 80)}</b>
-                            <span>
-                              {Math.max(
-                                0,
-                                Math.ceil(
-                                  (cue.atFrame - (activeFrame?.id ?? 0)) * 2 -
-                                    (activeFrame
-                                      ? ((currentTime - activeFrame.at) * activeFrame.bpm) / 240000
-                                      : 0),
-                                ),
-                              )}{' '}
-                              bars to transition ·{' '}
-                              {cue.director?.status === 'planning' ? 'shaping concept' : 'queued'}
-                            </span>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                  </form>
-                )}
-              </>
-            ) : (
-              <>
-                <label className="sr-only" htmlFor="jam-prompt">
-                  Jam title or description
+                  </div>
+                </>
+              )}
+              {hostRequired && (
+                <label className="host-key">
+                  Host access{' '}
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={controller}
+                    onChange={(e) => setController(e.target.value)}
+                    placeholder="Controller token · kept in memory"
+                  />
                 </label>
-                <textarea
-                  id="jam-prompt"
-                  value={prompt}
-                  maxLength={4000}
-                  rows={2}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="A midnight drive through a city made of glass…"
-                />
-                <div className="form-bottom">
-                  <label className="mode-select">
-                    <select
-                      aria-label="Decision mode"
-                      value={mode}
-                      disabled={!healthReady}
-                      onChange={(e) => setChosenMode(e.target.value as typeof mode)}
-                    >
-                      <option value="rehearsal">Instrument demo · no AI</option>
-                      <option value="live" disabled={!liveAvailable}>
-                        Live Jev{!liveAvailable ? ' · host key needed' : ''}
-                      </option>
-                    </select>
-                    <ChevronDown size={13} />
-                  </label>
-                  <button
-                    className="start-button"
-                    disabled={
-                      busy ||
-                      !connected ||
-                      !healthReady ||
-                      (mode === 'live' && !liveAvailable) ||
-                      !prompt.trim()
-                    }
-                    onClick={start}
-                  >
-                    <Play size={16} fill="currentColor" />
-                    {audioLoading
-                      ? 'Loading instruments…'
-                      : busy
-                        ? 'Opening the room…'
-                        : mode === 'live'
-                          ? 'Let’s jam'
-                          : 'Play demo'}
-                  </button>
-                </div>
-              </>
-            )}
-            {hostRequired && (
-              <label className="host-key">
-                Host access{' '}
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={controller}
-                  onChange={(e) => setController(e.target.value)}
-                  placeholder="Controller token · kept in memory"
-                />
-              </label>
-            )}
-          </div>
-        </section>
+              )}
+            </div>
+          </section>
+        )}
 
         {(error || room?.error) && (
           <div className="error-message" role="alert">
@@ -504,20 +621,24 @@ export default function App() {
           role="status"
         >
           <strong>
-            {!healthReady
-              ? 'CONNECTING TO THE BAND'
-              : effectiveMode === 'rehearsal'
-                ? 'DEMO · NO AI'
-                : 'LIVE JEV'}
+            {replay
+              ? 'ARCHIVE REPLAY'
+              : !healthReady
+                ? 'CONNECTING TO THE BAND'
+                : effectiveMode === 'rehearsal'
+                  ? 'DEMO · NO AI'
+                  : 'LIVE JEV'}
           </strong>
           <span>
-            {!healthReady
-              ? 'Checking the connection…'
-              : effectiveMode === 'rehearsal'
-                ? '0 Jev requests. Procedural music; the title does not shape the composition.'
-                : running
-                  ? `${room.requests} API requests · Real Jev decisions, live as they happen.`
-                  : 'Your prompt sets the scene. Each player makes real Jev decisions as the jam unfolds.'}
+            {replay
+              ? 'Playing saved decisions. No new model calls.'
+              : !healthReady
+                ? 'Checking the connection…'
+                : effectiveMode === 'rehearsal'
+                  ? '0 Jev requests. Procedural music; the title does not shape the composition.'
+                  : running
+                    ? `${room.requests} API requests · Real Jev decisions, live as they happen.`
+                    : 'Your prompt sets the scene. Each player makes real Jev decisions as the jam unfolds.'}
           </span>
         </div>
         <ConceptCard
@@ -535,22 +656,25 @@ export default function App() {
                   upcoming={upcomingFrame}
                   levels={levels}
                   spectrum={spectrum}
-                  traces={room?.traces}
-                  playing={running && !!frame}
+                  traces={replay ? room?.traces.filter((t) => t.at <= currentTime) : room?.traces}
+                  playing={running && !!frame && !paused}
+
                   reduced={reduced}
                   onSelect={selectRole}
-                  serverOffset={offset}
+                  serverOffset={replay ? (paused ? pausedAt.current - now : 0) : offset}
                   loadingAudio={audioLoading}
                 />
               </Suspense>
               <div className="stage-top">
                 <div className={`session-badge ${running ? 'is-live' : ''}`}>
                   <span />
-                  {running
-                    ? room?.mode === 'live'
-                      ? 'JEV LIVE'
-                      : 'DEMO · NO AI'
-                    : 'THE ROOM IS YOURS'}
+                  {replay
+                    ? 'REPLAY'
+                    : running
+                      ? room?.mode === 'live'
+                        ? 'JEV LIVE'
+                        : 'DEMO · NO AI'
+                      : 'THE ROOM IS YOURS'}
                 </div>
                 <span className="stage-location">THE NEVERENDING ROOM / STAGE 01</span>
                 <button
@@ -732,7 +856,11 @@ export default function App() {
               frame={activeFrame}
               referenceActive={referenceRoom === room?.id && sound}
               canReference={
-                running && room.mode === 'live' && sound && (!hostRequired || !!controller)
+                !replay &&
+                running &&
+                room.mode === 'live' &&
+                sound &&
+                (!hostRequired || !!controller)
               }
               onReference={() => setReferenceRoom(room!.id)}
             />
