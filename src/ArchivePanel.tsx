@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { clipFrames } from '../shared/replay';
+import { archiveTracks, type ArchiveTrack } from '../shared/archive-playback';
 import type { Snapshot } from '../shared/music';
 
-type Entry = {
+export type Entry = {
   id: string;
   title: string;
   prompt: string;
@@ -20,7 +20,7 @@ export function ArchivePanel({
   onClose,
 }: {
   api: string;
-  onPlay: (sets: Snapshot[], from?: number) => void | Promise<void>;
+  onPlay: (tracks: ArchiveTrack[], index?: number) => void | Promise<void>;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -60,26 +60,9 @@ export function ArchivePanel({
         catalog = await response.json();
       }
       const items = catalog.filter((entry) => entry.day === day);
-      const sets = await Promise.all(
-        items
-          .sort((a, b) => a.startedAt - b.startedAt)
-          .map(async (item) => {
-            const response = await fetch(`${api}/api/archive/${encodeURIComponent(item.id)}`);
-            if (!response.ok) throw new Error('Recording could not load.');
-            const recording = (await response.json()) as Snapshot;
-            if (item.from !== undefined && item.to !== undefined)
-              return {
-                ...recording,
-                startedAt: item.from,
-                endedAt: item.to,
-                frames: clipFrames(recording.frames, item.from, item.to),
-              };
-            return recording;
-          }),
-      );
-      const playable = sets.filter((s) => s.frames.length);
-      if (!playable.length) throw new Error('No recorded phrases in this selection yet.');
-      await onPlay(playable);
+      const tracks = archiveTracks(items);
+      if (!tracks.length) throw new Error('No recorded songs in this selection yet.');
+      await onPlay(tracks);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Replay failed');
     } finally {
@@ -110,36 +93,7 @@ export function ArchivePanel({
       {error && <p role="alert">{error}</p>}
       {!entries.length && <p>No recordings found. Start a jam to make the first tape.</p>}
       {days.map((day) => {
-        const songs = entries
-          .filter((entry) => entry.day === day)
-          .flatMap((entry) => {
-            const performed = entry.songs
-              .filter((song) => song.appliedAt !== undefined)
-              .sort((a, b) => a.appliedAt! - b.appliedAt!);
-            if (!performed.length)
-              return [
-                {
-                  key: entry.id,
-                  prompt: entry.prompt,
-                  at: entry.startedAt,
-                  mode: entry.mode,
-                  recording: entry.status !== 'ended',
-                },
-              ];
-            return performed
-              .filter((song, index) => {
-                const end = performed[index + 1]?.appliedAt ?? Infinity;
-                return end > (entry.from ?? -Infinity) && song.appliedAt! < (entry.to ?? Infinity);
-              })
-              .map((song) => ({
-                key: `${entry.id}:${song.id}`,
-                prompt: song.prompt,
-                at: Math.max(song.appliedAt!, entry.from ?? -Infinity),
-                mode: entry.mode,
-                recording: entry.status !== 'ended' && song.id === performed.at(-1)?.id,
-              }));
-          })
-          .sort((a, b) => a.at - b.at);
+        const songs = archiveTracks(entries.filter((entry) => entry.day === day));
         return (
           <section key={day} className="archive-show" aria-label={`Show ${day}`}>
             <div className="archive-heading">
@@ -152,7 +106,7 @@ export function ArchivePanel({
               </button>
             </div>
             <ol className="archive-songs" aria-label={`Songs for ${day}`}>
-              {songs.map((song) => (
+              {songs.map((song, index) => (
                 <li key={song.key} className="archive-song">
                   <div>
                     <h4>{song.prompt.split('\n')[0]}</h4>
@@ -168,6 +122,19 @@ export function ArchivePanel({
                       <p>{song.prompt.split('\n').slice(1).join('\n')}</p>
                     )}
                   </div>
+                  <button
+                    disabled={busy}
+                    aria-label={`Play song: ${song.prompt.split('\n')[0]}`}
+                    onClick={() => {
+                      setError('');
+                      setBusy(true);
+                      void Promise.resolve(onPlay(songs, index))
+                        .catch((e) => setError(e.message))
+                        .finally(() => setBusy(false));
+                    }}
+                  >
+                    Play song
+                  </button>
                 </li>
               ))}
             </ol>

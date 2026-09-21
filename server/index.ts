@@ -1,8 +1,10 @@
+import { startAudioWorker } from './archive-audio.js';
+import { audioRoute } from './audio-route.js';
 import 'dotenv/config';
 import express from 'express';
 import { resolve } from 'node:path';
 import { z } from 'zod';
-import { Archive, ArchiveWriter, stateRows } from './archive.js';
+import { Archive, ArchiveWriter, stateRows, traceRows } from './archive.js';
 import { songInput, songPrompt } from './song-input.js';
 import { Room } from './room.js';
 import { Chat, chatInput } from './chat.js';
@@ -69,10 +71,12 @@ let room: Room | null = null;
 let committed: import('../shared/music.js').Snapshot | null = null;
 const recentOpeners: import('../shared/music.js').Musician[] = [];
 const clients = new Set<express.Response>();
+const chatOnlyClients = new Set<express.Response>();
 const chat = new Chat();
 const broadcast = (event: string, data: unknown) => {
   const wire = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const client of clients) {
+    if (chatOnlyClients.has(client) && event !== 'chat') continue;
     if (client.writableLength > 4_000_000) {
       client.end();
       clients.delete(client);
@@ -107,27 +111,41 @@ app.get('/api/events', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
-  res.write(`event: state\ndata: ${JSON.stringify(committed)}\n\n`);
+  if (req.query.chatOnly === '1') chatOnlyClients.add(res);
+  else res.write(`event: state\ndata: ${JSON.stringify(committed)}\n\n`);
   res.write(`event: chat\ndata: ${JSON.stringify(chat.recent())}\n\n`);
   clients.add(res);
   const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 15000);
   req.on('close', () => {
     clearInterval(heartbeat);
     clients.delete(res);
+    chatOnlyClients.delete(res);
   });
 });
 app.get('/api/archive', async (req, res) => {
   await writer?.flush();
   res.json(await archive.list(String(req.query.q || '').slice(0, 200)));
 });
+app.get('/api/archive/:id/audio', audioRoute(archive));
+app.get('/api/archive/:id/cues', async (req, res) => {
+  const at = Number(req.query.at);
+  if (!Number.isFinite(at) || at < 0) {
+    res.sendStatus(400);
+    return;
+  }
+  res.json(await archive.cuePage(req.params.id, at));
+});
+app.get('/api/archive/:id/traces', async (req, res) => {
+  res.json(await archive.tracePage(req.params.id, String(req.query.cursor || '').slice(0, 200)));
+});
 app.get('/api/archive/:id', async (req, res) => {
   await writer?.flush();
-  const recording = await archive.recording(req.params.id);
+  const recording = await archive.recording(req.params.id, req.query.playback === '1');
   if (!recording) {
     res.status(404).json({ error: 'Recording not found' });
     return;
   }
-  res.json(recording);
+  res.json({ ...recording, audio: await archive.audioMeta(req.params.id) });
 });
 // The room is open to everyone, so song requests are paced per address.
 const requests = new Map<string, number[]>();
@@ -229,14 +247,11 @@ app.post('/api/room', paced, async (req, res) => {
     ),
   );
   current.on('trace', (trace) =>
-    currentWriter.enqueue(
-      [{ id: current.state.id, kind: 'trace', key: trace.id, data: JSON.stringify(trace) }],
-      () => {
-        if (committed && committed.id === current.state.id)
-          committed.traces = [...committed.traces, trace].slice(-180);
-        broadcast('trace', trace);
-      },
-    ),
+    currentWriter.enqueue(traceRows(current.state.id, trace), () => {
+      if (committed && committed.id === current.state.id)
+        committed.traces = [...committed.traces, trace].slice(-180);
+      broadcast('trace', trace);
+    }),
   );
   starting = false;
   res.status(201).json(room.view());
@@ -296,7 +311,12 @@ const server = app.listen(port, host, () =>
     `JEV the band: http://${host}:${port} · ${provider.apiKey ? `Jev configured via ${provider.provider}` : 'offline rehearsal available'}`,
   ),
 );
+const stopAudioWorker =
+  process.env.ARCHIVE_RENDER_ENABLED === '0'
+    ? async () => {}
+    : startAudioWorker(archive, process.env.ARCHIVE_RENDER_ORIGIN || `http://127.0.0.1:${port}`);
 async function shutdown() {
+  await stopAudioWorker();
   room?.stop();
   for (const client of clients) client.end();
   server.close();

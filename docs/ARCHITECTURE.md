@@ -76,3 +76,13 @@ The instrument demo makes zero provider calls. `shared/score.ts` retains its thr
 ## Durable archive
 
 See [archive operations](ARCHIVE.md). `server/archive.ts` stores complete frames, response traces and latest set metadata independently of the live rolling buffers. A bounded single-writer queue batches transactional upserts and publishes only after commit. SQLite WAL is the local default; DATABASE_URL selects PostgreSQL. Replay uses `shared/replay.ts` to remap stored timestamps into a private listener clock, preserving note/effect provenance and never invoking Room or a provider. Search and replay are read-only audience endpoints; start/queue/stop keep the existing controller authentication.
+
+
+## 2026-09-20 — Archive player reliability
+
+Archive playback requests `?playback=1` to exclude trace rows at the database query, avoiding hundreds of MB of raw decision requests during playback. The archive list builds song descriptors; the player lazily loads the selected song and retains navigation after errors. Original archive exports and migrations still include all response traces.
+
+
+## 2026-09-20 — Streamed archive audio and synchronized visuals
+
+The background archive worker serially renders ended recordings in an isolated Chromium OfflineAudioContext using the current instrument renderer. It allows only local asset requests, writes PCM to ffmpeg, and atomically publishes MP3 chunks plus a hash/renderer-version manifest. Range GETs read only needed chunks; there is no public render/upload endpoint. Interrupted work is retried without affecting committed notes. The player uses HTMLMediaElement.currentTime as the clock for saved frames, including seeks and buffering. Archive listeners use a chat-only SSE subscription, keeping crowd chat current without downloading live performance traces. Response cues have separate timestamp keys; a bounded 24-cue query feeds the visual decision overlay while full trace inspection reads eight records per page.

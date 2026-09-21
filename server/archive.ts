@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -77,7 +78,7 @@ export class Archive {
     await this.batch(stateRows(state));
   }
   async trace(id: string, trace: Trace) {
-    await this.put({ id, kind: 'trace', key: trace.id, data: JSON.stringify(trace) });
+    await this.batch(traceRows(id, trace));
   }
   async rows(id?: string) {
     return this.query(
@@ -87,8 +88,16 @@ export class Archive {
       id ? [id] : [],
     );
   }
-  async recording(id: string): Promise<Snapshot | null> {
-    const rows = await this.rows(id);
+  async recording(id: string, playback = false): Promise<Snapshot | null> {
+    const rows = playback
+      ? await this.query(
+          "SELECT * FROM jtb_archive WHERE id=$1 AND kind IN ('state','frame','song') ORDER BY kind,key",
+          [id],
+        )
+      : await this.query(
+          "SELECT * FROM jtb_archive WHERE id=$1 AND kind IN ('state','frame','song','trace') ORDER BY kind,key",
+          [id],
+        );
     const meta = rows.find((r) => r.kind === 'state');
     if (!meta) return null;
     const state = JSON.parse(meta.data) as Snapshot;
@@ -159,7 +168,7 @@ export class Archive {
   async recover() {
     for (const item of await this.list()) {
       if (item.status === 'ended') continue;
-      const state = await this.recording(item.id);
+      const state = await this.recording(item.id, true);
       if (!state) continue;
       state.status = 'ended';
       state.endedAt = Math.min(
@@ -171,6 +180,75 @@ export class Archive {
       state.error = 'Recording interrupted by server exit; recovered saved events.';
       await this.state(state);
     }
+  }
+  async audioMeta(id: string): Promise<AudioMeta | null> {
+    const rows = await this.query(
+      "SELECT * FROM jtb_archive WHERE id=$1 AND kind='audio-meta' AND key='mp3-v1'",
+      [id],
+    );
+    return rows[0] ? JSON.parse(rows[0].data) : null;
+  }
+  async saveAudio(id: string, mp3: Buffer, from: number, to: number) {
+    const chunks: ArchiveRow[] = [];
+    for (let offset = 0; offset < mp3.length; offset += AUDIO_CHUNK)
+      chunks.push({
+        id,
+        kind: 'audio',
+        key: String(offset / AUDIO_CHUNK).padStart(6, '0'),
+        data: mp3.subarray(offset, offset + AUDIO_CHUNK).toString('base64'),
+      });
+    const meta: AudioMeta = {
+      bytes: mp3.length,
+      from,
+      to,
+      rendererVersion,
+      sha256: createHash('sha256').update(mp3).digest('hex'),
+    };
+    // Media becomes visible only with all its chunks, atomically.
+    await this.batch([
+      ...chunks,
+      { id, kind: 'audio-meta', key: 'mp3-v1', data: JSON.stringify(meta) },
+    ]);
+  }
+  async audioChunk(id: string, index: number) {
+    const rows = await this.query(
+      "SELECT * FROM jtb_archive WHERE id=$1 AND kind='audio' AND key=$2",
+      [id, String(index).padStart(6, '0')],
+    );
+    if (!rows[0]) throw new Error('Audio chunk missing');
+    return Buffer.from(rows[0].data, 'base64');
+  }
+  async cuePage(id: string, at: number) {
+    const rows = await this.query(
+      "SELECT * FROM jtb_archive WHERE id=$1 AND kind='cue' AND key<=$2 ORDER BY key DESC LIMIT 24",
+      [id, `${String(Math.floor(at)).padStart(16, '0')}:~`],
+    );
+    return rows.reverse().map((row) => JSON.parse(row.data));
+  }
+  async backfillCues(id: string, signal?: AbortSignal) {
+    const done = await this.query("SELECT * FROM jtb_archive WHERE id=$1 AND kind='cue-meta'", [
+      id,
+    ]);
+    if (done.length) return;
+    let cursor = '';
+    while (true) {
+      signal?.throwIfAborted();
+      const page = await this.tracePage(id, cursor);
+      if (page.traces.length) await this.batch(page.traces.map((trace) => cueRow(id, trace)));
+      if (!page.next) break;
+      cursor = page.next;
+    }
+    await this.put({ id, kind: 'cue-meta', key: 'complete', data: '{}' });
+  }
+  async tracePage(id: string, cursor = '') {
+    const rows = await this.query(
+      "SELECT * FROM jtb_archive WHERE id=$1 AND kind='trace' AND key>$2 ORDER BY key LIMIT 8",
+      [id, cursor],
+    );
+    return {
+      traces: rows.map((r) => JSON.parse(r.data) as Trace),
+      next: rows.length === 8 ? rows.at(-1)!.key : null,
+    };
   }
   async close() {
     this.sqlite?.close();
@@ -275,4 +353,31 @@ export class ArchiveWriter {
     this.writing = undefined;
     if (this.pending.length && !this.failed) await this.flush();
   }
+}
+
+export const AUDIO_CHUNK = 256 * 1024;
+export type AudioMeta = {
+  bytes: number;
+  from: number;
+  to: number;
+  rendererVersion: string;
+  sha256: string;
+};
+
+function cueRow(id: string, trace: Trace): ArchiveRow {
+  return {
+    id,
+    kind: 'cue',
+    key: `${String(Math.floor(trace.at)).padStart(16, '0')}:${trace.id}`,
+    data: JSON.stringify({
+      id: trace.id,
+      at: trace.at,
+      role: trace.role,
+      source: trace.source,
+      answers: trace.answers,
+    }),
+  };
+}
+export function traceRows(id: string, trace: Trace): ArchiveRow[] {
+  return [{ id, kind: 'trace', key: trace.id, data: JSON.stringify(trace) }, cueRow(id, trace)];
 }

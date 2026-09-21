@@ -1,3 +1,5 @@
+import { ArchiveStream } from './ArchiveStream';
+import type { ArchiveTrack } from '../shared/archive-playback';
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 
 import {
@@ -41,7 +43,7 @@ import { ConceptCard } from './ConceptCard';
 import './styles.css';
 import { ArchivePanel } from './ArchivePanel';
 import { HowJevWorks } from './HowJevWorks';
-import { replaySnapshot } from '../shared/replay';
+import { clipFrames, replaySnapshot } from '../shared/replay';
 
 const Stage = lazy(() => import('./Stage').then((module) => ({ default: module.Stage })));
 
@@ -66,7 +68,22 @@ export default function App() {
   const [liveRoom, setRoom] = useState<Snapshot | null>(null);
   const [replay, setReplay] = useState<Snapshot | null>(null);
   const replaySource = useRef<Snapshot | null>(null);
-  const playlist = useRef<Snapshot[]>([]);
+  const playlist = useRef<ArchiveTrack[]>([]);
+  const streamAudio = useRef(new ArchiveStream());
+  const streamActive = useRef(false);
+  const [archiveMode, setArchiveMode] = useState(false);
+  const archiveFetch = useRef<AbortController | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [needsDecisions, setNeedsDecisions] = useState(false);
+  const [replayCues, setReplayCues] = useState<
+    Pick<Trace, 'id' | 'at' | 'role' | 'source' | 'answers'>[]
+  >([]);
+  const [traceCursor, setTraceCursor] = useState<string | null>('');
+  const [traceBusy, setTraceBusy] = useState(false);
+  const [trackIndex, setTrackIndex] = useState(0);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState('');
+  const replayRequest = useRef(0);
   const [paused, setPaused] = useState(false);
   const pausedAt = useRef(0);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -98,10 +115,18 @@ export default function App() {
   const stage = useRef<HTMLDivElement>(null);
   // The stage reads the same post-fader meters as the soundboard, so movement follows what is heard.
   const levels = useRef(() => audio.current.levels()).current;
-  const spectrum = useRef(() => audio.current.spectrum()).current;
+  const spectrum = useRef(() =>
+    streamActive.current ? streamAudio.current.spectrum() : audio.current.spectrum(),
+  ).current;
   const running = !!room && room.status !== 'ended';
   const effectiveMode = running ? room.mode : mode;
-  const currentTime = replay ? (paused ? pausedAt.current : now) : now + offset;
+  const currentTime = replay
+    ? streaming
+      ? replay.startedAt + streamAudio.current.position() - replaySource.current!.startedAt
+      : paused
+        ? pausedAt.current
+        : now
+    : now + offset;
   const frame: Frame | null = room?.frames.filter((f) => f.at <= currentTime).at(-1) ?? null;
   const activeFrame = running ? frame : null;
   const upcomingFrame = running ? (room?.frames.find((f) => f.at > currentTime) ?? null) : null;
@@ -134,51 +159,61 @@ export default function App() {
     };
     void health();
     const syncTimer = window.setInterval(health, 30000);
-    const stream = new EventSource(`${API}/api/events`);
-    stream.onopen = () => setConnected(true);
-    stream.onerror = () => setConnected(false);
-    stream.addEventListener('state', (event) => {
-      const next = JSON.parse((event as MessageEvent).data) as Snapshot | null;
-      setRoom((previous) =>
-        next && previous?.id === next.id && next.traces.length === 0
-          ? { ...next, traces: previous.traces }
-          : next,
-      );
-    });
-    stream.addEventListener('trace', (event) => {
-      const trace = JSON.parse((event as MessageEvent).data) as Trace;
-      setRoom((prev) =>
-        prev
-          ? {
-              ...prev,
-              traces: [...prev.traces.filter((t) => t.id !== trace.id), trace].slice(-180),
-            }
-          : prev,
-      );
-    });
-    stream.addEventListener('chat', (event) => {
-      const lines = JSON.parse((event as MessageEvent).data) as ChatMessage[];
-      setChat((prev) =>
-        [...prev.filter((m) => !lines.some((l) => l.id === m.id)), ...lines].slice(-60),
-      );
-    });
+    const stream = new EventSource(`${API}/api/events${archiveMode ? '?chatOnly=1' : ''}`);
+    if (stream) {
+      stream.onopen = () => setConnected(true);
+      stream.onerror = () => setConnected(false);
+      stream.addEventListener('chat', (event) => {
+        const lines = JSON.parse((event as MessageEvent).data) as ChatMessage[];
+        setChat((prev) =>
+          [...prev.filter((m) => !lines.some((l) => l.id === m.id)), ...lines].slice(-60),
+        );
+      });
+      stream.addEventListener('state', (event) => {
+        const next = JSON.parse((event as MessageEvent).data) as Snapshot | null;
+        setRoom((previous) =>
+          next && previous?.id === next.id && next.traces.length === 0
+            ? { ...next, traces: previous.traces }
+            : next,
+        );
+      });
+      stream.addEventListener('trace', (event) => {
+        const trace = JSON.parse((event as MessageEvent).data) as Trace;
+        setRoom((prev) =>
+          prev
+            ? {
+                ...prev,
+                traces: [...prev.traces.filter((t) => t.id !== trace.id), trace].slice(-180),
+              }
+            : prev,
+        );
+      });
+    }
     const clock = window.setInterval(() => setNow(Date.now()), 100);
     return () => {
       mounted = false;
-      stream.close();
+      stream?.close();
       window.clearInterval(clock);
       window.clearInterval(syncTimer);
-      audio.current.dispose();
     };
-  }, []);
+  }, [archiveMode]);
+  useEffect(() => () => audio.current.dispose(), []);
   useEffect(() => {
-    if (room && !paused) {
+    if (room && !paused && !streaming && !replayLoading) {
       audio.current.update(room.id, room.frames);
       if (room.status === 'ended') audio.current.stop();
     }
-  }, [room?.id, room?.frames, room?.status, paused]);
+  }, [room?.id, room?.frames, room?.status, paused, streaming, replayLoading]);
   useEffect(() => {
-    if (replay || !running || room.mode !== 'live' || referenceRoom !== room.id || !sound) return;
+    if (
+      replay ||
+      replayLoading ||
+      !running ||
+      room.mode !== 'live' ||
+      referenceRoom !== room.id ||
+      !sound
+    )
+      return;
     const timer = window.setInterval(() => {
       const levels = audio.current.referenceLevels();
       if (levels)
@@ -189,7 +224,7 @@ export default function App() {
         }).catch(() => {});
     }, 2500);
     return () => clearInterval(timer);
-  }, [replay, running, room?.id, room?.mode, referenceRoom, sound]);
+  }, [replay, running, room?.id, room?.mode, referenceRoom, sound, replayLoading]);
   useEffect(() => {
     if (!about) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -217,6 +252,11 @@ export default function App() {
     };
   }, [about]);
   async function toggleAudio() {
+    if (streamActive.current) {
+      streamAudio.current.media.muted = sound;
+      setSound(!sound);
+      return;
+    }
     if (sound) {
       audio.current.mute();
       setSound(false);
@@ -286,19 +326,100 @@ export default function App() {
       setBusy(false);
     }
   }
-  async function playRecording(sets: Snapshot[], from?: number) {
+  async function playRecording(tracks: ArchiveTrack[], index = 0) {
+    const request = ++replayRequest.current;
+    setArchiveMode(true);
+    archiveFetch.current?.abort();
+    archiveFetch.current = new AbortController();
+    streamAudio.current.stop();
+    streamActive.current = false;
+    setStreaming(false);
+    setReplayCues([]);
+    setTraceCursor('');
+    playlist.current = tracks;
+    setTrackIndex(index);
+    setReplayLoading(true);
+    setReplayError('');
+    setPaused(true);
     audio.current.stop();
-    await audio.current.enable();
-    setSound(true);
-    audio.current.sync(0);
-    replaySource.current = sets[0];
-    playlist.current = sets.slice(1);
-    setPaused(false);
-    setReferenceRoom('');
-    setReplay(replaySnapshot(sets[0], from ?? sets[0].frames[0].at, Date.now()));
-    setArchiveOpen(false);
+    try {
+      const track = tracks[index];
+      const response = await fetch(
+        `${API}/api/archive/${encodeURIComponent(track.id)}?playback=1`,
+        { signal: archiveFetch.current.signal },
+      );
+      if (!response.ok)
+        throw new Error(
+          `Recording could not load (${response.status}). Try again or skip to the next song.`,
+        );
+      const saved = (await response.json()) as Snapshot & {
+        audio?: { from: number; to: number } | null;
+      };
+      const end = Math.min(
+        track.to ?? Infinity,
+        saved.endedAt ??
+          (saved.frames.at(-1)?.at ?? track.at) + (saved.frames.at(-1)?.durationMs ?? 0),
+      );
+      const frames = clipFrames(saved.frames, track.at, end);
+      if (!frames.length)
+        throw new Error('No recorded phrases in this song yet. Choose another song.');
+      const source = {
+        ...saved,
+        title: track.prompt.split('\n')[0],
+        prompt: track.prompt,
+        startedAt: frames[0].at,
+        endedAt: end,
+        frames,
+      };
+      if (request !== replayRequest.current) return;
+      if (saved.audio) {
+        await streamAudio.current.play(
+          `${API}/api/archive/${encodeURIComponent(track.id)}/audio`,
+          saved.audio.from,
+          source.startedAt,
+          volume,
+        );
+        if (request !== replayRequest.current) return;
+        streamActive.current = true;
+        setStreaming(true);
+      } else await audio.current.enable();
+      if (request !== replayRequest.current) return;
+      setSound(true);
+      audio.current.sync(0);
+      replaySource.current = source;
+      setReferenceRoom('');
+      setReplay(replaySnapshot(source, source.startedAt, Date.now()));
+      setPaused(false);
+    } catch (e) {
+      if (request === replayRequest.current)
+        setReplayError(e instanceof Error ? e.message : 'Replay failed. Try again.');
+    } finally {
+      if (request === replayRequest.current) setReplayLoading(false);
+    }
   }
+  useEffect(() => {
+    const media = streamAudio.current.media;
+    const fail = () => {
+      if (streamActive.current) {
+        setPaused(true);
+        setReplayError('Audio stream interrupted. Retry this song or skip to the next.');
+      }
+    };
+    media.addEventListener('error', fail);
+    return () => {
+      media.removeEventListener('error', fail);
+      streamAudio.current.dispose();
+    };
+  }, []);
   function returnLive() {
+    ++replayRequest.current;
+    setArchiveMode(false);
+    archiveFetch.current?.abort();
+    streamAudio.current.stop();
+    streamActive.current = false;
+    setStreaming(false);
+    setReplayLoading(false);
+    setReplayError('');
     audio.current.stop();
     audio.current.sync(offset);
     replaySource.current = null;
@@ -308,20 +429,80 @@ export default function App() {
   }
   function seekReplay(from: number) {
     if (!replaySource.current) return;
+    if (streamActive.current) {
+      streamAudio.current.media.currentTime = Math.max(0, (from - streamAudio.current.from) / 1000);
+      void streamAudio.current.media
+        .play()
+        .then(() => setPaused(false))
+        .catch(() => setReplayError('Audio could not resume. Try again.'));
+      return;
+    }
     audio.current.stop();
     setPaused(false);
     setReplay(replaySnapshot(replaySource.current, from, Date.now()));
   }
   useEffect(() => {
-    if (!replay || paused || now < replay.endsAt) return;
-    if (playlist.current.length)
-      void playRecording(playlist.current).catch(() => setError('Could not continue replay.'));
+    if (
+      !replay ||
+      paused ||
+      replayLoading ||
+      (currentTime < replay.endsAt && !(streaming && streamAudio.current.media.ended))
+    )
+      return;
+    if (trackIndex + 1 < playlist.current.length)
+      void playRecording(playlist.current, trackIndex + 1);
     else {
       audio.current.stop();
+      if (streaming) streamAudio.current.media.pause();
       pausedAt.current = replay.endsAt;
       setPaused(true);
     }
-  }, [now, replay, paused]);
+  }, [now, replay, paused, replayLoading, trackIndex, streaming]);
+  useEffect(() => {
+    if (!replay || !replaySource.current || !needsDecisions) return;
+    const abort = new AbortController();
+    const source = replaySource.current;
+    const at = currentTime - replay.startedAt + source.startedAt;
+    void fetch(`${API}/api/archive/${encodeURIComponent(source.id)}/cues?at=${Math.floor(at)}`, {
+      signal: abort.signal,
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((cues) => {
+        if (!abort.signal.aborted) setReplayCues(cues);
+      })
+      .catch(() => {});
+    return () => abort.abort();
+  }, [replay?.id, needsDecisions, Math.floor(currentTime / 3000)]);
+  async function loadReplayTraces() {
+    const source = replaySource.current;
+    if (!source || traceCursor === null || traceBusy) return;
+    setTraceBusy(true);
+    try {
+      const response = await fetch(
+        `${API}/api/archive/${encodeURIComponent(source.id)}/traces?cursor=${encodeURIComponent(traceCursor)}`,
+      );
+      if (!response.ok) throw new Error();
+      const data = (await response.json()) as { traces: Trace[]; next: string | null };
+      if (source !== replaySource.current) return;
+      source.traces = data.traces;
+      setTraceCursor(data.next);
+      setReplay((current) =>
+        current
+          ? {
+              ...current,
+              traces: data.traces.map((t) => ({
+                ...t,
+                at: t.at + current.startedAt - source.startedAt,
+              })),
+            }
+          : current,
+      );
+    } catch {
+      setError('Decision page could not load. Try again.');
+    } finally {
+      setTraceBusy(false);
+    }
+  }
   function exportTrace() {
     if (!room) return;
     const blob = new Blob(
@@ -329,8 +510,9 @@ export default function App() {
         JSON.stringify(
           {
             exportedAt: new Date().toISOString(),
-            coverage:
-              'Recent server buffer, up to 180 decisions and 8 phrases. Not an independently signed attestation.',
+            coverage: replay
+              ? 'Current archive decision page only. Full raw responses remain in the archive.'
+              : 'Recent server buffer, up to 180 decisions and 8 phrases. Not an independently signed attestation.',
             ...room,
           },
           null,
@@ -388,51 +570,117 @@ export default function App() {
           </div>
           <div className="connection">
             <span className={connected ? 'connection-dot on' : 'connection-dot'} />
-            {connected ? 'STAGE CONNECTED' : 'CONNECTING TO STAGE'}
+            {archiveMode ? 'ARCHIVE PLAYER' : connected ? 'STAGE CONNECTED' : 'CONNECTING TO STAGE'}
           </div>
         </div>
-        {archiveOpen && (
-          <ArchivePanel api={API} onPlay={playRecording} onClose={() => setArchiveOpen(false)} />
-        )}
-        {replay && (
+        {(replay || replayLoading || replayError) && (
           <section className="replay-controls" aria-label="Recording playback">
-            <strong>REPLAY · {replay.title}</strong>
-            <span>Saved notes & responses · no model calls</span>
+            <strong>REPLAY · {playlist.current[trackIndex]?.prompt.split('\n')[0]}</strong>
+            <span>
+              Song {trackIndex + 1} of {playlist.current.length} · no model calls
+            </span>
+            {replayLoading && <span role="status">Loading song and instruments…</span>}
+            {replayError && <span role="alert">{replayError}</span>}
             <button
+              disabled={trackIndex === 0}
+              onClick={() => void playRecording(playlist.current, trackIndex - 1)}
+            >
+              Previous song
+            </button>
+            <button
+              disabled={trackIndex + 1 >= playlist.current.length}
+              onClick={() => void playRecording(playlist.current, trackIndex + 1)}
+            >
+              Next song
+            </button>
+            {replayError && (
+              <button onClick={() => void playRecording(playlist.current, trackIndex)}>
+                Retry song
+              </button>
+            )}
+            {replay && !replayLoading && !replayError && (
+              <>
+                <span>
+                  {streaming
+                    ? 'Streaming MP3 · synchronized stage'
+                    : 'Audio preparing · playing saved notes'}
+                </span>
+                <button
+                  onClick={() => {
+                    if (streaming) {
+                      if (
+                        paused &&
+                        streamAudio.current.position() >= replaySource.current!.endedAt!
+                      ) {
+                        seekReplay(replaySource.current!.startedAt);
+                        return;
+                      }
+                      if (paused)
+                        void streamAudio.current.media
+                          .play()
+                          .then(() => setPaused(false))
+                          .catch(() => setReplayError('Audio could not resume.'));
+                      else {
+                        streamAudio.current.media.pause();
+                        setPaused(true);
+                      }
+                      return;
+                    }
+                    if (paused) {
+                      const original = replaySource.current!;
+                      const position = pausedAt.current - (replay.startedAt - original.startedAt);
+                      seekReplay(
+                        position >= (original.endedAt ?? Infinity)
+                          ? original.frames[0].at
+                          : position,
+                      );
+                    } else {
+                      pausedAt.current = Date.now();
+                      audio.current.stop();
+                      setPaused(true);
+                    }
+                  }}
+                >
+                  {paused ? 'Resume replay' : 'Pause replay'}
+                </button>
+                <label>
+                  {`${Math.floor(Math.max(0, currentTime - replay.startedAt) / 60000)}:${String(Math.floor(Math.max(0, currentTime - replay.startedAt) / 1000) % 60).padStart(2, '0')}`}{' '}
+                  /{' '}
+                  {`${Math.floor((replay.endsAt - replay.startedAt) / 60000)}:${String(Math.floor((replay.endsAt - replay.startedAt) / 1000) % 60).padStart(2, '0')}`}
+                  <input
+                    aria-label="Seek recording"
+                    type="range"
+                    min={0}
+                    max={Math.max(1, replay.endsAt - replay.startedAt)}
+                    value={Math.max(
+                      0,
+                      Math.min(replay.endsAt - replay.startedAt, currentTime - replay.startedAt),
+                    )}
+                    onChange={(e) =>
+                      seekReplay(replaySource.current!.startedAt + Number(e.target.value))
+                    }
+                  />
+                </label>
+              </>
+            )}
+            <button onClick={returnLive}>Return to live</button>
+            <button
+              disabled={traceBusy || traceCursor === null}
               onClick={() => {
-                if (paused) {
-                  const original = replaySource.current!;
-                  const position = pausedAt.current - (replay.startedAt - original.startedAt);
-                  seekReplay(
-                    position >= (original.endedAt ?? Infinity) ? original.frames[0].at : position,
-                  );
-                } else {
-                  pausedAt.current = Date.now();
-                  audio.current.stop();
-                  setPaused(true);
-                }
+                setConsoleOpen(true);
+                void loadReplayTraces();
               }}
             >
-              {paused ? 'Resume replay' : 'Pause replay'}
+              {traceBusy
+                ? 'Loading decisions…'
+                : traceCursor === null
+                  ? 'All decision pages read'
+                  : 'Load decision page'}
             </button>
-            <label>
-              Seek recording
-              <input
-                aria-label="Seek recording"
-                type="range"
-                min={0}
-                max={Math.max(1, replay.endsAt - replay.startedAt)}
-                value={Math.max(
-                  0,
-                  Math.min(replay.endsAt - replay.startedAt, currentTime - replay.startedAt),
-                )}
-                onChange={(e) =>
-                  seekReplay(replaySource.current!.startedAt + Number(e.target.value))
-                }
-              />
-            </label>
-            <button onClick={returnLive}>Return to live</button>
           </section>
+        )}
+        {archiveOpen && (
+          <ArchivePanel api={API} onPlay={playRecording} onClose={() => setArchiveOpen(false)} />
         )}
         {!replay && (
           <section className="prompt-panel">
@@ -642,14 +890,15 @@ export default function App() {
                 <Stage
                   frame={activeFrame}
                   upcoming={upcomingFrame}
-                  levels={levels}
+                  levels={streaming ? undefined : levels}
                   spectrum={spectrum}
-                  traces={replay ? room?.traces.filter((t) => t.at <= currentTime) : room?.traces}
+                  traces={replay ? replayCues : room?.traces}
+                  onDecisionStream={setNeedsDecisions}
                   playing={running && !!frame && !paused}
 
                   reduced={reduced}
                   onSelect={selectRole}
-                  serverOffset={replay ? (paused ? pausedAt.current - now : 0) : offset}
+                  serverOffset={replay ? currentTime - now : offset}
                   loadingAudio={audioLoading}
                 />
               </Suspense>
@@ -744,6 +993,7 @@ export default function App() {
                     const value = Number(e.target.value);
                     setVolume(value);
                     audio.current.setVolume(value);
+                    streamAudio.current.media.volume = value;
                   }}
                 />
               </div>
@@ -835,18 +1085,22 @@ export default function App() {
                 );
               })}
             </section>
-            <Mixer
-              audio={audio.current}
-              frame={activeFrame}
-              beat={frame ? ((currentTime - frame.at) * frame.bpm) / 60000 : 0}
-            />
-            <MasterDesk
-              audio={audio.current}
-              frame={activeFrame}
-              referenceActive={referenceRoom === room?.id && sound}
-              canReference={!replay && running && room.mode === 'live' && sound}
-              onReference={() => setReferenceRoom(room!.id)}
-            />
+            {!streaming && (
+              <>
+                <Mixer
+                  audio={audio.current}
+                  frame={activeFrame}
+                  beat={frame ? ((currentTime - frame.at) * frame.bpm) / 60000 : 0}
+                />
+                <MasterDesk
+                  audio={audio.current}
+                  frame={activeFrame}
+                  referenceActive={referenceRoom === room?.id && sound}
+                  canReference={!replay && running && room.mode === 'live' && sound}
+                  onReference={() => setReferenceRoom(room!.id)}
+                />
+              </>
+            )}
             <details className="composition-contract">
               <summary>What does Jev actually control?</summary>
               <p>
