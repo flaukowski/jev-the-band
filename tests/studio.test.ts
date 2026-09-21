@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { directJam } from '../server/director.js';
+import { DIRECTOR_TIMEOUT_MS, directJam } from '../server/director.js';
 import { bootstrapRequest } from '../server/jev.js';
 import { engineerRequest, readEngineer } from '../server/engineer.js';
 import {
@@ -35,6 +35,10 @@ const concept: SonicConcept = {
     sound: 'Warm and clear with soft room ambience',
   })),
 };
+
+test('the sonic director allows slow valid Luna responses up to 45 seconds', () => {
+  assert.equal(DIRECTOR_TIMEOUT_MS, 45_000);
+});
 
 test('the director is one real structured LLM request, distinctly labeled, with validated chapters and no secret disclosure', async (t) => {
   let calls = 0;

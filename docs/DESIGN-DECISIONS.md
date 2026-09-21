@@ -447,6 +447,12 @@ User requirement: archive replay in a modal, with a day selector, one compact ro
 
 **User requirement:** the browser title is exactly `Jev the Band`. Remove the crowd-audio attribution from the title; audience-audio provenance remains documented in the appropriate product and licensing surfaces.
 
+## 2026-09-21 — Allow Luna time to finish
+
+**User requirement:** investigate recurring `Sonic director unavailable` reports, increase the timeout, merge the fix to the production branch and ship it.
+
+**Production evidence and decision:** the stored archive contained 19 Luna director calls: 12 ready and seven failed. Six failures completed at 25,003–25,061 ms, matching the application's 25-second abort, while successful structured responses commonly took 19–25 seconds and reached 24,771 ms. The OpenRouter credential and director configuration were present and successful calls used the same deployment. Increase the one-shot director timeout to 45 seconds, leaving its single-request behavior, strict schema validation and raw-prompt fallback unchanged. This trades up to 20 seconds of additional startup or queued-song planning latency for materially more room for the configured model to return a valid brief; it does not add retries or alter Jev's performance-decision timing.
+
 ## 2026-09-21 — The groove is the theme: drum moves
 
 **User questions and request:** is there a premade set of drum grooves; why does the kit go to a tuplet feel every eight bars; expand Kit's palette while keeping it groove-oriented, with theme and variation, fills and beat drops; keep the tuplet feel as one option; keep previous songs playable.
