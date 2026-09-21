@@ -124,12 +124,9 @@ app.post('/api/room', (req, res) => {
     return;
   }
   if (parsed.data.mode === 'live' && !provider.apiKey) {
-    res
-      .status(503)
-      .json({
-        error:
-          'The host needs to configure the selected Jev provider key. Rehearsal works offline.',
-      });
+    res.status(503).json({
+      error: 'The host needs to configure the selected Jev provider key. Rehearsal works offline.',
+    });
     return;
   }
   if (room) recentOpeners.push(room.state.opener);

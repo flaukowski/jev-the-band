@@ -44,7 +44,7 @@ export const choice = (
       { ...(values as Record<string, string>) },
 });
 export function requestFor(role: Role, room: Snapshot, phrase: number, model: string): JevRequest {
-  const elapsed = Math.max(0, (Date.now() - room.startedAt) / 1000);
+  const elapsed = Math.max(0, (Date.now() - (room.themeStartedAt ?? room.startedAt)) / 1000);
   const state = {
     persona: personas[role],
     phrase,

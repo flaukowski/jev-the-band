@@ -51,7 +51,7 @@ export const heatedFields = [
 // Personas get bored at different speeds: the guitarist first, the rhythm section last.
 const restlessness = { guitar: 1.25, keys: 1.1, bass: 0.8, drums: 0.7 } as const;
 export function noveltyPressure(own: Part | undefined, room: Snapshot, now = Date.now()): number {
-  const elapsed = Math.max(0, (now - room.startedAt) / 1000);
+  const elapsed = Math.max(0, (now - (room.themeStartedAt ?? room.startedAt)) / 1000);
   const stale = own?.performance?.staleChunks ?? 0;
   // Two bars per chunk: about 0.22 after one unchanged chunk, 0.63 after four, 0.86 after eight.
   const staleness = 1 - Math.exp((-stale * (own ? restlessness[own.role] : 1)) / 4);
@@ -183,7 +183,7 @@ export function fatigue(
 ): Record<string, string> {
   const retired: Record<string, string> = {};
   if (!own) return retired;
-  const warmth = 0.6 + 0.4 * clamp((now - room.startedAt) / 180000, 0, 1);
+  const warmth = 0.6 + 0.4 * clamp((now - (room.themeStartedAt ?? room.startedAt)) / 180000, 0, 1);
   for (const [field, limit] of Object.entries(patience)) {
     const history = own.performance?.recentChoices?.[field] ?? [];
     const incumbent = history.at(-1);

@@ -263,6 +263,8 @@ export interface Part {
   repeated: number;
   source: 'jev' | 'rehearsal' | 'fallback';
   updatedAtFrame?: number;
+  /** The harness silenced this part because the wind-down ran out of time. Not a Jev choice. */
+  cutForNextSong?: boolean;
   continued?: boolean;
   phraseFormat?: 'events-v1';
   tonalIntent?: { root: number; mode: string };
@@ -302,7 +304,10 @@ export interface Snapshot {
   themeId?: string;
   themeStartedAt?: number;
   soloInvitation?: { role: Musician; urgency: number; required: boolean };
-  themeTransition?: boolean;
+  /** First frame of the current song; musical time restarts there. */
+  themeFrame0?: number;
+  /** Set while the band is closing the current song for a queued one. */
+  windDown?: { cueId: string; startFrame: number; framesIn: number };
   /** True when a player may lead the band to a new key at this boundary. */
   keyLeadOpen?: boolean;
   /** Two-bar frames since the band last changed key or mode. */

@@ -410,3 +410,9 @@ ended, do it
 ```
 
 The production jam had ended and the release was already live; this authorizes recording it in the verification log.
+
+## 2026-09-20 — Queued songs end naturally and start fresh
+
+```text
+transitions dont work as intended... jev seems too stuck on the last song. maybe when the user queues a song description, it cues the jevs to end the jam naturally, when all instruments are silent the start the next sequience as if it was the first submitted prompt (no residual memory from the previous prompts
+```
