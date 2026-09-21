@@ -418,6 +418,7 @@ export default function App() {
     };
   }, []);
   function returnLive() {
+    setArchiveOpen(false);
     ++replayRequest.current;
     setArchiveMode(false);
     archiveFetch.current?.abort();
@@ -538,6 +539,104 @@ export default function App() {
     setSelected(role);
     setConsoleOpen(true);
   }
+  const replayControls = (replay || replayLoading || replayError) && (
+    <section className="replay-controls" aria-label="Recording playback">
+      <strong>REPLAY · {playlist.current[trackIndex]?.prompt.split('\n')[0]}</strong>
+      <span>
+        Song {trackIndex + 1} of {playlist.current.length} · no model calls
+      </span>
+      {replayLoading && <span role="status">Loading song and instruments…</span>}
+      {replayError && <span role="alert">{replayError}</span>}
+      <button
+        disabled={trackIndex === 0}
+        onClick={() => void playRecording(playlist.current, trackIndex - 1)}
+      >
+        Previous song
+      </button>
+      <button
+        disabled={trackIndex + 1 >= playlist.current.length}
+        onClick={() => void playRecording(playlist.current, trackIndex + 1)}
+      >
+        Next song
+      </button>
+      {replayError && (
+        <button onClick={() => void playRecording(playlist.current, trackIndex)}>Retry song</button>
+      )}
+      {replay && !replayLoading && !replayError && (
+        <>
+          <span>
+            {streaming
+              ? 'Streaming MP3 · synchronized stage'
+              : 'Audio preparing · playing saved notes'}
+          </span>
+          <button
+            onClick={() => {
+              if (streaming) {
+                if (paused && streamAudio.current.position() >= replaySource.current!.endedAt!) {
+                  seekReplay(replaySource.current!.startedAt);
+                  return;
+                }
+                if (paused)
+                  void streamAudio.current.media
+                    .play()
+                    .then(() => setPaused(false))
+                    .catch(() => setReplayError('Audio could not resume.'));
+                else {
+                  streamAudio.current.media.pause();
+                  setPaused(true);
+                }
+                return;
+              }
+              if (paused) {
+                const original = replaySource.current!;
+                const position = pausedAt.current - (replay.startedAt - original.startedAt);
+                seekReplay(
+                  position >= (original.endedAt ?? Infinity) ? original.frames[0].at : position,
+                );
+              } else {
+                pausedAt.current = Date.now();
+                audio.current.stop();
+                setPaused(true);
+              }
+            }}
+          >
+            {paused ? 'Resume replay' : 'Pause replay'}
+          </button>
+          <label>
+            {`${Math.floor(Math.max(0, currentTime - replay.startedAt) / 60000)}:${String(Math.floor(Math.max(0, currentTime - replay.startedAt) / 1000) % 60).padStart(2, '0')}`}{' '}
+            /{' '}
+            {`${Math.floor((replay.endsAt - replay.startedAt) / 60000)}:${String(Math.floor((replay.endsAt - replay.startedAt) / 1000) % 60).padStart(2, '0')}`}
+            <input
+              aria-label="Seek recording"
+              type="range"
+              min={0}
+              max={Math.max(1, replay.endsAt - replay.startedAt)}
+              value={Math.max(
+                0,
+                Math.min(replay.endsAt - replay.startedAt, currentTime - replay.startedAt),
+              )}
+              onChange={(e) => seekReplay(replaySource.current!.startedAt + Number(e.target.value))}
+            />
+          </label>
+        </>
+      )}
+      <button onClick={returnLive}>Return to live</button>
+      <button
+        disabled={traceBusy || traceCursor === null}
+        onClick={() => {
+          setArchiveOpen(false);
+          setConsoleOpen(true);
+          void loadReplayTraces();
+        }}
+      >
+        {traceBusy
+          ? 'Loading decisions…'
+          : traceCursor === null
+            ? 'All decision pages read'
+            : 'Load decision page'}
+      </button>
+    </section>
+  );
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -551,7 +650,10 @@ export default function App() {
           ONE LONG, STRANGE JAM.
         </div>
         <nav>
-          <button className="text-button" onClick={() => setArchiveOpen(!archiveOpen)}>
+          <button
+            className="text-button archive-toggle"
+            onClick={() => setArchiveOpen(!archiveOpen)}
+          >
             Jtb archive
           </button>
           <button className="text-button" onClick={() => setAbout(true)}>
@@ -579,114 +681,14 @@ export default function App() {
             {archiveMode ? 'ARCHIVE PLAYER' : connected ? 'STAGE CONNECTED' : 'CONNECTING TO STAGE'}
           </div>
         </div>
-        {(replay || replayLoading || replayError) && (
-          <section className="replay-controls" aria-label="Recording playback">
-            <strong>REPLAY · {playlist.current[trackIndex]?.prompt.split('\n')[0]}</strong>
-            <span>
-              Song {trackIndex + 1} of {playlist.current.length} · no model calls
-            </span>
-            {replayLoading && <span role="status">Loading song and instruments…</span>}
-            {replayError && <span role="alert">{replayError}</span>}
-            <button
-              disabled={trackIndex === 0}
-              onClick={() => void playRecording(playlist.current, trackIndex - 1)}
-            >
-              Previous song
-            </button>
-            <button
-              disabled={trackIndex + 1 >= playlist.current.length}
-              onClick={() => void playRecording(playlist.current, trackIndex + 1)}
-            >
-              Next song
-            </button>
-            {replayError && (
-              <button onClick={() => void playRecording(playlist.current, trackIndex)}>
-                Retry song
-              </button>
-            )}
-            {replay && !replayLoading && !replayError && (
-              <>
-                <span>
-                  {streaming
-                    ? 'Streaming MP3 · synchronized stage'
-                    : 'Audio preparing · playing saved notes'}
-                </span>
-                <button
-                  onClick={() => {
-                    if (streaming) {
-                      if (
-                        paused &&
-                        streamAudio.current.position() >= replaySource.current!.endedAt!
-                      ) {
-                        seekReplay(replaySource.current!.startedAt);
-                        return;
-                      }
-                      if (paused)
-                        void streamAudio.current.media
-                          .play()
-                          .then(() => setPaused(false))
-                          .catch(() => setReplayError('Audio could not resume.'));
-                      else {
-                        streamAudio.current.media.pause();
-                        setPaused(true);
-                      }
-                      return;
-                    }
-                    if (paused) {
-                      const original = replaySource.current!;
-                      const position = pausedAt.current - (replay.startedAt - original.startedAt);
-                      seekReplay(
-                        position >= (original.endedAt ?? Infinity)
-                          ? original.frames[0].at
-                          : position,
-                      );
-                    } else {
-                      pausedAt.current = Date.now();
-                      audio.current.stop();
-                      setPaused(true);
-                    }
-                  }}
-                >
-                  {paused ? 'Resume replay' : 'Pause replay'}
-                </button>
-                <label>
-                  {`${Math.floor(Math.max(0, currentTime - replay.startedAt) / 60000)}:${String(Math.floor(Math.max(0, currentTime - replay.startedAt) / 1000) % 60).padStart(2, '0')}`}{' '}
-                  /{' '}
-                  {`${Math.floor((replay.endsAt - replay.startedAt) / 60000)}:${String(Math.floor((replay.endsAt - replay.startedAt) / 1000) % 60).padStart(2, '0')}`}
-                  <input
-                    aria-label="Seek recording"
-                    type="range"
-                    min={0}
-                    max={Math.max(1, replay.endsAt - replay.startedAt)}
-                    value={Math.max(
-                      0,
-                      Math.min(replay.endsAt - replay.startedAt, currentTime - replay.startedAt),
-                    )}
-                    onChange={(e) =>
-                      seekReplay(replaySource.current!.startedAt + Number(e.target.value))
-                    }
-                  />
-                </label>
-              </>
-            )}
-            <button onClick={returnLive}>Return to live</button>
-            <button
-              disabled={traceBusy || traceCursor === null}
-              onClick={() => {
-                setConsoleOpen(true);
-                void loadReplayTraces();
-              }}
-            >
-              {traceBusy
-                ? 'Loading decisions…'
-                : traceCursor === null
-                  ? 'All decision pages read'
-                  : 'Load decision page'}
-            </button>
-          </section>
-        )}
+        {!archiveOpen && replayControls}
         {archiveOpen && (
-          <ArchivePanel api={API} onPlay={playRecording} onClose={() => setArchiveOpen(false)} />
+          <ArchivePanel
+            api={API}
+            onPlay={playRecording}
+            onClose={() => setArchiveOpen(false)}
+            player={replayControls}
+          />
         )}
         {!replay && (
           <section className="prompt-panel">

@@ -570,3 +570,8 @@ ship it all to prod once its ready
 ```text
 show (see through) chat in full screen mode so you can chat while watching the feed
 ```
+
+
+## 2026-09-20 — Compact archive modal
+
+User: "replay needs to be a modal; select day, one row pers song so you can fit more on a page, (max 20) and hover to see full text for truncated descriptions. ship to prod"
