@@ -4,16 +4,18 @@ import type { Signals } from './signals';
 import { Amp, sharedAmpTextures } from './strings';
 import { banner as bannerArt, grille, softDot, stageDeck, weave } from './textures';
 import { box, cyl, damp, mergeStatic, mesh } from './util';
-import { CROWD_DENSITY, GROUND, terrainHeight } from './crowdfield';
+import { CROWD_DENSITY, GROUND, hillHeight, terrainHeight } from './crowdfield';
 import { NOISE, Wall, type WallContext } from './wall';
 import type { Atmosphere } from './weather';
 
 const groundVertex = /* glsl */ `
+attribute float aHill;
+uniform float uHills;
 varying vec3 vWorld;
 varying float vDensity, vDist;
 ${CROWD_DENSITY}
 void main(){
-  vec4 w = modelMatrix * vec4(position, 1.0);
+  vec4 w = modelMatrix * vec4(position + vec3(0.0, aHill * uHills, 0.0), 1.0);
   vWorld = w.xyz;
   vDensity = crowdDensity(w.xz);
   vec4 mv = viewMatrix * w;
@@ -399,6 +401,7 @@ export class Venue {
         uEnergy: { value: 0 },
         uWet: { value: 0 },
         uNight: { value: 1 },
+        uHills: { value: 1 },
         uFogDensity: { value: 0.012 },
         uPalA: { value: new THREE.Color() },
         uAmbient: { value: new THREE.Color() },
@@ -411,8 +414,12 @@ export class Venue {
     const fieldGeo = new THREE.PlaneGeometry(620, 620, lowPower ? 80 : 160, lowPower ? 80 : 160);
     fieldGeo.rotateX(-Math.PI / 2);
     const fieldPos = fieldGeo.attributes.position;
-    for (let i = 0; i < fieldPos.count; i++)
-      fieldPos.setY(i, terrainHeight(fieldPos.getX(i), fieldPos.getZ(i)) - GROUND);
+    const fieldHills = new Float32Array(fieldPos.count);
+    for (let i = 0; i < fieldPos.count; i++) {
+      fieldPos.setY(i, terrainHeight(fieldPos.getX(i), fieldPos.getZ(i), 0) - GROUND);
+      fieldHills[i] = hillHeight(fieldPos.getX(i), fieldPos.getZ(i));
+    }
+    fieldGeo.setAttribute('aHill', new THREE.BufferAttribute(fieldHills, 1));
     mesh(scene, fieldGeo, this.ground, 0, GROUND, 0);
 
     // Haze: big soft sprites that catch whatever colour is in the air.
@@ -455,6 +462,7 @@ export class Venue {
     dt: number,
     air: Atmosphere,
     context: WallContext,
+    hills: number,
   ) {
     const live = sig.reduced ? 0 : 1;
     const dark = sig.lighting.wash === 'blackout' ? 0.12 : 1;
@@ -472,6 +480,7 @@ export class Venue {
     (g.uPalA.value as THREE.Color).copy(palette[0]);
     g.uWet.value = air.wet;
     g.uNight.value = air.night;
+    g.uHills.value = hills;
     g.uFogDensity.value = air.fogDensity;
     (g.uFogColor.value as THREE.Color).copy(air.fogColor);
     (g.uAmbient.value as THREE.Color).copy(air.ambient);
