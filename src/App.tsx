@@ -36,6 +36,8 @@ import {
 } from '../shared/music';
 import { BandAudio } from './audio';
 import { Mixer } from './Mixer';
+import { Chat } from './Chat';
+import type { ChatMessage } from '../shared/chat';
 import { MasterDesk } from './MasterDesk';
 import { ConceptCard } from './ConceptCard';
 import './styles.css';
@@ -89,9 +91,8 @@ export default function App() {
   const [description, setDescription] = useState('');
   const [nextDescription, setNextDescription] = useState('');
   const [connected, setConnected] = useState(false);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
   const [liveAvailable, setLiveAvailable] = useState(false);
-  const [hostRequired, setHostRequired] = useState(false);
-  const [controller, setController] = useState('');
   const [prompt, setPrompt] = useState('Somewhere between the last train and the sunrise');
   const [nextPrompt, setNextPrompt] = useState('');
   const [chosenMode, setChosenMode] = useState<'live' | 'rehearsal' | null>(null);
@@ -151,7 +152,6 @@ export default function App() {
         setOffset(off);
         if (!replaySource.current) audio.current.sync(off);
         setLiveAvailable(data.liveAvailable);
-        setHostRequired(data.hostAccessRequired);
         setHealthReady(true);
       } catch {
         if (mounted) setConnected(false);
@@ -159,10 +159,16 @@ export default function App() {
     };
     void health();
     const syncTimer = window.setInterval(health, 30000);
-    const stream = archiveMode ? null : new EventSource(`${API}/api/events`);
+    const stream = new EventSource(`${API}/api/events${archiveMode ? '?chatOnly=1' : ''}`);
     if (stream) {
       stream.onopen = () => setConnected(true);
       stream.onerror = () => setConnected(false);
+      stream.addEventListener('chat', (event) => {
+        const lines = JSON.parse((event as MessageEvent).data) as ChatMessage[];
+        setChat((prev) =>
+          [...prev.filter((m) => !lines.some((l) => l.id === m.id)), ...lines].slice(-60),
+        );
+      });
       stream.addEventListener('state', (event) => {
         const next = JSON.parse((event as MessageEvent).data) as Snapshot | null;
         setRoom((previous) =>
@@ -213,15 +219,12 @@ export default function App() {
       if (levels)
         void fetch(`${API}/api/room/levels`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ roomId: room.id, levels }),
         }).catch(() => {});
     }, 2500);
     return () => clearInterval(timer);
-  }, [replay, running, room?.id, room?.mode, referenceRoom, sound, controller, replayLoading]);
+  }, [replay, running, room?.id, room?.mode, referenceRoom, sound, replayLoading]);
   useEffect(() => {
     if (!about) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -280,10 +283,7 @@ export default function App() {
       setAudioLoading(false);
       const response = await fetch(`${API}/api/room`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: prompt, description, mode }),
       });
       const data = await response.json();
@@ -300,11 +300,8 @@ export default function App() {
   }
   async function stop() {
     try {
-      const response = await fetch(`${API}/api/room/stop`, {
-        method: 'POST',
-        headers: controller ? { Authorization: `Bearer ${controller}` } : {},
-      });
-      if (!response.ok) throw new Error('Host access is required to end this jam.');
+      const response = await fetch(`${API}/api/room/stop`, { method: 'POST' });
+      if (!response.ok) throw new Error('Could not end jam');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not end jam');
     }
@@ -316,10 +313,7 @@ export default function App() {
     try {
       const response = await fetch(`${API}/api/room/queue`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(controller ? { Authorization: `Bearer ${controller}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomId: room.id, title: nextPrompt, description: nextDescription }),
       });
       const result = await response.json();
@@ -849,18 +843,6 @@ export default function App() {
                   </div>
                 </>
               )}
-              {hostRequired && (
-                <label className="host-key">
-                  Host access{' '}
-                  <input
-                    type="password"
-                    autoComplete="off"
-                    value={controller}
-                    onChange={(e) => setController(e.target.value)}
-                    placeholder="Controller token · kept in memory"
-                  />
-                </label>
-              )}
             </div>
           </section>
         )}
@@ -1016,6 +998,7 @@ export default function App() {
                 />
               </div>
             </div>
+            {!replay && <Chat api={API} messages={chat} />}
             <section className="players" aria-label="Meet the band">
               {roles.map((role, index) => {
                 const person = personas[role];
@@ -1113,13 +1096,7 @@ export default function App() {
                   audio={audio.current}
                   frame={activeFrame}
                   referenceActive={referenceRoom === room?.id && sound}
-                  canReference={
-                    !replay &&
-                    running &&
-                    room.mode === 'live' &&
-                    sound &&
-                    (!hostRequired || !!controller)
-                  }
+                  canReference={!replay && running && room.mode === 'live' && sound}
                   onReference={() => setReferenceRoom(room!.id)}
                 />
               </>

@@ -546,3 +546,21 @@ User: "throws recording could not load plus no player / skip to next song plus n
 ## 2026-09-20 — Streamed archive audio and synchronized visuals
 
 User: "implement the playback method you currently recoomend, i think the decision log streaming probably might be needed for the visuals to work...."
+
+## 2026-09-20 — Open room and crowd chat
+
+```text
+take away the need for controller key. e.g. let anyone queue a song with or without key
+```
+
+```text
+also sanitize the input so there's no injection risk to the db or w/e
+```
+
+```text
+ad basic chat (random funky user names in the ai/jamband pun theme)
+```
+
+```text
+ship it all to prod once its ready
+```

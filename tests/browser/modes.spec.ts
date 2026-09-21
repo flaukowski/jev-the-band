@@ -8,7 +8,6 @@ async function stage(page: Page, available: boolean, room: unknown = null) {
         ok: true,
         serverTime: Date.now(),
         liveAvailable: available,
-        hostAccessRequired: false,
       },
     }),
   );
@@ -72,7 +71,6 @@ test('a shared running demo reports its actual mode even when the next-jam defau
         ok: true,
         serverTime: Date.now(),
         liveAvailable: true,
-        hostAccessRequired: false,
       },
     }),
   );

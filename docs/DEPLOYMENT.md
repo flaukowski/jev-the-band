@@ -26,21 +26,20 @@ References: [Railway Express guide](https://docs.railway.com/guides/express), [V
 | `DIRECTOR_MODEL` | Default `openai/gpt-5.6-luna` |
 | `DIRECTOR_ENABLED` | `0` disables Luna; absent OpenRouter key also disables it |
 | `HOST` / `PORT` | Container: `0.0.0.0` / `4310` |
-| `CONTROLLER_TOKEN` | Random host token, at least 24 characters; protects every POST |
 | `STAGE_ORIGIN` | Exact public HTTPS origin, including scheme |
 | `MAX_JEV_REQUESTS` | Per-jam attempt ceiling, default/hard maximum 6000 |
 | `BUILD_REVISION` | Full committed SHA for CLI uploads; Git-linked builds expose `RAILWAY_GIT_COMMIT_SHA` |
 
 TypeSafe-only music needs no OpenRouter key but has no Luna brief. Use dedicated production credentials. No secrets in build arguments or `VITE_` variables. Audio-generation credentials are unnecessary at runtime.
 
-The host enters the controller token in the stage. It stays in page memory, never localStorage or exports. Spectators need no token and cannot start, queue or stop a jam. Public read routes intentionally expose themes and recent decisions: use public material in public performances.
+The room is open: anyone can start, queue or stop a jam without a token. Song text is stripped of control and invisible characters, stored through parameterized queries, and start/queue/stop requests are paced to six a minute per address. Public read routes intentionally expose themes and recent decisions: use public material in public performances.
 
 The Docker build includes `public/`, so all instrument samples ship. The final image copies only runtime code, dependencies and compiled assets. Docker/Railway excludes `.env*`, private artifacts, local agent settings and docs from build context. Full private prompts stay out of deployment; approved public samples are intentionally downloadable.
 
 ## Release procedure
 
 1. Verify Git state, local checks, production build and secret scan. Keep Actions disabled unless requested otherwise.
-2. Configure the dedicated provider key, random host token, exact origin and one replica. Write secrets through stdin/the hosting secret store without printing values.
+2. Configure the dedicated provider key, exact origin and one replica. Write secrets through stdin/the hosting secret store without printing values.
 3. Make an explicit bounded provider smoke check. Health's `liveAvailable` reports key presence, not successful authentication.
 4. Upload committed source with the Docker builder and `/api/health` check; set `BUILD_REVISION`. `railway.json` records one replica and bounded failure restarts.
 5. Verify actual HTTPS health version/revision, served HTML and its JS/CSS, sample manifest and audio. Build success alone is not release proof.
@@ -56,14 +55,14 @@ npm run build
 npm start
 ```
 
-Local default: http://127.0.0.1:4310. Public hosting needs HTTPS, unbuffered SSE, controller token and exact origin.
+Local default: http://127.0.0.1:4310. Public hosting needs HTTPS, unbuffered SSE and exact origin.
 
 A Vercel or Sites frontend can use public `VITE_API_BASE_URL` pointing to Railway, with the backend origin set to the exact frontend origin. Browsers cannot use a hosting private-network URL. Check the actual frontend's WebGL, audio gesture, SSE, cross-origin and embed policies. This split remains unverified.
 
 ## Larger-venue limits
 
 - Room/replay state is not durable; no restart recovery.
-- A bearer token suits one trusted operator; multi-host login needs more work.
+- Controls are open to every visitor; the provider request cap and per-address pacing are the only spend limits.
 - The per-jam request cap is not a dollar/day budget; use provider-side spend limits.
 - SSE caps at 200 viewers with bounded buffers; that is not a load-tested capacity guarantee.
 - Browser sound/crowd waveforms are not a sample-perfect broadcast; a server mix could improve mobile/background playback.
