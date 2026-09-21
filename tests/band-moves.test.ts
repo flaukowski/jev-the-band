@@ -337,3 +337,53 @@ test('fallback configuration needs both keys and can be switched off', async () 
   assert.equal(jevConfig({ ...both, JEV_FALLBACK: '0' }).fallback, undefined);
   assert.equal(jevConfig({ TYPESAFE_API_KEY: 'a' }).fallback, undefined);
 });
+
+test('End jam lands the song: the band winds down to silence before the room closes, and a second press cuts', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000000 });
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const request = JSON.parse(init.body as string);
+    const name = request.state.persona?.name ?? request.state.context?.persona?.name;
+    const role: Musician =
+      name === 'JUNE' ? 'keys' : name === 'KIT' ? 'drums' : name === 'MOSS' ? 'bass' : 'guitar';
+    const trace = fixture(request, role, { opener: 'bass', bpm: '96' });
+    return new Response(JSON.stringify({ answers: trace.answers, usage: { cost: 0 } }));
+  });
+  const tick = async (seconds: number) => {
+    for (let s = 0; s < seconds; s++) {
+      t.mock.timers.tick(1000);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  };
+  const room = new Room('Land it', 'live', 'fixture', 'test', 6000);
+  const frames: NonNullable<Snapshot['frame']>[] = [];
+  room.on('state', (state) => {
+    if (state.frame && state.frame.id !== frames.at(-1)?.id)
+      frames.push(structuredClone(state.frame));
+  });
+  await room.start();
+  await tick(30);
+  room.endSong();
+  assert.equal(room.state.status, 'playing', 'no hard cut');
+  assert.equal(room.state.finishing, true);
+  await tick(60);
+  assert.equal(room.state.status, 'ended');
+  assert.equal(room.state.error, undefined);
+  const closing = frames.filter((f) => f.chapter === 'Bringing it home');
+  assert.ok(closing.length >= 3 && closing.length <= 6, `${closing.length} closing frames`);
+  assert.ok(
+    closing[0].parts.some((p) => p.notes.length),
+    'a played landing',
+  );
+  assert.ok(frames.at(-1)!.parts.every((p) => !p.notes.length && !p.cutForNextSong));
+
+  const second = new Room('Cut it', 'live', 'fixture', 'test', 6000);
+  await second.start();
+  await tick(30);
+  second.endSong();
+  second.endSong();
+  assert.equal(second.state.status, 'ended', 'a second press stops immediately');
+  const rehearsal = new Room('Demo', 'rehearsal', '');
+  rehearsal.state.status = 'playing';
+  rehearsal.endSong();
+  assert.equal(rehearsal.state.status, 'ended');
+});

@@ -31,7 +31,7 @@ For live music, configure either provider in the server's ignored `.env`:
 
 - Rook: sampled electric guitar, bends, strums and melodic leads. Moss: sampled fingered bass. June: independent piano, Rhodes, organ or synth-family voices per hand, at most five held notes per hand. Kit: drums with natural cymbal tails.
 - Each player has level, pan, mute, listening solo and an appropriate effects rig. Jev chooses effects by bar; manual overrides remain local. Patch controls gentle balance, room, compression and crowd mood, or you can take over.
-- Queue another prompt while playing for an eight-bar transition. Players develop their own phrases, negotiate tempo/harmony, and can overlap solos. Ending pressure grows after five minutes; ten minutes is the hard maximum.
+- Queue another prompt while playing: the band brings the current song to a natural close, falls silent, and starts the new one from nothing. Players develop their own phrases, negotiate tempo/harmony, and can overlap solos. Ending pressure grows after five minutes; ten minutes is the hard maximum.
 - Explore camera views, orbit/zoom, automatic direction, solo following, lens effects and reduced movement. Open **Under the hood** for provenance.
 
 The 162 bundled recordings are individual notes, not backing loops. Other voices use synthesis. The crowd uses 24 generated festival recordings: murmurs, cheers and applause, with an entrance on Start and manual sound-desk cues. These free-plan ElevenLabs recordings are noncommercial with attribution, separate from the MIT code license; see [audience credits](public/audience/CREDITS.md). Musical taste, guitar realism and long-run variation remain listening and tuning goals, not guarantees.

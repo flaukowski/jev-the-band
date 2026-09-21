@@ -162,3 +162,11 @@ Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.js
 - Railway deployment `a61fef75-fc82-4ecc-8328-f98b5fe34e9b` built from a clean checkout of that commit. HTTPS health reports v0.8.0, that revision, the Postgres archive writable, TypeSafe `jev-1.13.0` and protected host actions. The served bundle contains the `song title` picture and its lettering; an anonymous POST to `/api/room` returns 401; the sample manifest is served.
 - Not verified on this release: a production jam showing the title card, Safari/Firefox, phones.
 - About a minute and a half later a separate release (PR #9, v0.8.1, `6f6b7ef525950d34d99d0a93bc5b3b5112db084b`, deployment `2cd80498-7b0a-43c0-963b-e8ce157f6cbe`) replaced this one. That commit descends from the title merge, and the bundle served afterwards still contains the `song title` picture and its lettering.
+
+## 2026-09-20 — Queued songs end naturally and start fresh
+
+- `npm run check`: 77 tests pass, build clean. The scheduler test now proves a wind-down of several frames, a silent frame in which nobody was cut by the harness, a new opening decision (different opener and tempo), one-player start with staggered entrances, and a first request for the new song that contains no frames, own memory or elapsed time from the old one.
+- One explicit bounded live run, `npm run audit:transition` through direct TypeSafe (436 requests, no reported cost, no fallbacks shown in the frame log): a 70 BPM A minor blues was queued over at frame 6; wind-down began at frame 8, the keyboard resolved for three frames while the others had stopped, frame 11 was silent, and frame 12 began the new song at 118 BPM in D mixolydian with the keyboard alone, then guitar, bass and drums one per boundary. That run let three players stop on the very first closing frame; the first closing frame now requires a played landing from everyone, and that adjustment has unit coverage but no live run.
+- Not verified: listening, browser playback across the tempo change, several queued songs in a row, and the hosted deployment.
+
+- End jam: 78 tests pass. A mocked live room keeps playing after End jam, plays a landing, closes three to six frames later with every part silent by choice and no error; a second press and demo mode stop at once. No live or browser run of this control yet.

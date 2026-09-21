@@ -48,7 +48,7 @@ Ending pressure rises after five minutes. Two recent ending votes can end the ja
 
 Guitar and keys enter a dedicated Jev solo plan, with an 8–32-bar duration sampled from its mood-conditioned probabilities, statement/development/resolution memory, and fresh note decisions for every two-bar chunk. Lead attacks must span both bars, vary pitches and repeated timing, and release the previous lead at the next attack; keyboard left-hand accompaniment can sustain. A solo opportunity becomes compulsory around 180 seconds without a new solo, subject to enough remaining jam time and successful provider calls. These constraints improve the available composition behavior; they are not a listening-quality guarantee.
 
-The live prompt box queues up to four themes. Each gets a fresh optional LLM brief, using `openai/gpt-5.6-luna` by default. An eight-bar lead-in starts at the next two-bar boundary; later queued themes are spaced at least eight bars apart. At the target boundary all musicians receive the new theme and reset phrase/solo commitments while still hearing only performed peer notes. The room, request budget and ten-minute clock continue. A late or failed director falls back to the supplied theme text.
+The live prompt box queues up to four themes. Each gets a fresh optional LLM brief, using `openai/gpt-5.6-luna` by default. Once the current song has played 16 bars, the band winds it down by its own decisions (at most ten bars), and after a silent two-bar frame the next song starts through the first-song path: a fresh opening decision, one opener, staggered entrances and no memory of the earlier song. The room, request budget and ten-minute clock continue. A late or failed director falls back to the supplied theme text.
 
 ## Sound, rigs and stage
 

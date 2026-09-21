@@ -456,7 +456,7 @@ export default function App() {
                 {(running ? room.mode : mode) === 'rehearsal'
                   ? 'This is a procedural instrument demo. Its title is a label, not a musical prompt.'
                   : running
-                    ? 'Send the next theme whenever inspiration hits. An eight-bar lead-in begins at the next phrase boundary.'
+                    ? 'Send the next song whenever inspiration hits. The band brings this one to a natural close, falls silent, then starts the new song from nothing.'
                     : 'A title, a feeling, or a whole story. See where they take it.'}
               </p>
             </div>
@@ -466,7 +466,7 @@ export default function App() {
                   <div className="playing-controls">
                     <span className="current-prompt">“{themeTitle}”</span>
                     <button className="end-button" onClick={stop}>
-                      <Square size={15} /> End jam
+                      <Square size={15} /> {room.finishing ? 'Landing… press to cut' : 'End jam'}
                     </button>
                   </div>
                   {room.mode === 'live' && (
@@ -525,8 +525,12 @@ export default function App() {
                                         : 0),
                                   ),
                                 )}{' '}
-                                bars to transition ·{' '}
-                                {cue.director?.status === 'planning' ? 'shaping concept' : 'queued'}
+                                bars at most ·{' '}
+                                {room?.windDown?.cueId === cue.id
+                                  ? 'the band is bringing this song home'
+                                  : cue.director?.status === 'planning'
+                                    ? 'shaping concept'
+                                    : 'queued: starts fresh after a natural ending'}
                               </span>
                             </li>
                           ))}

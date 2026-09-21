@@ -21,7 +21,7 @@ import { directJam } from './director.js';
 import { defaultEngineerMix, type ChannelLevels } from '../shared/engineer.js';
 import { engineerRequest, readEngineer } from './engineer.js';
 import { continuingSolo, continuingPhrase } from './solo.js';
-import { nextThemeFrame } from '../shared/setlist.js';
+import { nextThemeFrame, minimumSongFrames, windDownFrames } from '../shared/setlist.js';
 import { sketchSolo } from './sketch.js';
 
 /** Eight two-bar frames: the shortest time one sky may stay up before Lux can change it. */
@@ -43,6 +43,86 @@ export class Room extends EventEmitter {
   private skyChangedAt = -SKY_DWELL_FRAMES;
   private measurement?: { levels: ChannelLevels; at: number };
   private sketchesRequested = 0;
+  private themeFrame0 = 0;
+  /**
+   * Begin a queued song exactly like a first song: a fresh opening decision, one opener,
+   * staggered entrances, and no musical memory of the song before it. The ten-minute lifetime,
+   * request budget, mix and lighting continue.
+   */
+  private async beginTheme(
+    cue: import('../shared/setlist.js').ThemeCue,
+    index: number,
+    at: number,
+  ) {
+    cue.appliedAt = at;
+    cue.atFrame = index;
+    this.windDown = undefined;
+    this.state.windDown = undefined;
+    this.themeFrame0 = index;
+    this.state.themeFrame0 = index;
+    this.state.themeId = cue.id;
+    this.state.themeStartedAt = at;
+    this.state.prompt = cue.prompt;
+    this.state.title = cue.prompt.split('\n')[0].slice(0, 80);
+    this.state.director = cue.director?.status === 'ready' ? cue.director : undefined;
+    this.state.soloInvitation = undefined;
+    this.state.soloSketches = undefined;
+    this.state.keyChange = undefined;
+    this.state.lastSoloAt = at;
+    this.state.lastSoloRole = undefined;
+    this.due.clear();
+    this.votes.clear();
+    this.lastKeyChange = index;
+    const concept = this.state.director?.concept;
+    this.state.requests++;
+    const t = await callJev(
+      bootstrapRequest(cue.prompt, this.model, concept, this.options.recentOpeners),
+      'host',
+      index,
+      this.apiKey,
+      this.abort.signal,
+      this.provider,
+    );
+    this.trace(t);
+    if (t.source === 'jev') {
+      this.state.opener = t.answers.opener.choice as Musician;
+      this.state.baseBpm = Number(t.answers.bpm.choice);
+      this.root = Number(t.answers.root.choice);
+      this.scale = t.answers.mode.choice as Frame['mode'];
+    } else {
+      // No opening decision: use the director's suggestion, else rotate the opener. Never the old song's.
+      this.state.opener =
+        concept?.openingInstrument ??
+        musicians[(musicians.indexOf(this.state.opener) + 1) % musicians.length];
+      if (concept) {
+        this.state.baseBpm = concept.bpm;
+        this.root = concept.root;
+        this.scale = concept.mode;
+      }
+    }
+    this.modeName = this.scale;
+    this.state.initialRoot = this.root;
+    this.state.initialMode = this.scale;
+  }
+  private windDown?: { cueId: string; startFrame: number };
+  private finishing = false;
+  /**
+   * End the jam the way a band does: the same wind-down a queued song uses, then stop once
+   * everyone is silent. Asking again, or asking when there is no live music to land, stops at once.
+   */
+  endSong() {
+    const sounding = this.state.frame?.parts.some((p) => p.notes.length);
+    if (
+      this.state.mode !== 'live' ||
+      this.state.status !== 'playing' ||
+      this.finishing ||
+      !sounding
+    )
+      return this.stop();
+    this.finishing = true;
+    this.state.finishing = true;
+    this.publish();
+  }
   private get provider(): JevProvider {
     return this.state.provider ?? this.options.provider ?? 'openrouter';
   }
@@ -240,65 +320,85 @@ export class Room extends EventEmitter {
   }
   private async prepare(index: number, at: number): Promise<void> {
     if (this.abort.signal.aborted) return;
-    const prior = this.state.frame;
-    const transition = this.state.setlist?.find(
-      (c) => c.appliedAt === undefined && c.atFrame <= index,
-    );
-    if (transition) {
-      transition.appliedAt = at;
-      this.state.themeId = transition.id;
-      this.state.themeStartedAt = at;
-      this.state.prompt = transition.prompt;
-      this.state.title = transition.prompt.split('\n')[0].slice(0, 80);
-      this.state.director =
-        transition.director?.status === 'ready' ? transition.director : undefined;
-      if (this.state.director?.concept) {
-        this.root = this.state.director.concept.root;
-        this.scale = this.state.director.concept.mode;
-        this.modeName = this.scale;
-      }
+    const lastFrame = this.state.frame;
+    let prior = lastFrame;
+    const cue =
+      this.state.mode === 'live'
+        ? this.state.setlist?.find((c) => c.appliedAt === undefined)
+        : undefined;
+    if (
+      this.finishing &&
+      this.windDown &&
+      lastFrame &&
+      !lastFrame.parts.some((p) => p.notes.length)
+    ) {
+      // Everyone has stopped. Let the last tails ring into the silence, then close the room.
+      this.timer = setTimeout(() => this.stop(), Math.max(0, lastFrame.at + 1500 - Date.now()));
+      return;
+    } else if (this.finishing && !this.windDown) {
+      this.windDown = { cueId: 'end', startFrame: index };
+    } else if (this.finishing) {
+      // Already winding down for a queued song: that wind-down now ends the jam instead.
+    } else if (cue && this.windDown && lastFrame && !lastFrame.parts.some((p) => p.notes.length)) {
+      // Everyone has stopped. The next song starts from nothing.
+      await this.beginTheme(cue, index, at);
+      if (this.abort.signal.aborted) return;
+      prior = null;
+    } else if (cue && !this.windDown && index - this.themeFrame0 >= minimumSongFrames) {
+      this.windDown = { cueId: cue.id, startFrame: index };
+      cue.atFrame = index + windDownFrames + 1;
     }
+    // Musical time is counted from the start of the current song.
+    const rel = index - this.themeFrame0;
+    const winding = this.windDown ? index - this.windDown.startFrame : undefined;
+    this.state.windDown = this.windDown ? { ...this.windDown, framesIn: winding! } : undefined;
     const openingOrder = [this.state.opener, ...musicians.filter((r) => r !== this.state.opener)];
     // Independent commitments, a fair oldest-due queue, and at most ONE new musical idea.
     const eligible = musicians
       .filter((r) => (this.due.get(r) ?? 0) <= index)
       .sort((a, b) => (this.due.get(a) ?? 0) - (this.due.get(b) ?? 0));
     let selected =
-      index < 4
-        ? openingOrder[index]
-        : eligible.find((r) => {
-            const own = prior?.parts.find((p) => p.role === r);
-            // Only a committed guitar or keyboard solo composes on its own track. A bass or drum
-            // feature has no such track, so it must stay in the rotation or it would loop forever.
-            return this.state.mode !== 'live' || (!continuingSolo(own) && !continuingPhrase(own));
-          });
+      winding !== undefined
+        ? undefined
+        : rel < 4
+          ? openingOrder[rel]
+          : eligible.find((r) => {
+              const own = prior?.parts.find((p) => p.role === r);
+              // Only a committed guitar or keyboard solo composes on its own track. A bass or drum
+              // feature has no such track, so it must stay in the rotation or it would loop forever.
+              return this.state.mode !== 'live' || (!continuingSolo(own) && !continuingPhrase(own));
+            });
     const soloAge = at - (this.state.lastSoloAt ?? this.state.startedAt);
     const inviteRole = this.state.lastSoloRole === 'guitar' ? 'keys' : 'guitar';
     const soloDue =
       this.state.mode === 'live' &&
-      index >= 4 &&
+      rel >= 4 &&
+      winding === undefined &&
       soloAge >= 175000 &&
       at + (32 * 60000) / (prior?.bpm ?? 96) < this.state.endsAt;
-    if (soloDue && !transition) selected = inviteRole;
+    if (soloDue) selected = inviteRole;
     this.state.soloInvitation = {
       role: inviteRole,
       urgency: Math.min(1, soloAge / 175000),
-      required: soloDue && !transition,
+      required: soloDue,
     };
-    if (this.state.mode === 'live' && index >= 4 && soloAge >= 175000 * 0.55)
+    if (this.state.mode === 'live' && rel >= 4 && winding === undefined && soloAge >= 175000 * 0.55)
       this.requestSketch(inviteRole);
-    const selectedRoles: Musician[] = transition
-      ? [...musicians]
-      : [
-          ...new Set([
-            ...(selected ? [selected] : []),
-            ...(this.state.mode === 'live'
-              ? (prior?.parts
-                  .filter((p) => continuingPhrase(p) || continuingSolo(p))
-                  .map((p) => p.role) ?? [])
-              : []),
-          ]),
-        ];
+    // Winding down is the one moment everyone may change at once: each player still sounding
+    // decides how to finish, and a player who has stopped stays stopped.
+    const selectedRoles: Musician[] =
+      winding !== undefined
+        ? musicians.filter((r) => prior?.parts.find((p) => p.role === r)?.notes.length)
+        : [
+            ...new Set([
+              ...(selected ? [selected] : []),
+              ...(this.state.mode === 'live'
+                ? (prior?.parts
+                    .filter((p) => continuingPhrase(p) || continuingSolo(p))
+                    .map((p) => p.role) ?? [])
+                : []),
+            ]),
+          ];
     const measured =
       this.measurement && Date.now() - this.measurement.at < 10000 ? this.measurement : undefined;
     const mixDue = !!measured && index % 2 === 0 && this.state.mode === 'live';
@@ -312,15 +412,17 @@ export class Room extends EventEmitter {
       return;
     }
     const frozen = this.view();
-    frozen.themeTransition = !!transition;
+    // A new song has no memory of the one before it: nothing of the old song is heard or recalled.
+    frozen.frames = frozen.frames.filter((f) => f.themeId === this.state.themeId);
+    frozen.frame = frozen.frames.at(-1) ?? null;
     // One key change per sixteen bars at most, never while the band is still assembling.
-    frozen.keyLeadOpen = index >= 8 && index - this.lastKeyChange >= 8 && !transition;
+    frozen.keyLeadOpen = rel >= 8 && index - this.lastKeyChange >= 8 && winding === undefined;
     frozen.keyAgeFrames = index - this.lastKeyChange;
     const phraseSignal = AbortSignal.any([
       this.abort.signal,
       AbortSignal.timeout(Math.max(1, Math.floor(at - Date.now() - 250))),
     ]);
-    if (transition)
+    if (winding !== undefined)
       for (const frame of frozen.frames)
         for (const part of frame.parts) {
           part.solo = false;
@@ -335,7 +437,7 @@ export class Room extends EventEmitter {
       Musician,
       { d: Decision; source: 'jev' | 'rehearsal' | 'fallback' }
     >();
-    let lighting = prior?.lighting ?? defaultLighting;
+    let lighting = lastFrame?.lighting ?? defaultLighting;
     const composed = new Map<Musician, Part>();
     const completedAt = new Map<Musician, number>();
     const traces = (
@@ -360,7 +462,7 @@ export class Room extends EventEmitter {
               ),
             ];
           }
-          const request = requestFor(role, frozen, index, this.model);
+          const request = requestFor(role, frozen, rel, this.model);
           if (this.state.mode === 'live') {
             if (role !== 'lights') {
               const calls: Trace[] = [];
@@ -368,7 +470,7 @@ export class Room extends EventEmitter {
                 const part = await composePhrase(
                   role,
                   frozen,
-                  index,
+                  rel,
                   this.model,
                   async (eventRequest) => {
                     this.state.requests++;
@@ -553,7 +655,9 @@ export class Room extends EventEmitter {
     }
     this.root = root;
     const durationMs = (8 * 60000) / bpm;
-    const pressure = endingPressure((at - this.state.startedAt) / 1000);
+    const pressure = endingPressure(
+      (at - (this.state.themeStartedAt ?? this.state.startedAt)) / 1000,
+    );
     const ending =
       at + durationMs * 2 >= this.state.endsAt ||
       (pressure > 0 &&
@@ -618,6 +722,14 @@ export class Room extends EventEmitter {
       part.continued = false;
       return part;
     });
+    // The band had its chance to finish by choice. Anything still sounding is cut, and said so.
+    if (winding !== undefined && winding >= windDownFrames)
+      for (const part of parts)
+        if (part.notes.length) {
+          part.notes = [];
+          part.solo = false;
+          part.cutForNextSong = true;
+        }
     const frame: Frame = {
       themeId: this.state.themeId,
       themeTitle: this.state.title,
@@ -636,15 +748,17 @@ export class Room extends EventEmitter {
       decisionRole: selected,
       chapter: ending
         ? 'The landing'
-        : index < 4
-          ? 'Finding each other'
-          : parts.filter((p) => p.solo).length > 1
-            ? 'Trading sparks'
-            : parts.some((p) => p.decision.action === 'space')
-              ? 'Into the open'
-              : parts.some((p) => p.solo)
-                ? 'Following a thread'
-                : 'In the pocket',
+        : winding !== undefined
+          ? 'Bringing it home'
+          : rel < 4
+            ? 'Finding each other'
+            : parts.filter((p) => p.solo).length > 1
+              ? 'Trading sparks'
+              : parts.some((p) => p.decision.action === 'space')
+                ? 'Into the open'
+                : parts.some((p) => p.solo)
+                  ? 'Following a thread'
+                  : 'In the pocket',
     };
     this.state.frame = frame;
     this.state.frames.push(frame);
@@ -668,7 +782,7 @@ export class Room extends EventEmitter {
             // ahead of the current chunk: every peer observation still passes the
             // real-time hearing cutoff, including frames already queued to play.
             (this.state.mode === 'live'
-              ? index === 0
+              ? rel === 0
                 ? durationMs - 250
                 : durationMs + 2000
               : 2300) -
