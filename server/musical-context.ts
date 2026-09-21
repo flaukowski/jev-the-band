@@ -1,4 +1,4 @@
-import type { Musician, Snapshot } from '../shared/music.js';
+import { noteNames, personas, type Musician, type Snapshot } from '../shared/music.js';
 import { scaleIntervals } from '../shared/performance.js';
 import { listeningState } from './listening.js';
 import { chapterAt } from '../shared/concept.js';
@@ -14,8 +14,34 @@ export function musicalContext(room: Snapshot, role: Musician) {
   const outside = pitched.filter(
     (n) => !scaleIntervals(n.mode).includes((n.midi - n.root + 120) % 12),
   ).length;
+  const now = heard.recent.at(-1);
+  const levels = now?.players.filter((p) => p.role !== role && p.volume).map((p) => p.volume);
+  const change = room.keyChange;
+  const changeHeard =
+    change && room.frames.some((f) => f.id === change.atFrame && f.at <= heard.heardThrough);
   return {
     ...heard,
+    bandKey: now
+      ? {
+          tonic: noteNames[now.root],
+          rootPitchClass: now.root,
+          mode: room.frames.find((f) => f.id === now.phrase)?.modeName ?? now.mode,
+          ...(change && changeHeard && change.by !== role
+            ? {
+                cue: `${personas[change.by].name} just led the band to ${noteNames[change.root]} ${change.mode.replaceAll('_', ' ')}. Follow into the new key now, unless you deliberately hold the old one for a bar of tension.`,
+                youHaveFollowed: own?.tonalIntent?.root === change.root,
+              }
+            : {}),
+        }
+      : undefined,
+    bandDynamics: levels?.length
+      ? {
+          peers: levels,
+          guidance:
+            'Dynamics travel together. Match a bandmate who drops down or swells, or contrast on purpose.',
+        }
+      : undefined,
+    drummerFeel: role === 'drums' ? undefined : now?.players.find((p) => p.role === 'drums')?.feel,
     sonicConcept: room.director?.concept?.concept,
     sharedChart: chapterAt(
       room.director?.concept,

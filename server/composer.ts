@@ -2,7 +2,6 @@ import {
   actions,
   articulations,
   fxNames,
-  modes,
   noteNames,
   patches,
   personas,
@@ -30,11 +29,34 @@ import {
   chordIntervals,
   guitarTuning,
   pitchPalette,
+  scaleIntervals,
+  modeLibrary,
+  volumes,
+  keyMoves,
+  drumFeels,
   type Performance,
 } from '../shared/performance.js';
 import { drumRequest, readDrums } from './drummer.js';
 import { rigRequest, timbresFor } from './rig.js';
 import { continuingSolo, continuingPhrase, soloPlanRequest, sampleSoloLength } from './solo.js';
+import {
+  applyHeat,
+  fatigue,
+  heatedFields,
+  sampleWithHeat,
+  nextStaleness,
+  noveltyPressure,
+  rememberChoices,
+} from './heat.js';
+import { sketchAt } from '../shared/sketch.js';
+import {
+  applyCellChoices,
+  cellRequest,
+  gestureName,
+  maxCells,
+  readCell,
+  type Gesture,
+} from './lead.js';
 
 export type Decide = (request: JevRequest) => Promise<Trace>;
 export const drumPitches: Record<string, string> = {
@@ -68,7 +90,35 @@ function context(role: Musician, room: Snapshot, phrase: number) {
     seedPrompt: phrase < 4 ? room.prompt : undefined,
     endingPressure: endingPressure(elapsed),
     lastPhraseBeforeHardStop: room.endsAt > 0 && room.endsAt - Date.now() < 14000,
-    ...musicalContext(room, role),
+    ...fitContext(musicalContext(room, role)),
+    exploration: exploration(role, room),
+  };
+}
+// The decisions endpoint rejects very large bodies. Dense drum parts repeated across four heard
+// frames and several private memories can exceed it, so the oldest hearing is dropped first.
+function fitContext<T extends ReturnType<typeof musicalContext>>(state: T): T {
+  const fitted = {
+    ...state,
+    recent: [...state.recent],
+    ownDirection: state.ownDirection
+      ? { ...state.ownDirection, recentChoices: undefined, phraseMotif: undefined }
+      : state.ownDirection,
+  };
+  while (fitted.recent.length > 1 && JSON.stringify(fitted).length > 40000) fitted.recent.shift();
+  return fitted;
+}
+function exploration(role: Musician, room: Snapshot) {
+  const own = room.frames.at(-1)?.parts.find((p) => p.role === role);
+  const pressure = noveltyPressure(own, room);
+  return {
+    pressure,
+    unchangedChunks: own?.performance?.staleChunks ?? 0,
+    guidance:
+      pressure < 0.4
+        ? 'The idea is young. Let it settle and groove.'
+        : pressure < 0.7
+          ? 'Your direction has held for a while. Change one real dimension: register, texture, rhythm density, harmonic color or arc.'
+          : 'This has looped long enough. Take the music somewhere new: a different style branch, register, texture, mode color or a new theme. Bold departures are welcome now; the band will follow.',
   };
 }
 export function phrasePlanRequest(
@@ -180,8 +230,8 @@ export function phrasePlanRequest(
       Object.fromEntries(noteNames.map((name, i) => [String(i), name])),
     ),
     mode: choice(
-      'Your own scale color. You may differ from peers tastefully; actual chromatic note choices remain available.',
-      [...modes, 'phrygian', 'lydian', 'locrian', 'harmonic_minor', 'chromatic'],
+      'Your own scale color. Usually share the band mode in bandKey. The rarer modes of melodic and harmonic minor are special colors for a deliberate excursion; you may differ from peers tastefully.',
+      Object.fromEntries(Object.entries(modeLibrary).map(([name, m]) => [name, m.color])),
     ),
     register: choice(
       'Choose your register for this phrase. Bass support usually lives low; a melodic solo can move higher. This choice sets the playable window, then you choose exact notes.',
@@ -196,16 +246,27 @@ export function phrasePlanRequest(
       'warm',
       'bold',
     ]),
+    volume: choice(
+      'How loud do you play this phrase? A band breathes together: come down when bandDynamics is quiet, swell with a build, drop to a whisper to make the next peak matter. Do not sit at one level all night.',
+      Object.fromEntries(Object.entries(volumes).map(([name, v]) => [name, v.color])),
+    ),
+    keyMove: choice(
+      'Do you lead the band to a new key or mode right now? Bandmates will hear it and should follow. Most phrases stay; a move is a big moment that refreshes a long jam.',
+      room.keyLeadOpen && role !== 'drums' && !phraseContinues && !soloContinues
+        ? keyMoves
+        : { stay: keyMoves.stay },
+    ),
     density: choice('How much space does the next phrase need? Silence matters.', [
       'low',
       'medium',
       'high',
     ]),
-    tempo: choice('Suggest a small shared tempo change responding to heard music.', [
-      'ease',
-      'stay',
-      'push',
-    ]),
+    tempo: choice(
+      role === 'drums'
+        ? 'You own the time. Push or ease the tempo and the band follows you by a few percent; stay when the pocket feels right.'
+        : 'Suggest a small shared tempo change responding to heard music. The drummer leads tempo; follow what you hear.',
+      ['ease', 'stay', 'push'],
+    ),
     harmony: choice(
       'Propose a shared tonic change. Another player must agree before the clock announces it.',
       ['stay', 'up_fourth', 'up_fifth'],
@@ -255,6 +316,10 @@ export function phrasePlanRequest(
         '4': 'Sixteenth-note pulse',
       },
     );
+    questions.feel = choice(
+      'Choose the groove feel you will realize with your own hits. Changing feel is how a drummer moves the whole band: they hear it and respond. Keep a feel while it serves; change it when the jam needs a new chapter.',
+      drumFeels,
+    );
     questions.swingAmount = choice(
       'For eighths, delay offbeats by this fraction of a beat. Other subdivisions retain their own spacing.',
       { '0': 'Straight', '0.06': 'Light swing', '0.16': 'Deep shuffle' },
@@ -273,12 +338,22 @@ export function phrasePlanRequest(
         '. Effects should be used generously as a musical voice; keep a color while it serves the groove or change it to answer, build or release. A separate decision will choose every pedal after seeing this intention.',
       timbresFor(role),
     );
+  const retired = fatigue(own, room, phrase, questions);
   if (phraseContinues && !invitedSolo) {
     // Continue an established idea; new notes and rhythm do not require a new theme.
+    // A bandmate's key change outranks a private commitment: follow it mid-phrase.
+    const followKey =
+      !!room.keyChange &&
+      room.keyChange.by !== role &&
+      own!.tonalIntent?.root !== room.keyChange.root;
     for (const [key, value] of Object.entries({
       style: own!.performance!.style,
-      root: String(own!.tonalIntent?.root ?? room.initialRoot ?? 2),
-      mode: own!.tonalIntent?.mode ?? room.initialMode ?? 'dorian',
+      ...(followKey
+        ? {}
+        : {
+            root: String(own!.tonalIntent?.root ?? room.initialRoot ?? 2),
+            mode: own!.tonalIntent?.mode ?? room.initialMode ?? 'dorian',
+          }),
     }))
       questions[key] = choice(
         `Continue your committed musical phrase: retain its ${key} while developing fresh notes.`,
@@ -290,10 +365,41 @@ export function phrasePlanRequest(
     model,
     state: {
       ...context(role, room, phrase),
-      task: 'You compose actual note events after this plan. There is no lick catalog. First make a groove worth keeping. Preserve recognizable rhythmic anchors; vary a detail, answer a peer, or resolve a previous tension. Novelty is not a demand to change every note. Only you can introduce a new theme at this boundary; peers retain their performed parts. Your own previous musical direction is private memory.',
+      restingChoices: Object.keys(retired).length ? retired : undefined,
+      task:
+        'You compose actual note events after this plan. There is no lick catalog. ' +
+        (noveltyPressure(own, room) < 0.55
+          ? 'First make a groove worth keeping. Preserve recognizable rhythmic anchors; vary a detail, answer a peer, or resolve a previous tension. Novelty is not a demand to change every note.'
+          : 'The groove is established and has held for a while: follow exploration.guidance and move the jam forward. Keep one anchor the listener can recognize while you change direction.') +
+        ' Only you can introduce a new theme at this boundary; peers retain their performed parts. Your own previous musical direction is private memory.',
     },
     questions,
   };
+}
+
+/**
+ * A restless player may lead the band somewhere new. The move is Jev's heated keyMove answer;
+ * the harness only does the interval arithmetic and rewrites the player's own root and mode.
+ */
+function leadKey(room: Snapshot, answers: Record<string, Answer>, rng: () => number) {
+  const move = answers.keyMove?.choice ?? 'stay';
+  if (move === 'stay') return undefined;
+  const frame = room.frames.at(-1);
+  const root = frame?.root ?? room.initialRoot ?? 2;
+  const mode = frame?.modeName ?? frame?.mode ?? room.initialMode ?? 'dorian';
+  const minorish = !scaleIntervals(mode).includes(4);
+  const shift = { up_fourth: 5, up_fifth: 7, up_step: 2, down_step: 10, new_mode: 0 }[move];
+  const next = (root + (shift ?? (minorish ? 3 : 9))) % 12;
+  let nextMode = move === 'relative' ? (minorish ? 'major' : 'minor') : mode;
+  if (move === 'new_mode') {
+    const options = { ...answers.mode.probabilities, [mode]: 0 };
+    nextMode = sampleWithHeat({ ...answers.mode, probabilities: options }, 0.85, rng);
+    if (nextMode === mode) return undefined;
+  }
+  const certain = (value: string) => ({ choice: value, probabilities: { [value]: 1 } });
+  answers.root = certain(String(next));
+  answers.mode = certain(nextMode);
+  return { root: next, mode: nextMode, move };
 }
 
 export const maxAttacks = 12;
@@ -307,16 +413,7 @@ export function eventRequest(
   draft: Note[],
   attack = 0,
 ): JevRequest {
-  const tonalScale = (
-    {
-      ...scales,
-      phrygian: [0, 1, 3, 5, 7, 8, 10],
-      lydian: [0, 2, 4, 6, 7, 9, 11],
-      locrian: [0, 1, 3, 5, 6, 8, 10],
-      harmonic_minor: [0, 2, 3, 5, 7, 8, 11],
-      chromatic: Array.from({ length: 12 }, (_, i) => i),
-    } as Record<string, number[]>
-  )[plan.mode.choice];
+  const tonalScale = scaleIntervals(plan.mode.choice);
   const root = Number(plan.root.choice);
   const own = room.frames.at(-1)?.parts.find((p) => p.role === role);
   const soloMode = !!plan.soloBars;
@@ -420,6 +517,13 @@ export function eventRequest(
               },
       );
     if (entryDue || soloMode) delete questions.rightCount.criteria['0'];
+    // A comping texture needs an audible left hand. When nothing is ringing there and it has
+    // been silent for two beats, resting is not offered; Jev still chooses every pitch.
+    const leftNotes = draft.filter((n) => n.hand === 'left');
+    const leftIdle =
+      !leftNotes.some((n) => n.beat + n.duration > beat + 0.00001) &&
+      (attack === 0 || beat - Math.max(0, ...leftNotes.map((n) => n.beat + n.duration)) >= 2);
+    if (texture !== 'single_line' && leftIdle) delete questions.leftCount.criteria['0'];
     for (const hand of ['left', 'right'])
       for (let voice = 0; voice < 5; voice++) {
         const active = draft.filter((n) => n.hand === hand && n.beat + n.duration > beat + 0.00001);
@@ -662,10 +766,30 @@ export function readEvents(
 
 // Creative decisions use the model's own distribution, not uniform random notes. Preserve
 // raw provider answers and the applied selections separately for honest, reproducible traces.
-export function applyPerformanceChoices(trace: Trace, rng: () => number): void {
+export function applyPerformanceChoices(trace: Trace, rng: () => number, pressure = 0): void {
   trace.appliedAnswers = structuredClone(trace.answers);
   trace.selectionMethod = 'seeded-model-distribution';
+  trace.heat = pressure;
   const voiced = { left: new Set<string>(), right: new Set<string>() };
+  // Five ways of playing must not lose to one way of resting. When the combined probability
+  // of playing exceeds resting, the hand plays and the voice count comes from Jev's own
+  // distribution over the playing options.
+  for (const hand of ['left', 'right']) {
+    const count = trace.appliedAnswers[hand + 'Count'];
+    if (!count || count.choice !== '0') continue;
+    const playing = Object.entries(count.probabilities).filter(([k, p]) => k !== '0' && p > 0);
+    const mass = playing.reduce((sum, [, p]) => sum + p, 0);
+    if (mass <= (count.probabilities['0'] ?? 0)) continue;
+    let draw = rng() * mass;
+    for (const [value, p] of playing) {
+      draw -= p;
+      if (draw <= 0 || value === playing.at(-1)![0]) {
+        count.choice = value;
+        delete count.confidence;
+        break;
+      }
+    }
+  }
   for (const [key, answer] of Object.entries(trace.appliedAnswers)) {
     if (
       !/^(pitch|left\d|right\d|string\d|advance|duration|velocity|articulation|bend|cymbal|body)$/.test(
@@ -675,7 +799,7 @@ export function applyPerformanceChoices(trace: Trace, rng: () => number): void {
       continue;
     const arc = (trace.request.state as { plan?: { arc?: string } })?.plan?.arc;
     const steady = arc === 'settle' || arc === 'release';
-    if (steady && key === 'advance') continue;
+    if (steady && key === 'advance' && pressure < 0.5) continue;
     const hand = /^(left|right)\d$/.exec(key)?.[1] as 'left' | 'right' | undefined;
     const occupied = hand ? voiced[hand] : new Set<string>();
     const duplicate = occupied.has(answer.choice);
@@ -689,7 +813,7 @@ export function applyPerformanceChoices(trace: Trace, rng: () => number): void {
     const candidates: [string, number][] = [];
     let mass = 0;
     for (const item of ranked) {
-      candidates.push([item[0], Math.pow(item[1], 1 / (steady ? 0.35 : 0.7))]);
+      candidates.push([item[0], Math.pow(item[1], 1 / ((steady ? 0.35 : 0.7) + 0.5 * pressure))]);
       mass += item[1];
       if (mass >= 0.85) break;
     }
@@ -716,27 +840,50 @@ export async function composePhrase(
   const previous = room.frames.at(-1)?.parts.find((p) => p.role === role);
   const rawPlan = await decide(phrasePlanRequest(role, room, phrase, model));
   if (rawPlan.source !== 'jev') throw new Error('Phrase plan unavailable');
-  const plan = { ...rawPlan, answers: structuredClone(rawPlan.answers) };
+  const pressure = noveltyPressure(previous, room);
+  const heatRng = random(room.seed + phrase * 389 + hash(role));
+  const plan = {
+    ...rawPlan,
+    answers: applyHeat(rawPlan, pressure, heatRng, previous?.performance?.recentChoices, [
+      ...heatedFields,
+      ...(role === 'drums' ? ['tempo'] : []),
+    ]),
+  };
+  const keyLead = leadKey(room, plan.answers, heatRng);
   if (!continuingPhrase(previous)) {
     const lengthTrace = { ...rawPlan, answers: { bars: rawPlan.answers.phraseBars } };
     const length = sampleSoloLength(lengthTrace, random(room.seed + phrase * 271 + hash(role)));
-    rawPlan.appliedAnswers = {
-      ...structuredClone(rawPlan.answers),
-      phraseBars: lengthTrace.appliedAnswers!.bars,
-    };
-    rawPlan.selectionMethod = 'seeded-model-distribution';
+    rawPlan.appliedAnswers = { ...plan.answers, phraseBars: lengthTrace.appliedAnswers!.bars };
+    plan.answers = structuredClone(rawPlan.appliedAnswers);
     plan.answers.phraseBars = { ...lengthTrace.appliedAnswers!.bars, choice: String(length) };
   }
   const soloMode =
     (role === 'guitar' || role === 'keys') &&
     (plan.answers.action.choice === 'solo' || continuingSolo(previous));
   let soloBars: number | undefined;
+  const ready = room.soloSketches?.[role];
+  const sketch = soloMode
+    ? sketchAt(
+        ready?.status === 'ready' ? ready.sketch : undefined,
+        continuingSolo(previous) ? (previous!.performance!.soloPhrases ?? 0) : 0,
+      )
+    : undefined;
   if (soloMode) {
     const solo = await decide(
-      soloPlanRequest(role, room, model, plan.answers, context(role, room, phrase)),
+      soloPlanRequest(role, room, model, plan.answers, {
+        ...context(role, room, phrase),
+        arrangerSketch: sketch,
+      }),
     );
     if (solo.source !== 'jev') throw new Error('Solo plan unavailable');
     soloBars = sampleSoloLength(solo, random(room.seed + phrase * 313 + hash(role)));
+    applyHeat(solo, Math.max(pressure, 0.5), heatRng, previous?.performance?.recentChoices, [
+      'opening',
+      'energy',
+      'register',
+      'contour',
+      'texture',
+    ]);
     Object.assign(plan.answers, solo.appliedAnswers);
     plan.answers.soloBars = solo.appliedAnswers!.bars;
   }
@@ -776,11 +923,27 @@ export async function composePhrase(
       phraseMotif: (soloMode ? continuingSolo(previous) : continuingPhrase(previous))
         ? previous?.performance?.phraseMotif
         : undefined,
+      register: plan.answers.register.choice,
+      contour: plan.answers.contour.choice,
+      attacks: plan.answers.attacks.choice,
+      staleChunks: nextStaleness(previous, plan.answers),
+      heat: pressure,
+      recentChoices: rememberChoices(previous, plan.answers),
+      soloEnergy: soloMode ? plan.answers.energy?.choice : undefined,
+      volume: plan.answers.volume.choice as Performance['volume'],
+      feel: plan.answers.feel?.choice,
+      keyLead,
     };
     const remember = async (part: Part) => {
       const rig = await rigPending;
       if (!rig || rig.source !== 'jev') throw new Error('Rig decisions unavailable');
       part.effectsTimeline = [0, 4].map((beat) => ({
+        ...(role === 'guitar'
+          ? {
+              driveLevel: rig.answers[beat === 0 ? 'driveLevel' : 'driveLevelBar2']?.choice as
+                'overdrive' | 'lead',
+            }
+          : {}),
         beat,
         effects: Object.fromEntries(
           fxNames.map((effect) => [
@@ -812,8 +975,8 @@ export async function composePhrase(
       solo:
         role === 'guitar' || role === 'keys'
           ? soloMode
-          : d.action === 'solo' ||
-            (['vary', 'develop', 'hold'].includes(d.action) && !!previous?.solo),
+          : // A bass or drum feature lasts for the phrase that asked for it.
+            d.action === 'solo',
       repeated: 0,
       notes: [],
       source: 'jev',
@@ -840,13 +1003,54 @@ export async function composePhrase(
     }
     let beat = Number(plan.answers.entry.choice);
     const rng = random(room.seed + phrase * 197 + hash(role));
+    if (soloMode) {
+      // Lead playing: each request writes a whole gesture, so runs, bends and breaths are affordable.
+      const recent: Record<string, string[]> = {
+        next: (previous?.performance?.leadKinds ?? []).slice(-2),
+      };
+      const gestures: string[] = [];
+      const kinds: Gesture[] = [];
+      let gesture =
+        (continuingSolo(previous) && previous?.performance?.nextGesture) ||
+        (plan.answers.opening.choice as Gesture);
+      for (let cell = 0; cell < maxCells && beat < 7.25; cell++) {
+        const trace = await decide(
+          cellRequest(
+            role,
+            model,
+            context(role, room, phrase),
+            plan.answers,
+            beat,
+            part.notes,
+            cell,
+            previous,
+            sketch,
+            gesture,
+          ),
+        );
+        if (trace.source !== 'jev') throw new Error('Lead decisions unavailable');
+        gestures.push(
+          gestureName(applyCellChoices(trace, plan.answers.energy?.choice, rng, recent)),
+        );
+        const result = readCell(role, trace, plan.answers, beat, part.notes, d);
+        validateNotes(result.notes, role);
+        part.notes = result.notes;
+        beat = result.next;
+        kinds.push(gesture);
+        gesture = trace.appliedAnswers!.next.choice as Gesture;
+      }
+      performance.leadGestures = gestures;
+      performance.leadKinds = kinds;
+      performance.nextGesture = gesture;
+      return remember(part);
+    }
     const attacks = Math.min(maxAttacks, Number(plan.answers.attacks.choice));
     for (let attack = 0; attack < attacks && beat < 7.9999; attack++) {
       const events = await decide(
         eventRequest(role, room, phrase, model, plan.answers, beat, part.notes, attack),
       );
       if (events.source !== 'jev') throw new Error('Note decisions unavailable');
-      applyPerformanceChoices(events, rng);
+      applyPerformanceChoices(events, rng, pressure);
       if (soloMode)
         for (const note of part.notes) {
           if (

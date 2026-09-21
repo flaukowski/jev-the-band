@@ -143,6 +143,7 @@ app.post('/api/room', (req, res) => {
     600,
     {
       provider: provider.provider,
+      fallback: provider.fallback,
       directorModel: provider.directorModel,
       directorApiKey: provider.directorKey,
       recentOpeners: [...recentOpeners],

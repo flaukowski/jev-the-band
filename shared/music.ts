@@ -112,6 +112,8 @@ export const developments = [
   'new_theme',
 ] as const;
 export const articulations = ['natural', 'legato', 'staccato', 'bend', 'slide'] as const;
+// Lead techniques rendered by the audio engine. Hammer-ons and pull-offs sound without a new pick attack.
+export const noteArticulations = [...articulations, 'hammer', 'pull'] as const;
 export type Rhythm = (typeof rhythms)[number];
 export const modes = ['dorian', 'mixolydian', 'minor', 'major'] as const;
 export const scales = {
@@ -243,8 +245,12 @@ export const noteSchema = z.object({
   velocity: z.number().positive().max(1),
   hand: z.enum(['left', 'right']).optional(),
   patch: z.enum(patches).optional(),
-  articulation: z.enum(articulations).optional(),
+  articulation: z.enum(noteArticulations).optional(),
   bend: z.number().min(-2).max(2).optional(),
+  // hold: bend up and stay; release: bend and return (default); pre: start bent, then let down.
+  bendShape: z.enum(['hold', 'release', 'pre']).optional(),
+  vibrato: z.number().min(0).max(1).optional(),
+  slideFrom: z.number().min(-12).max(12).optional(),
   provenance: z.object({ traceId: z.string(), slot: z.string() }).optional(),
   string: z.number().int().min(0).max(5).optional(),
 });
@@ -261,7 +267,13 @@ export interface Part {
   phraseFormat?: 'events-v1';
   tonalIntent?: { root: number; mode: string };
   performance?: Performance;
-  effectsTimeline?: { beat: number; effects: Effects; traceId: string }[];
+  effectsTimeline?: {
+    beat: number;
+    effects: Effects;
+    traceId: string;
+    /** Guitar only: light overdrive or saturated lead when drive is on. */
+    driveLevel?: 'overdrive' | 'lead';
+  }[];
 }
 export interface Frame {
   themeId?: string;
@@ -274,6 +286,8 @@ export interface Frame {
   bpm: number;
   root: number;
   mode: keyof typeof scales;
+  /** The full mode name when the band is outside the four base scales. */
+  modeName?: string;
   parts: Part[];
   lighting: Lighting;
   chapter: string;
@@ -282,14 +296,23 @@ export interface Frame {
 }
 export interface Snapshot {
   provider?: JevProvider;
+  /** Set when the room moved to its fallback decision provider mid-jam. */
+  providerSwitch?: { from: JevProvider; to: JevProvider; reason: string; atFrame: number };
   setlist?: import('./setlist.js').ThemeCue[];
   themeId?: string;
   themeStartedAt?: number;
   soloInvitation?: { role: Musician; urgency: number; required: boolean };
   themeTransition?: boolean;
+  /** True when a player may lead the band to a new key at this boundary. */
+  keyLeadOpen?: boolean;
+  /** Two-bar frames since the band last changed key or mode. */
+  keyAgeFrames?: number;
+  keyChange?: { by: Musician; root: number; mode: string; atFrame: number };
   lastSoloAt?: number;
   lastSoloRole?: Musician;
   director?: DirectorReport;
+  /** Long-form solo suggestions from the separately labeled arranger model; Jev still chooses every note. */
+  soloSketches?: Partial<Record<Musician, import('./sketch.js').SoloSketchReport>>;
   id: string;
   title: string;
   prompt: string;
@@ -341,6 +364,8 @@ export interface Trace {
   answers: Record<string, Answer>;
   appliedAnswers?: Record<string, Answer>;
   selectionMethod?: 'seeded-model-distribution';
+  /** Novelty pressure (0–1) used to decode this trace's distribution; see server/heat.ts. */
+  heat?: number;
   requestHash: string;
   providerId?: string;
   cost: number | null;

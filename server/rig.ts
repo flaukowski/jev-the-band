@@ -52,8 +52,20 @@ export function rigRequest(
       plan: Object.fromEntries(Object.entries(plan).map(([k, a]) => [k, a.choice])),
       task: 'Realize your selected timbre for each bar through independent pedal choices. Effects are a major musical dimension. Use rich combinations when they serve the selected color, and selective bypass for contrast. These are descriptive intentions, not pedal presets: every switch is your decision and any combination is allowed. Your prior rig is in ownMemory. Preserve bass/drum pulse definition. These choices affect only your instrument.',
     },
-    questions: Object.fromEntries(
-      [1, 2].flatMap((bar) =>
+    questions: Object.fromEntries([
+      ...(role === 'guitar'
+        ? [1, 2].map((bar) => [
+            bar === 1 ? 'driveLevel' : 'driveLevelBar2',
+            choice(
+              `BAR ${bar}: when your drive pedal is on, which gain stage? Rhythm playing and chords want the light overdrive; a featured solo or a peak wants the lead channel.`,
+              {
+                overdrive: 'Light overdrive: edge-of-breakup crunch that keeps chords clear',
+                lead: 'Lead: thick saturated sustain that makes single notes sing',
+              },
+            ),
+          ])
+        : []),
+      ...[1, 2].flatMap((bar) =>
         fxNames.map((effect) => [
           bar === 1 ? effect : effect + 'Bar2',
           choice(
@@ -67,6 +79,6 @@ export function rigRequest(
           ),
         ]),
       ),
-    ),
+    ]),
   };
 }

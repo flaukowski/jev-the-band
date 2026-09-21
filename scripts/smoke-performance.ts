@@ -12,8 +12,8 @@ const room = new Room(
   'live',
   config.apiKey,
   config.model,
-  240,
-  90,
+  Number(process.env.SMOKE_CALLS ?? 240),
+  Number(process.env.SMOKE_SECONDS ?? 90),
   { provider: config.provider },
 );
 const frames: Frame[] = [];
@@ -23,7 +23,10 @@ const done = new Promise<void>((resolve) =>
     if (state.status === 'ended') resolve();
   }),
 );
-const stop = setTimeout(() => room.stop('Smoke test timeout'), 101000);
+const stop = setTimeout(
+  () => room.stop('Smoke test timeout'),
+  (Number(process.env.SMOKE_SECONDS ?? 90) + 11) * 1000,
+);
 await room.start();
 await done;
 clearTimeout(stop);

@@ -70,6 +70,21 @@ export type Performance = {
   phraseBars?: number;
   phraseChunks?: number;
   phraseMotif?: { midi: number; beat: number; duration: number }[];
+  // Heat memory: how long this player's direction has stayed put, and its own recent choices.
+  register?: string;
+  contour?: string;
+  attacks?: string;
+  staleChunks?: number;
+  heat?: number;
+  recentChoices?: Record<string, string[]>;
+  soloEnergy?: string;
+  volume?: keyof typeof volumes;
+  feel?: string;
+  /** Set when this player led the band to a new key or mode in this chunk. */
+  keyLead?: { root: number; mode: string; move: string };
+  leadGestures?: string[];
+  leadKinds?: ('cry' | 'melodic_cell' | 'run' | 'riff')[];
+  nextGesture?: 'cry' | 'melodic_cell' | 'run' | 'riff';
 };
 export const guitarTuning = [40, 45, 50, 55, 59, 64] as const;
 export function effectsAtBeat(part: Part, beat: number) {
@@ -77,20 +92,134 @@ export function effectsAtBeat(part: Part, beat: number) {
     part.effectsTimeline?.filter((cue) => cue.beat <= beat).at(-1)?.effects ?? part.decision.effects
   );
 }
+// Every mode a player may choose. The four everyday modes come first; the remaining Greek modes,
+// then the modes of melodic and harmonic minor, are rarer colors that heat can reach.
+export const modeLibrary: Record<string, { intervals: number[]; color: string }> = {
+  dorian: {
+    intervals: scales.dorian,
+    color: 'Minor with a bright sixth: the classic jam-band vamp',
+  },
+  mixolydian: {
+    intervals: scales.mixolydian,
+    color: 'Major with a flat seventh: bluesy, open, danceable',
+  },
+  minor: { intervals: scales.minor, color: 'Natural minor: dark and plaintive' },
+  major: { intervals: scales.major, color: 'Bright, settled major' },
+  lydian: {
+    intervals: [0, 2, 4, 6, 7, 9, 11],
+    color: 'Major with a raised fourth: floating, dreamy',
+  },
+  phrygian: {
+    intervals: [0, 1, 3, 5, 7, 8, 10],
+    color: 'Minor with a flat second: Spanish, ominous',
+  },
+  locrian: {
+    intervals: [0, 1, 3, 5, 6, 8, 10],
+    color: 'Diminished and unstable: a brief dark excursion',
+  },
+  harmonic_minor: {
+    intervals: [0, 2, 3, 5, 7, 8, 11],
+    color: 'Minor with a leading tone: dramatic, classical',
+  },
+  melodic_minor: {
+    intervals: [0, 2, 3, 5, 7, 9, 11],
+    color: 'Jazz minor: minor third with bright sixth and seventh',
+  },
+  phrygian_dominant: {
+    intervals: [0, 1, 4, 5, 7, 8, 10],
+    color: 'Rare. Fifth mode of harmonic minor: desert heat, flamenco, klezmer',
+  },
+  lydian_dominant: {
+    intervals: [0, 2, 4, 6, 7, 9, 10],
+    color: 'Rare. Fourth mode of melodic minor: funky raised fourth with a flat seventh',
+  },
+  dorian_sharp4: {
+    intervals: [0, 2, 3, 6, 7, 9, 10],
+    color: 'Rare. Fourth mode of harmonic minor: minor blues with a biting raised fourth',
+  },
+  mixolydian_b6: {
+    intervals: [0, 2, 4, 5, 7, 8, 10],
+    color: 'Rare. Fifth mode of melodic minor: major with a bittersweet flat sixth',
+  },
+  dorian_b2: {
+    intervals: [0, 1, 3, 5, 7, 9, 10],
+    color: 'Rare. Second mode of melodic minor: dorian with a dark flat second',
+  },
+  lydian_augmented: {
+    intervals: [0, 2, 4, 6, 8, 9, 11],
+    color: 'Rare. Third mode of melodic minor: weightless, raised fourth and fifth',
+  },
+  lydian_sharp2: {
+    intervals: [0, 3, 4, 6, 7, 9, 11],
+    color: 'Rare. Sixth mode of harmonic minor: exotic major with a raised second',
+  },
+  ionian_sharp5: {
+    intervals: [0, 2, 4, 5, 8, 9, 11],
+    color: 'Rare. Third mode of harmonic minor: major with a yearning raised fifth',
+  },
+  locrian_natural2: {
+    intervals: [0, 2, 3, 5, 6, 8, 10],
+    color: 'Rare. Sixth mode of melodic minor: half-diminished, mysterious',
+  },
+  locrian_natural6: {
+    intervals: [0, 1, 3, 5, 6, 9, 10],
+    color: 'Rare. Second mode of harmonic minor: unstable with one bright note',
+  },
+  altered: {
+    intervals: [0, 1, 3, 4, 6, 8, 10],
+    color: 'Rare. Seventh mode of melodic minor: maximum tension that must resolve',
+  },
+  ultralocrian: {
+    intervals: [0, 1, 3, 4, 6, 8, 9],
+    color: 'Very rare. Seventh mode of harmonic minor: fully diminished unease',
+  },
+  chromatic: {
+    intervals: Array.from({ length: 12 }, (_, i) => i),
+    color: 'All twelve notes: a deliberate free passage',
+  },
+};
 export function scaleIntervals(mode: string): readonly number[] {
-  return (
-    (
-      {
-        ...scales,
-        phrygian: [0, 1, 3, 5, 7, 8, 10],
-        lydian: [0, 2, 4, 6, 7, 9, 11],
-        locrian: [0, 1, 3, 5, 6, 8, 10],
-        harmonic_minor: [0, 2, 3, 5, 7, 8, 11],
-        chromatic: Array.from({ length: 12 }, (_, i) => i),
-      } as Record<string, number[]>
-    )[mode] ?? scales.dorian
-  );
+  return (modeLibrary[mode] ?? modeLibrary.dorian).intervals;
 }
+/** Nearest everyday mode, for renderers that only know the four base scales. */
+export function baseMode(mode: string): keyof typeof scales {
+  const i = scaleIntervals(mode);
+  return i.includes(4)
+    ? i.includes(11)
+      ? 'major'
+      : 'mixolydian'
+    : i.includes(9)
+      ? 'dorian'
+      : 'minor';
+}
+// Band dynamics, whisper to roar: scales note velocity (timbre) and the channel level (loudness).
+export const volumes = {
+  whisper: { color: 'Barely there: brushes, fingertips, held breath', velocity: 0.6, gain: 0.45 },
+  soft: { color: 'Gentle and intimate', velocity: 0.78, gain: 0.66 },
+  warm: { color: 'Comfortable conversational level', velocity: 0.92, gain: 0.84 },
+  bold: { color: 'Strong, projecting, full band energy', velocity: 1, gain: 1 },
+  roar: { color: 'Everything you have: the peak of the night', velocity: 1.08, gain: 1.14 },
+} as const;
+export const keyMoves = {
+  stay: 'Stay in the current key and mode',
+  up_fourth: 'Lead the band up a fourth: a lift, the classic jam modulation',
+  up_fifth: 'Lead the band up a fifth: brighter and more urgent',
+  relative: 'Move to the relative key: same notes, new home, major and minor trade places',
+  up_step: 'Lift the whole band up a whole step: a gear change',
+  down_step: 'Drop down a whole step: heavier and darker',
+  new_mode: 'Keep the tonic but change the mode color under everyone',
+} as const;
+export const drumFeels = {
+  backbeat: 'Steady backbeat pocket: snare on two and four',
+  half_time: 'Half-time feel: snare on three, huge and spacious at the same tempo',
+  double_time: 'Double-time feel: busy hats and driving snare at the same tempo',
+  four_on_floor: 'Kick on every beat: dance-floor propulsion',
+  breakbeat: 'Syncopated breakbeat with displaced snares and ghost notes',
+  shuffle: 'Swung triplet shuffle',
+  latin: 'Clave-inspired syncopation across toms, rim and bell-like ride',
+  tom_groove: 'Tribal tom-driven groove with few cymbals',
+  cymbal_wash: 'Pulse dissolves into cymbal swells and sparse kick: ambient time',
+} as const;
 export function pitchPalette(
   root: number,
   mode: string,

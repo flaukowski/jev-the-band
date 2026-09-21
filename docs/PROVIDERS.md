@@ -10,7 +10,7 @@ Updated 2026-09-20. The application and shared contracts are TypeScript. The req
 | Model override | `TYPESAFE_MODEL` | `OPENROUTER_JEV_MODEL` |
 | Default pin | `jev-1.13.0` | `typesafe/jev-1.13` |
 
-`auto` prefers a configured TypeSafe key, otherwise OpenRouter. An explicitly selected provider never borrows the other provider's key, retries against it, or silently fails over. Legacy `JEV_MODEL` remains a fallback override, and the two known 1.13 spellings translate when switching providers. Unknown IDs still require the correct provider namespace.
+`auto` prefers a configured TypeSafe key, otherwise OpenRouter. A provider never receives the other provider's key. Since 2026-09-20, when both keys are configured the other provider is a disclosed one-time fallback (`JEV_FALLBACK=0` disables it): the room switches on HTTP 401/402/403, after two phrases with no Jev response, or on a failed opening, publishes `providerSwitch`, and does not retry the refused provider. With one key there is no failover. Legacy `JEV_MODEL` remains a fallback override, and the two known 1.13 spellings translate when switching providers. Unknown IDs still require the correct provider namespace.
 
 `server/provider.ts` owns server-only credential selection. `server/jev.ts` sends the same typed `state`, `model` and `questions` body through the selected transport. The existing strict answer validation, confidence checks, deadline cancellation, request budget and probability sampling apply to both. Traces record provider, endpoint, response model and returned token usage; no authorization header is serialized. A provider without a reported dollar cost has `cost: null`, never an invented estimate.
 

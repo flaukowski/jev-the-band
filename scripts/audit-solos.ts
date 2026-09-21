@@ -75,6 +75,12 @@ const summary = {
     role,
     chunks: parts.length,
     chosenBars: parts[0]?.performance?.soloBars,
+    notes: parts.map((p) => p.notes.filter((n) => n.hand !== 'left').length),
+    leftHandNotes: parts.map((p) => p.notes.filter((n) => n.hand === 'left').length),
+    energy: parts.map((p) => p.performance?.soloEnergy),
+    gestures: parts.map((p) => p.performance?.leadGestures),
+    articulations: [...new Set(parts.flatMap((p) => p.notes.map((n) => n.articulation)))],
+    bends: parts.flatMap((p) => p.notes.filter((n) => n.bend)).length,
     distinct: new Set(
       parts.map((p) =>
         JSON.stringify(p.notes.map((n) => [n.beat, n.midi, n.duration, n.velocity])),

@@ -92,7 +92,25 @@ for (const role of ['guitar', 'keys'] as const)
       if (i) room.soloInvitation = undefined;
       const records: { trace: Trace; raw: string }[] = [];
       const part = await composePhrase(role, room, i, 'test', async (request) => {
-        const trace = fixture(request, role, { action: i ? 'develop' : 'solo' }, serial++);
+        const trace = fixture(
+          request,
+          role,
+          {
+            action: i ? 'develop' : 'solo',
+            opening: 'melodic_cell',
+            next: 'melodic_cell',
+            count: '4',
+            grid: '0.5',
+            landing: '1',
+            gap: '0.5',
+            step1: '1',
+            step2: '2',
+            step3: '-1',
+            technique: 'legato',
+            ornament: role === 'guitar' ? 'bend_up_2' : 'grace_below',
+          },
+          serial++,
+        );
         records.push({ trace, raw: JSON.stringify(trace.answers) });
         return trace;
       });

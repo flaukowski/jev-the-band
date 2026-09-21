@@ -332,3 +332,73 @@ Follow-up during the work:
 ```text
 merge into main when ready
 ```
+
+## 2026-09-20 — Music generation architecture pass
+
+```text
+make sure you have pulled latest main.
+
+can you do an indepth architecture pass on the music generation.
+
+e.g. How do we make the players have more performance capability
+
+like solos sound like solos
+
+i have a thought about allowing jev to call gpt-5.6-luna to compose some longer phrases
+
+previously there were iterations of this where solos had like hammerons and slides and bends and now everything sounds like a short two bar loop.
+
+how can we reimagine this so jev can make quick decisions, based on what the band just played, but also have more complex musical ideas that can explore and evolve? should we combine jev decision making with llm composition or do you have other pure-jev ideas that could work?
+
+I want jams to be more evolving, solos to actually sound like lead solo ideas etc etc.
+
+other notes:
+
+it seems like the keyboardist left hand is broken.
+
+deep audit of the music generation harness and make sure we are letting the jevs jam with a declarative harness that allows jev to make choices that become lower probability as the jam progressive, currently seems to get stuck in short loops. the loops sound good, but i need some mechanism for more divergent musical ideas to crop up as well, maybe messing with the personas, allowing for longer phrase length etc.
+
+look at my prompts in the docs and take the jams to the next level
+```
+
+## 2026-09-20 — Modes, leadership, dynamics, gain stages and boredom
+
+```text
+couple more idea:
+add other modes outside of the 7 greek; melodic and harmonic minor and their modes as well; rare but possible
+allow one member to decide to change key or mode, the other members 'should' pick up on it
+allow drummer to change groove or tempo, the others respond,
+etc.
+add dynamic range, band can play softer and louder
+give the guitarist two levels of distortion, light overdrive and lead
+june seems to only pick rhodes ever, how do we make organ and synth and piano possible selections two? even changing mid song
+we are getting close! we need to give the jev's a way to sort of get bored after a few minutes and change things up!
+```
+
+The audit, the decisions it led to and the live evidence are in [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) and [MUSICAL-ARCHITECTURE.md](MUSICAL-ARCHITECTURE.md) under v0.7.
+
+## 2026-09-20 — Pull request and provider fallback
+
+```text
+Yep, PR onto master, i reupped the typesafe key but nice to have openrouter as a fall back
+```
+
+```text
+sure
+```
+
+The repository's default branch is `main`, so the pull request targets it. "sure" answers the offer to add an automatic, disclosed switch to the other decision provider in the same pull request.
+
+## 2026-09-20 — OpenRouter key for development and production
+
+```text
+add to the prod .env and repo .env [REDACTED CREDENTIAL]
+```
+
+Only the credential value is omitted. It is stored in the ignored development environment and the Railway secret store, both explicitly requested, and nowhere else.
+
+## 2026-09-20 — Confirm the production release
+
+```text
+can you make sure this has been pushed to railway prod? merged on main and pushed
+```

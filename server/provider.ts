@@ -11,6 +11,8 @@ export interface JevConfig {
   model: string;
   directorKey: string;
   directorModel?: string;
+  /** The other provider, used only after the selected one fails. Disclosed in the room and every trace. */
+  fallback?: { provider: JevProvider; apiKey: string; model: string };
 }
 
 /** Server-only configuration. Never serialize this object into a room or a trace. */
@@ -39,7 +41,17 @@ export function jevConfig(env: Record<string, string | undefined> = process.env)
   )
     throw new Error('Jev model ID does not match the selected provider');
   const directorKey = env.OPENROUTER_API_KEY?.trim() || '';
+  const other: JevProvider = provider === 'typesafe' ? 'openrouter' : 'typesafe';
+  const otherKey =
+    (other === 'typesafe' ? env.TYPESAFE_API_KEY : env.OPENROUTER_API_KEY)?.trim() || '';
+  const otherModel =
+    (other === 'typesafe' ? env.TYPESAFE_MODEL : env.OPENROUTER_JEV_MODEL)?.trim() ||
+    (other === 'typesafe' ? 'jev-1.13.0' : 'typesafe/jev-1.13');
   return {
+    fallback:
+      apiKey && otherKey && env.JEV_FALLBACK !== '0'
+        ? { provider: other, apiKey: otherKey, model: otherModel }
+        : undefined,
     provider,
     apiKey,
     model,

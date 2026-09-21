@@ -224,11 +224,19 @@ export function compile(
   validateNotes(part.notes, role);
   return part;
 }
-export function nextTempo(current: number, base: number, decisions: Decision[]): number {
+export function nextTempo(
+  current: number,
+  base: number,
+  decisions: Decision[],
+  drummer?: Decision,
+): number {
   const impulse =
     decisions.reduce((sum, d) => sum + { ease: -1, stay: 0, push: 1 }[d.tempo], 0) /
     Math.max(decisions.length, 1);
-  return Math.round(clamp(current * (1 + impulse * 0.012), base * 0.9, base * 1.1) * 10) / 10;
+  // The drummer owns time: a push or ease from the kit moves the band further than any other vote.
+  const lead = drummer ? { ease: -1, stay: 0, push: 1 }[drummer.tempo] : 0;
+  const change = lead ? lead * 0.025 : impulse * 0.012;
+  return Math.round(clamp(current * (1 + change), base * 0.9, base * 1.1) * 10) / 10;
 }
 export function nextRoot(
   root: number,

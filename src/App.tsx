@@ -673,6 +673,17 @@ export default function App() {
                         {(part.performance.phraseChunks ?? 1) * 2} / {part.performance.phraseBars}
                       </div>
                     )}
+                    {part?.solo && part.performance?.leadGestures?.length ? (
+                      <div
+                        className="phrase-progress"
+                        title="Each gesture is one Jev decision request; see Under the hood"
+                      >
+                        {part.performance.soloEnergy} · {part.performance.leadGestures.join(' → ')}
+                        {role !== 'lights' && room?.soloSketches?.[role]?.status === 'ready'
+                          ? ' · arc suggested by arranger'
+                          : ''}
+                      </div>
+                    ) : null}
                     <div className="player-bottom">
                       <span>
                         {part && !part.notes.length
@@ -966,6 +977,7 @@ function TraceCard({
                 response: trace.answers,
                 appliedChoices: trace.appliedAnswers ?? trace.answers,
                 selectionMethod: trace.selectionMethod ?? 'provider-choice',
+                noveltyPressure: trace.heat ?? null,
                 providerId: trace.providerId ?? null,
                 provider: trace.provider ?? 'openrouter',
                 endpoint: trace.endpoint,
