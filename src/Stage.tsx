@@ -13,6 +13,7 @@ import {
   type WallVisual,
 } from '../shared/music';
 import { createStage, type StageEngine, type StageInput } from './stage/engine';
+import { places, type Place } from './stage/horizon';
 
 const tripLevels = [
   { label: 'Full trip', value: 1 },
@@ -52,6 +53,7 @@ export function Stage({
   const [visual, setVisual] = useState<WallVisual | ''>('');
   const [overlay, setOverlay] = useState<WallOverlay | ''>('');
   const [sky, setSky] = useState<Sky | ''>('');
+  const [place, setPlace] = useState<Place | ''>('');
   // The wall's "decision stream" shows the room's raw decision records, exactly as received.
   const stream = useRef<{ from?: Trace[]; lines: string[] }>({ lines: [] });
   const readStream = useRef(() => stream.current.lines).current;
@@ -81,6 +83,7 @@ export function Stage({
     visual: visual || undefined,
     overlay: overlay || undefined,
     sky: sky || undefined,
+    place: place || undefined,
   };
   const select = useRef(onSelect);
   select.current = onSelect;
@@ -198,6 +201,19 @@ export function Stage({
           {lightRecipes.sky.map((v) => (
             <option key={v} value={v}>
               Sky: {v}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Place"
+          title="What stands on the horizon. Every song is drawn somewhere new unless you choose."
+          value={place}
+          onChange={(e) => setPlace(e.target.value as Place | '')}
+        >
+          <option value="">Place: per song</option>
+          {places.map((v) => (
+            <option key={v} value={v}>
+              Place: {v}
             </option>
           ))}
         </select>

@@ -9,13 +9,20 @@ export const GROUND = -0.74;
  * The festival ground: flat where the stage and the front of the crowd stand, rising into a
  * shallow natural bowl so the far audience stacks up into view, with rolling hills on the horizon.
  */
-export function terrainHeight(x: number, z: number) {
+export function terrainHeight(x: number, z: number, hills = 1) {
+  const bowl = Math.min(Math.max(0, Math.hypot(x, z + 2) - 34), 110);
+  return GROUND + bowl * bowl * 0.00085 + hillHeight(x, z) * hills;
+}
+
+/**
+ * The rolling hills alone. Ground and crowd carry this as a vertex attribute so a song set in a
+ * city or an arena can press them flat without rebuilding anything.
+ */
+export function hillHeight(x: number, z: number) {
   const r = Math.hypot(x, z + 2);
-  const bowl = Math.min(Math.max(0, r - 34), 110);
   const a = Math.atan2(x, z + 2);
   const t = Math.min(1, Math.max(0, (r - 95) / 90));
-  const hills = t * t * (3 - 2 * t) * (7 + 5 * Math.sin(a * 3 + 1.1) + 3 * Math.sin(a * 7 + 2.3));
-  return GROUND + bowl * bowl * 0.00085 + hills;
+  return t * t * (3 - 2 * t) * (7 + 5 * Math.sin(a * 3 + 1.1) + 3 * Math.sin(a * 7 + 2.3));
 }
 
 /**
@@ -46,6 +53,8 @@ float crowdDensity(vec2 p){
 const vertex = /* glsl */ `
 attribute float aRow;
 attribute float aRadius;
+attribute float aHill;
+uniform float uHills;
 varying vec2 vCard;
 varying float vRow, vRadius, vDensity, vDist;
 varying vec3 vWorld;
@@ -54,7 +63,7 @@ void main(){
   vCard = uv;
   vRow = aRow;
   vRadius = aRadius;
-  vec4 w = modelMatrix * vec4(position, 1.0);
+  vec4 w = modelMatrix * vec4(position + vec3(0.0, aHill * uHills, 0.0), 1.0);
   vWorld = w.xyz;
   vDensity = crowdDensity(w.xz);
   vec4 mv = viewMatrix * w;
@@ -164,6 +173,7 @@ export class CrowdField {
     const uvs: number[] = [];
     const rowIds: number[] = [];
     const radii: number[] = [];
+    const hills: number[] = [];
     const indices: number[] = [];
     for (let k = 0; k < rows; k++) {
       const f = k / (rows - 1);
@@ -175,12 +185,13 @@ export class CrowdField {
         const th = -reach + (i / segments) * reach * 2;
         const x = Math.sin(th) * R;
         const z = -2 + Math.cos(th) * R;
-        const y = terrainHeight(x, z);
+        const y = terrainHeight(x, z, 0);
         for (const top of [0, 1]) {
           positions.push(x, y + top * 2.7, z);
           uvs.push(R * th, top);
           rowIds.push(k);
           radii.push(R);
+          hills.push(hillHeight(x, z));
         }
         if (i < segments) {
           const a = base + i * 2;
@@ -193,6 +204,7 @@ export class CrowdField {
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geometry.setAttribute('aRow', new THREE.Float32BufferAttribute(rowIds, 1));
     geometry.setAttribute('aRadius', new THREE.Float32BufferAttribute(radii, 1));
+    geometry.setAttribute('aHill', new THREE.Float32BufferAttribute(hills, 1));
     geometry.setIndex(indices);
     this.material = new THREE.ShaderMaterial({
       uniforms: {
@@ -203,6 +215,7 @@ export class CrowdField {
         uLive: { value: 0 },
         uTime: { value: 0 },
         uNight: { value: 1 },
+        uHills: { value: 1 },
         uFogDensity: { value: 0.012 },
         uAmbient: { value: new THREE.Color() },
         uSpill: { value: new THREE.Color() },
@@ -218,8 +231,14 @@ export class CrowdField {
     scene.add(this.mesh);
   }
 
-  update(sig: Signals, palette: [THREE.Color, THREE.Color, THREE.Color], air: Atmosphere) {
+  update(
+    sig: Signals,
+    palette: [THREE.Color, THREE.Color, THREE.Color],
+    air: Atmosphere,
+    hills: number,
+  ) {
     const u = this.material.uniforms;
+    u.uHills.value = hills;
     u.uBeat.value = sig.beat;
     u.uBeatsPerSecond.value = sig.bpm / 60;
     u.uEnergy.value = sig.energy;

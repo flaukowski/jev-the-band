@@ -505,6 +505,15 @@ license
 ---
 about me (Seth Lives in Vermont with his wife and two kids, working as an intellectual property consultant
 (get sethcronin info, github linkedin x.com etc.)
+
+## 2026-09-20 — Horizon variations per song
+
+```text
+a few variation of horizon environment: mountains; city; night club; arena; etc. randomly selected for each song
+```
+
+```text
+merge to main push to prod when ready
 ```
 
 ## 2026-09-20 — Band member dance moves

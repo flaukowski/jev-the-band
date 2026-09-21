@@ -16,6 +16,7 @@ import { Cat } from './cat';
 import { Chatter } from './chatter';
 import { Crowd } from './crowd';
 import { CrowdField } from './crowdfield';
+import { Horizon, type Place } from './horizon';
 import { LightRig } from './lightrig';
 import { Particles } from './particles';
 import {
@@ -55,6 +56,8 @@ export interface StageInput {
   visual?: WallVisual;
   overlay?: WallOverlay;
   sky?: Sky;
+  /** Viewer-local override of where the song is set; undefined follows the song's own draw. */
+  place?: Place;
 }
 export interface StageCallbacks {
   onSelect: (role: Role) => void;
@@ -184,6 +187,7 @@ export function createStage(
   let crowd!: Crowd;
   let field!: CrowdField;
   let weather!: Weather;
+  let horizon!: Horizon;
   let particles!: Particles;
   let cat!: Cat;
   let chatter: Chatter | null = null;
@@ -381,15 +385,25 @@ export function createStage(
       );
     });
     weather.update(sig, rig.palette, dt, camera, input.sky);
-    venue.update(sig, rig.palette, renderer, dt, weather.air, {
-      scene,
-      shot: memberShot,
-      stream: input.stream,
-      spectrum: input.spectrum,
-      visual: input.visual,
-      overlay: input.overlay,
-    });
-    field.update(sig, rig.palette, weather.air);
+    horizon.update(sig, rig.palette, dt, weather.air, input.place);
+    container.dataset.place = horizon.place;
+    venue.update(
+      sig,
+      rig.palette,
+      renderer,
+      dt,
+      weather.air,
+      {
+        scene,
+        shot: memberShot,
+        stream: input.stream,
+        spectrum: input.spectrum,
+        visual: input.visual,
+        overlay: input.overlay,
+      },
+      horizon.hills,
+    );
+    field.update(sig, rig.palette, weather.air, horizon.hills);
     // The crowd is the single biggest CPU item; at a distance, every other frame is indistinguishable.
     crowdTick = !crowdTick;
     crowdDt += dt;
@@ -490,6 +504,7 @@ export function createStage(
     crowd = new Crowd(scene, lowPower);
     field = new CrowdField(scene, lowPower);
     weather = new Weather(scene, lowPower);
+    horizon = new Horizon(scene);
     await pause();
     if (disposed) return;
     particles = new Particles(scene, lowPower);
