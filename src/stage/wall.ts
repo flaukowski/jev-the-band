@@ -42,6 +42,8 @@ const quadVertex =
  *   6 plasma trails  a warping feedback buffer around a waveform
  *   7 mandala        seeded line-art geometry, a new figure every two phrases
  *   8 decision stream  the room's raw decision JSON as falling code
+ *   9 song title     the current title as animated poster lettering
+ * Whatever Lux has up, a new song or theme also gets a title card laid over it for a few seconds.
  * Spectrum pictures use the listener's real master bus when sound is on and the committed notes
  * otherwise. Nothing here asks a model for anything.
  */
@@ -308,9 +310,13 @@ const kinds: PictureKind[] = [
   'copy',
   'mandala',
   'copy',
+  'copy',
 ];
 /** How much the players' ripples may bend each picture: text and faces stay readable. */
-const bendOf = [1, 0.6, 0.12, 0.12, 0.35, 1, 1, 1, 0.12];
+const bendOf = [1, 0.6, 0.12, 0.12, 0.35, 1, 1, 1, 0.12, 0.2];
+const TITLE = 9;
+/** How long a new song's title card stays over whatever else is on the wall. */
+const TITLE_CARD_SECONDS = 10;
 
 const compositeFragment = /* glsl */ `
 uniform sampler2D tBase, tPrev, tOver;
@@ -456,6 +462,16 @@ export class Wall {
   private canvasClock = 0;
   private readonly columns: { y: number; speed: number; text: string; at: number }[] = [];
   private streamCursor = 0;
+  private readonly titleCanvas: HTMLCanvasElement;
+  private readonly titleTexture: THREE.CanvasTexture;
+  private title = '';
+  private titleLayout: TitleLayout | null = null;
+  /** Seconds since this title first went up; drives the letter-by-letter entrance. */
+  private titleAge = 0;
+  private titleCard = 0;
+  private titleStill = false;
+  private readonly titleSprites = new Map<string, HTMLCanvasElement>();
+  private titleInk = '';
 
   constructor(private readonly lowPower: boolean) {
     const w = lowPower ? 256 : 1280;
@@ -480,7 +496,11 @@ export class Wall {
     sctx.fillRect(0, 0, this.streamCanvas.width, this.streamCanvas.height);
     this.streamTexture = new THREE.CanvasTexture(this.streamCanvas);
     this.logoTexture = new THREE.CanvasTexture(drawLogo());
-    for (const t of [this.rollTexture, this.streamTexture, this.logoTexture]) {
+    this.titleCanvas = document.createElement('canvas');
+    this.titleCanvas.width = lowPower ? 512 : 1024;
+    this.titleCanvas.height = lowPower ? 223 : 446;
+    this.titleTexture = new THREE.CanvasTexture(this.titleCanvas);
+    for (const t of [this.rollTexture, this.streamTexture, this.logoTexture, this.titleTexture]) {
       t.colorSpace = THREE.NoColorSpace;
       t.generateMipmaps = false;
       t.minFilter = THREE.LinearFilter;
@@ -631,6 +651,17 @@ export class Wall {
     const visuals = lightRecipes.visual as readonly string[];
     const want = Math.max(0, visuals.indexOf(ctx.visual ?? sig.lighting.visual ?? 'liquid light'));
     let wantOver = visuals.indexOf(ctx.overlay ?? sig.lighting.overlay ?? 'none');
+    // A new song or queued theme announces itself: its title rides over the wall for a few seconds.
+    const title = (sig.playing ? (sig.frame?.themeTitle ?? '') : '').trim();
+    if (title !== this.title) {
+      this.title = title;
+      this.titleLayout = null;
+      this.titleAge = 0;
+      this.titleCard = title ? TITLE_CARD_SECONDS : 0;
+    }
+    this.titleAge += dt;
+    this.titleCard = Math.max(0, this.titleCard - dt);
+    if (this.titleCard > 0) wantOver = TITLE;
     if (wantOver === want) wantOver = -1;
     if (want !== this.base) {
       this.fadingFrom = this.base;
@@ -670,6 +701,9 @@ export class Wall {
       if (showing(8)) this.paintStream(ctx.stream?.() ?? [], this.canvasClock);
       this.canvasClock = 0;
     }
+    // Lettering is readable standing still, so with less movement it is drawn once, settled.
+    if (showing(TITLE) && (sig.reduced ? !this.titleStill || !this.titleLayout : tick))
+      this.paintTitle(sig, palette);
 
     const previous = renderer.getRenderTarget();
     if (showing(3)) this.shoot(sig, renderer, ctx);
@@ -685,7 +719,7 @@ export class Wall {
       const kind = kinds[id];
       if (kind === 'copy') {
         pu.uTreat.value = id === 3 ? 1 : 0;
-        pu.uGain.value = id === 2 ? 1.5 : id === 8 ? 1.6 : 1;
+        pu.uGain.value = id === 2 ? 1.5 : id === 8 ? 1.6 : id === TITLE ? 1.7 : 1;
         pu.tMap.value =
           id === 2
             ? this.rollTexture
@@ -693,7 +727,9 @@ export class Wall {
               ? this.feed.texture
               : id === 6
                 ? this.trailA.texture
-                : this.streamTexture;
+                : id === TITLE
+                  ? this.titleTexture
+                  : this.streamTexture;
       }
       this.painterQuad.material = this.painters[kind];
       renderer.setRenderTarget(this.slots[slot]);
@@ -943,14 +979,172 @@ export class Wall {
     this.streamTexture.needsUpdate = true;
   }
 
+  /**
+   * The song title as a gig poster that will not hold still: fat capitals that drop in one at a
+   * time, ride a wave across the line, lean with the groove and trail a stack of coloured echoes.
+   */
+  private paintTitle(sig: Signals, palette: [THREE.Color, THREE.Color, THREE.Color]) {
+    const c = this.titleCanvas;
+    const g = c.getContext('2d')!;
+    const { width: w, height: h } = c;
+    const still = sig.reduced;
+    this.titleStill = still;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, w, h);
+    const text = (this.title || 'JEV').toUpperCase();
+    const layout = (this.titleLayout ??= layoutTitle(g, text, w * 0.9, h * 0.66));
+    const t = sig.time;
+    const css = (color: THREE.Color, gain = 1) =>
+      `rgb(${[color.r, color.g, color.b].map((v) => Math.round(255 * Math.min(1, Math.sqrt(Math.max(0, v)) * gain))).join(',')})`;
+
+    // A slow fan of rays behind the words, so the title also stands up as a picture on its own.
+    // Laid over another picture, the words go up alone and that picture is the background.
+    g.save();
+    g.translate(w / 2, h * 0.54);
+    g.rotate(still ? 0 : t * 0.04);
+    g.globalAlpha = this.base === TITLE ? 0.16 : 0;
+    for (let i = 0; i < 24; i += 2) {
+      g.fillStyle = css(palette[(i / 2) % 3]);
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.arc(0, 0, w, (i / 24) * Math.PI * 2, ((i + 1) / 24) * Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.globalAlpha = still ? 1 : Math.min(1, this.titleAge * 2);
+    g.font = `700 ${Math.round(h * 0.05)}px 'Arial Black', 'Helvetica Neue', system-ui, sans-serif`;
+    g.fillStyle = css(palette[2], 1.2);
+    g.fillText('N O W   P L A Y I N G', w / 2, h * 0.09);
+
+    // Each letter is drawn once into a sprite (echoes, outline, face) and only re-inked when the
+    // echo colours step on, so a frame of animation is a handful of image blits.
+    const march = still ? 0 : Math.floor(t * 1.5);
+    const ink = `${layout.font}|${march}|${still}`;
+    if (ink !== this.titleInk) {
+      this.titleInk = ink;
+      this.titleSprites.clear();
+    }
+    const box = Math.ceil(layout.size * 1.7);
+    const sprite = (ch: string, phase: number) => {
+      const key = ch + phase;
+      let made = this.titleSprites.get(key);
+      if (made) return made;
+      made = document.createElement('canvas');
+      made.width = made.height = box;
+      const s = made.getContext('2d')!;
+      s.font = layout.font;
+      s.textAlign = 'center';
+      s.textBaseline = 'middle';
+      s.lineJoin = 'round';
+      s.translate(box / 2, box / 2);
+      const step = layout.size * 0.035;
+      // Echoes march down and to the right, cycling through Lux's colours.
+      for (let e = 5; e >= 1; e--) {
+        s.fillStyle = css(palette[(e + march + phase) % 3], 0.95 - e * 0.09);
+        s.fillText(ch, e * step, e * step);
+      }
+      s.strokeStyle = '#05030a';
+      s.lineWidth = layout.size * 0.09;
+      s.strokeText(ch, 0, 0);
+      const face = s.createLinearGradient(0, -layout.size * 0.5, 0, layout.size * 0.5);
+      face.addColorStop(0, '#fffbe8');
+      face.addColorStop(0.55, css(palette[0], 1.5));
+      face.addColorStop(1, css(palette[1], 1.3));
+      s.fillStyle = face;
+      s.fillText(ch, 0, 0);
+      this.titleSprites.set(key, made);
+      return made;
+    };
+    layout.letters.forEach((letter, i) => {
+      // Entrance: each letter falls in a beat after its neighbour and overshoots before settling.
+      const since = still ? 9 : this.titleAge * 1.6 - i * 0.07;
+      if (since <= 0) return;
+      const k = Math.min(1, since);
+      const pop = 1 + Math.sin(k * Math.PI) * 0.35 * (1 - k * 0.5);
+      const drop = (1 - k) ** 3 * -h * 0.5;
+      const wave = still ? 0 : Math.sin(sig.beat * Math.PI * 0.5 - i * 0.42) * layout.size * 0.075;
+      const lean = still ? 0 : Math.sin(sig.beat * Math.PI * 0.25 - i * 0.3) * 0.07;
+      const scale = pop * (still ? 1 : 1 + sig.kick * 0.06);
+      g.save();
+      g.translate(letter.x, h * 0.13 + letter.y + drop + wave);
+      g.rotate(lean);
+      g.scale(scale, scale);
+      g.globalAlpha = Math.min(1, since * 3);
+      g.drawImage(sprite(letter.ch, i % 3), -box / 2, -box / 2);
+      g.restore();
+    });
+    g.globalAlpha = 1;
+    this.titleTexture.needsUpdate = true;
+  }
+
   dispose() {
     for (const t of [this.target, this.trailA, this.trailB, this.feed, ...this.slots]) t.dispose();
     for (const m of Object.values(this.painters)) m.dispose();
-    for (const t of [this.rollTexture, this.streamTexture, this.logoTexture]) t.dispose();
+    for (const t of [this.rollTexture, this.streamTexture, this.logoTexture, this.titleTexture])
+      t.dispose();
     this.material.dispose();
     this.trailMaterial.dispose();
     this.quad.geometry.dispose();
   }
+}
+
+interface TitleLayout {
+  font: string;
+  size: number;
+  /** Letter centres, relative to the top-left of the lettering block. */
+  letters: { ch: string; x: number; y: number }[];
+}
+
+/** Break a title over up to three lines and find the largest heavy type that fits the block. */
+function layoutTitle(
+  g: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+): TitleLayout {
+  const words = text.split(/\s+/).filter(Boolean);
+  const face = "'Arial Black', Impact, 'Helvetica Neue', system-ui, sans-serif";
+  let best: { lines: string[]; size: number } = { lines: [text], size: 0 };
+  for (let count = 1; count <= Math.min(3, words.length); count++) {
+    // Balance the lines by character count.
+    const target = text.length / count;
+    const lines: string[] = [];
+    let line = '';
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && lines.length < count - 1 && next.length > target + word.length / 2) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    lines.push(line);
+    g.font = `900 100px ${face}`;
+    const widest = Math.max(...lines.map((l) => g.measureText(l).width * 1.06));
+    const size = Math.min((maxWidth / widest) * 100, maxHeight / (lines.length * 1.08));
+    if (size > best.size) best = { lines, size };
+  }
+  const size = Math.floor(best.size);
+  const font = `900 ${size}px ${face}`;
+  g.font = font;
+  const letters: TitleLayout['letters'] = [];
+  const canvasWidth = g.canvas.width;
+  const blockTop = (maxHeight - best.lines.length * size * 1.08) / 2;
+  best.lines.forEach((line, row) => {
+    const tracking = size * 0.03;
+    const widths = [...line].map((ch) => g.measureText(ch).width + tracking);
+    let x = (canvasWidth - widths.reduce((a, b) => a + b, 0)) / 2;
+    [...line].forEach((ch, i) => {
+      if (ch !== ' ')
+        letters.push({ ch, x: x + widths[i] / 2, y: blockTop + (row + 0.5) * size * 1.08 });
+      x += widths[i];
+    });
+  });
+  return { font, size, letters };
 }
 
 /** The band's mark as a soft-edged mask; the shader does the colour and the movement. */

@@ -337,3 +337,11 @@ Railway requires DATABASE_URL to avoid accidental ephemeral SQLite storage. Migr
 ## 2026-09-20 — Archive release integration (v0.8)
 
 The user authorized creating a PR, merging it into the primary branch (named main in this repository), and deploying to Railway. Integration starts from the released v0.7 branch and preserves its musical novelty, solo arranger, provider fallback, projection/sky controls and crowd characters. The archive is enabled through a dedicated Postgres service with an app-level variable reference; local databases are excluded from deployment uploads. Release verification uses no-call rehearsal and saved replay rather than starting a paid live jam.
+
+## 2026-09-20 — Song title in animated lettering
+
+**User requirement:** put the song title on the screen in animated lettering.
+
+**Decisions:** "the screen" is read as the projection wall, where Lux's other pictures live. `song title` is a tenth wall picture that Lux can choose as the picture or as an overlay in its existing single request; viewers can also pick it locally. **Assumption:** independently of Lux, a new song or queued theme announces itself: its title is laid over whatever is on the wall for ten seconds, and a viewer who joins mid-song sees it once as "now playing". That card is application behavior tied to `themeTitle` changing, not a Jev decision, and it never alters the recorded lighting.
+
+The text is the room's existing `themeTitle` (first line of the prompt, at most 80 characters), upper-cased and balanced over up to three lines at the largest heavy system face that fits; no fonts are downloaded. Letters drop in one after another with an overshoot, ride a wave that travels along the line on the beat, lean with the bar, push slightly on the kick, and trail five echoes that step through Lux's palette. As the base picture a slow fan of rays sits behind the words; as an overlay the words go up alone. Each letter is inked once into a sprite and re-inked only when the echo colours step (about 1.5 times a second), so a frame is a few dozen image blits; measured wall cost rose from about 0.7 ms to about 1.4 ms while the title is up. With *Less movement* the title is drawn once, settled, with no entrance, wave or lean.
