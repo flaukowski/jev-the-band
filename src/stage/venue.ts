@@ -4,162 +4,63 @@ import type { Signals } from './signals';
 import { Amp, sharedAmpTextures } from './strings';
 import { banner as bannerArt, grille, softDot, stageDeck, weave } from './textures';
 import { box, cyl, damp, mergeStatic, mesh } from './util';
+import { CROWD_DENSITY, GROUND, terrainHeight } from './crowdfield';
+import { NOISE, Wall, type WallContext } from './wall';
+import type { Atmosphere } from './weather';
 
-const NOISE = /* glsl */ `
-float hash21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float vnoise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash21(i), hash21(i + vec2(1,0)), u.x), mix(hash21(i + vec2(0,1)), hash21(i + vec2(1,1)), u.x), u.y);
-}
-float fbm(vec2 p){
-  float a = 0.5, v = 0.0;
-  for (int i = 0; i < 4; i++){ v += a * vnoise(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + 3.1; a *= 0.5; }
-  return v;
-}
-mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
-`;
-
-/**
- * The liquid light show. One pattern family per mode, cross-faded as the band modulates:
- *   dorian → oil-and-water projection · mixolydian → turning mandala
- *   minor  → deep tunnel               · major      → op-art sunburst
- * Hue follows the key around the circle of fifths. Each musician owns a ripple source, so a
- * bass note visibly pushes the oil from Moss's side of the wall.
- */
-const backdropFragment = /* glsl */ `
-uniform float uTime, uBeat, uEnergy, uKick, uHue, uIntensity, uSolo, uAspect;
-uniform vec4 uMode;
-uniform vec3 uPalA, uPalB, uPalC;
-uniform vec4 uRipple[4];
-varying vec2 vUv;
-${NOISE}
-vec3 pal(float t){
-  t = fract(t);
-  vec3 c = t < 0.3333 ? mix(uPalA, uPalB, t * 3.0) : t < 0.6667 ? mix(uPalB, uPalC, (t - 0.3333) * 3.0) : mix(uPalC, uPalA, (t - 0.6667) * 3.0);
-  // Thin-film shimmer on top of Lux's chosen chord of colours.
-  return c + 0.12 * cos(6.2831 * (t * 2.0 + vec3(0.0, 0.33, 0.67) + uHue));
-}
-vec3 liquid(vec2 p, float t){
-  vec2 q = p * 1.15;
-  vec2 w1 = vec2(fbm(q + t * 0.11), fbm(q + 5.2 - t * 0.09));
-  vec2 w2 = vec2(fbm(q + 3.0 * w1 + 1.7 + t * 0.06), fbm(q + 3.0 * w1 + 9.2 - t * 0.05));
-  float v = fbm(q + 3.4 * w2);
-  vec3 col = pal(v * 1.5 + uHue + length(w2) * 0.35);
-  float cell = fbm(q * 0.75 + w1 * 2.2 + 11.0);
-  float blob = smoothstep(0.47, 0.5, cell);
-  col = mix(col, pal(v * 0.7 + uHue + 0.45) * 1.25, blob);
-  col *= 0.35 + 0.65 * smoothstep(0.0, 0.035, abs(cell - 0.485));
-  return col * (0.55 + 0.75 * v);
-}
-vec3 mandala(vec2 p, float t){
-  float r = length(p);
-  float n = 8.0;
-  float a = atan(p.y, p.x) + t * 0.05;
-  a = mod(a, 6.2831 / n);
-  a = abs(a - 3.14159 / n);
-  vec2 q = r * vec2(cos(a), sin(a));
-  q = rot(t * 0.07) * q;
-  float v = fbm(q * 2.6 + vec2(t * 0.12, -t * 0.08)) + 0.3 * sin(r * 9.0 - uBeat * 1.5708);
-  vec3 col = pal(v + r * 0.45 + uHue);
-  float petal = 0.5 + 0.5 * cos(a * n * 2.0 + r * 6.0);
-  col *= 0.45 + 0.75 * petal;
-  col += pal(uHue + 0.5) * 0.35 * smoothstep(0.02, 0.0, abs(fract(r * 3.0 - t * 0.1) - 0.5) - 0.46);
-  return col;
-}
-vec3 tunnel(vec2 p, float t){
-  float r = length(p) + 0.04;
-  float a = atan(p.y, p.x);
-  vec2 u = vec2(0.32 / r + t * (0.25 + uEnergy * 0.25), a / 3.14159 * 3.0 + sin(t * 0.1) * 0.5);
-  float v = fbm(u * vec2(1.5, 1.0));
-  float stripes = 0.5 + 0.5 * sin(u.x * 9.0 + sin(u.y * 3.14159) * 1.5);
-  vec3 col = pal(v * 0.8 + u.x * 0.08 + uHue) * (0.25 + 0.85 * stripes);
-  col *= smoothstep(0.0, 0.45, r);
-  float star = step(0.992, hash21(floor(u * vec2(14.0, 9.0))));
-  return col + star * 0.8 * smoothstep(0.1, 0.6, r);
-}
-vec3 sunburst(vec2 p, float t){
-  float r = length(p);
-  float a = atan(p.y, p.x);
-  float rays = 0.5 + 0.5 * sin(a * 12.0 + t * 0.35 + sin(r * 5.0 - t * 0.8) * 1.3);
-  float rings = 0.5 + 0.5 * sin(r * 15.0 - uBeat * 3.14159);
-  vec3 col = pal(rays * 0.3 + rings * 0.22 + r * 0.35 + uHue);
-  col *= 0.4 + 0.7 * rays;
-  float dots = smoothstep(0.32, 0.28, length(fract(vec2(a * 3.8197, r * 5.0 - t * 0.2)) - 0.5));
-  return col + pal(uHue + 0.33) * dots * 0.35;
-}
-void main(){
-  vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0) * 2.0;
-  for (int i = 0; i < 4; i++){
-    vec2 o = uRipple[i].xy;
-    float age = uRipple[i].z;
-    float d = distance(p, o);
-    float wave = sin(d * 16.0 - age * 9.0) * exp(-age * 1.7) * exp(-d * 1.2) * uRipple[i].w;
-    p += normalize(p - o + 1e-4) * wave * 0.085;
-  }
-  float t = uTime * (0.55 + uEnergy * 0.9);
-  p *= 1.0 - uKick * 0.035;
-  vec3 col = vec3(0.0);
-  float total = 0.0;
-  if (uMode.x > 0.01){ col += liquid(p, t) * uMode.x; total += uMode.x; }
-  if (uMode.y > 0.01){ col += mandala(p, t) * uMode.y; total += uMode.y; }
-  if (uMode.z > 0.01){ col += tunnel(p, t) * uMode.z; total += uMode.z; }
-  if (uMode.w > 0.01){ col += sunburst(p, t) * uMode.w; total += uMode.w; }
-  col /= max(total, 0.001);
-  col = max(col, 0.0);
-  col *= 1.0 + uKick * 0.14 * exp(-length(p) * 1.2);
-  // A soloist pulls a slow bright iris open in the middle of the wall.
-  col += pal(uHue + 0.5) * uSolo * 0.25 * exp(-pow(length(p) * 1.4, 2.0));
-  vec2 edge = smoothstep(0.0, 0.08, vUv) * smoothstep(0.0, 0.08, 1.0 - vUv);
-  col *= edge.x * edge.y;
-  gl_FragColor = vec4(col * (0.05 + uIntensity * (0.5 + 0.55 * uEnergy)), 1.0);
-}`;
-
-const skyFragment = /* glsl */ `
-uniform float uTime, uEnergy, uHue;
-uniform vec3 uPalA, uPalB;
-varying vec3 vDir;
-${NOISE}
-void main(){
-  vec3 d = normalize(vDir);
-  vec2 uv = vec2(atan(d.z, d.x), asin(clamp(d.y, -1.0, 1.0)));
-  vec3 col = vec3(0.004, 0.006, 0.014);
-  // Stars on three depths, twinkling out of phase.
-  for (int i = 0; i < 3; i++){
-    float s = 60.0 + float(i) * 70.0;
-    vec2 g = uv * s;
-    vec2 id = floor(g);
-    float h = hash21(id + float(i) * 17.0);
-    float star = smoothstep(0.12, 0.0, length(fract(g) - 0.5 - (vec2(hash21(id + 3.1), hash21(id + 7.7)) - 0.5) * 0.6));
-    star *= step(0.93, h) * (0.6 + 0.4 * sin(uTime * (1.0 + h * 3.0) + h * 40.0));
-    col += star * mix(vec3(0.8, 0.85, 1.0), vec3(1.0, 0.85, 0.7), h) * (1.0 - float(i) * 0.25);
-  }
-  // Aurora: the room has no ceiling, and the sky listens too.
-  float band = fbm(vec2(uv.x * 2.0 + uTime * 0.02, uv.y * 5.0 - uTime * 0.03));
-  float curtain = smoothstep(0.35, 0.8, band) * smoothstep(0.05, 0.5, d.y) * smoothstep(1.2, 0.5, d.y);
-  float fold = 0.5 + 0.5 * sin(uv.x * 22.0 + band * 9.0 + uTime * 0.25);
-  vec3 aur = mix(uPalA, uPalB, fold) * curtain * (0.05 + uEnergy * 0.22);
-  float neb = fbm(uv * 1.6 + 4.0) * fbm(uv * 3.1 - uTime * 0.01);
-  col += aur + mix(uPalB, uPalA, neb) * neb * 0.05 * smoothstep(-0.1, 0.4, d.y);
-  gl_FragColor = vec4(col, 1.0);
-}`;
-
-const groundFragment = /* glsl */ `
-uniform float uTime, uKickAge, uKickPower, uEnergy;
-uniform vec3 uPalA;
+const groundVertex = /* glsl */ `
 varying vec3 vWorld;
+varying float vDensity, vDist;
+${CROWD_DENSITY}
+void main(){
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vWorld = w.xyz;
+  vDensity = crowdDensity(w.xz);
+  vec4 mv = viewMatrix * w;
+  vDist = -mv.z;
+  gl_Position = projectionMatrix * mv;
+}`;
+const groundFragment = /* glsl */ `
+uniform float uTime, uKickAge, uKickPower, uEnergy, uFogDensity, uWet, uNight;
+uniform vec3 uPalA, uAmbient, uSpill, uFogColor;
+varying vec3 vWorld;
+varying float vDensity, vDist;
 ${NOISE}
+vec3 hsl(float h, float s, float l){
+  vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+}
 void main(){
   vec2 p = vWorld.xz;
   float d = length(p - vec2(0.0, -1.0));
   float n = fbm(p * 0.35);
-  vec3 col = vec3(0.012, 0.014, 0.018) * (0.6 + n);
+  // Trodden festival grass: only the daylight shows how green it is.
+  vec3 grass = mix(vec3(0.16, 0.2, 0.07), vec3(0.3, 0.26, 0.14), fbm(p * 0.06 + 3.0)) * (0.55 + 0.7 * n);
+  grass = mix(grass, vec3(0.2, 0.16, 0.11), smoothstep(0.35, 0.8, vDensity) * 0.7);
+  vec3 col = vec3(0.007, 0.008, 0.011) * (0.6 + n) + grass * uAmbient * 1.9 * (1.0 - 0.35 * uWet);
+  // Seen from above, the far crowd is a field of heads. Same people as the cards standing on it.
+  vec2 cell = p / 0.64;
+  vec2 id = floor(cell);
+  float present = step(hash21(id + 17.0), vDensity);
+  vec2 jitter = vec2(hash21(id + 3.0), hash21(id + 9.0)) - 0.5;
+  float person = smoothstep(0.34, 0.2, length(fract(cell) - 0.5 - jitter * 0.3)) * present;
+  vec3 cloth = hash21(id + 51.0) < 0.3 ? hsl(hash21(id + 53.0), 0.7, 0.45) : mix(vec3(0.07, 0.08, 0.1), vec3(0.75, 0.7, 0.6), hash21(id + 57.0));
+  // A head of hair in the middle of each pair of shoulders.
+  vec3 hair = mix(vec3(0.05, 0.03, 0.02), vec3(0.7, 0.55, 0.3), pow(hash21(id + 67.0), 3.0));
+  cloth = mix(cloth, hair, smoothstep(0.13, 0.09, length(fract(cell) - 0.5 - jitter * 0.3)));
+  float reach = 1.0 / (1.0 + pow(d / 38.0, 2.0));
+  col = mix(col, cloth * (uAmbient + uSpill * reach * 0.8), person);
+  // Phones and lighters held up in the dark.
+  float carries = hash21(id + 31.0);
+  float glint = step(carries, 0.07) * present * uNight * smoothstep(0.1, 0.0, length(fract(cell) - 0.5 - jitter * 0.3 - 0.18));
+  col += vec3(1.0, 0.86, 0.62) * glint * (0.6 + 0.4 * sin(uTime * (1.0 + carries * 30.0) + carries * 400.0)) * 1.4;
   // Each kick sends one ring out through the field, under the crowd's feet.
   float ring = exp(-pow((d - 4.0 - uKickAge * 26.0) * 0.55, 2.0)) * uKickPower * exp(-uKickAge * 1.6);
   col += uPalA * ring * 0.16;
   col += uPalA * 0.05 * uEnergy * exp(-d * 0.06) * (0.5 + 0.5 * sin(d * 1.3 - uTime * 0.8));
-  float fade = smoothstep(95.0, 30.0, d);
-  gl_FragColor = vec4(col * fade, 1.0);
+  float thick = uFogDensity * 0.62;
+  float fog = 1.0 - exp(-thick * thick * vDist * vDist);
+  gl_FragColor = vec4(mix(col, uFogColor, fog * (1.0 - glint * 0.85)), 1.0);
 }`;
 
 /** Collects thin struts and emits them as a single instanced draw. */
@@ -237,11 +138,8 @@ export const RIG = {
 };
 
 export class Venue {
-  readonly backdropTarget: THREE.WebGLRenderTarget;
-  private readonly backdropScene = new THREE.Scene();
-  private readonly backdropCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  private readonly backdrop: THREE.ShaderMaterial;
-  private readonly sky: THREE.ShaderMaterial;
+  readonly wall: Wall;
+  private readonly deckMaterial: THREE.MeshStandardMaterial;
   private readonly ground: THREE.ShaderMaterial;
   private readonly bannerMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial>;
   private readonly bannerRest: Float32Array;
@@ -250,10 +148,8 @@ export class Venue {
   private readonly lip: THREE.InstancedMesh;
   private readonly lipColor = new THREE.Color();
   private readonly reflection: THREE.MeshBasicMaterial;
-  private readonly rippleAges = [9, 9, 9, 9];
   private kickAge = 9;
   private kickPower = 0;
-  private readonly wall: THREE.MeshBasicMaterial;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -284,6 +180,7 @@ export class Venue {
       roughness: 0.42,
       metalness: 0.05,
     });
+    this.deckMaterial = deckMat;
     const deck = box(stage, 18, 0.72, 10, deckMat, 0, -0.36, -1.8);
     deck.receiveShadow = true;
     box(stage, 18.06, 0.7, 0.04, blackMat, 0, -0.38, 3.22);
@@ -320,37 +217,9 @@ export class Venue {
     struts.build(stage, steel);
 
     // Projection wall, rendered once per frame into a small target and reused.
-    this.backdropTarget = new THREE.WebGLRenderTarget(lowPower ? 256 : 1280, lowPower ? 112 : 560, {
-      type: THREE.HalfFloatType,
-      depthBuffer: false,
-    });
-    this.backdrop = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uBeat: { value: 0 },
-        uEnergy: { value: 0 },
-        uKick: { value: 0 },
-        uHue: { value: 0 },
-        uIntensity: { value: 0.5 },
-        uSolo: { value: 0 },
-        uAspect: { value: 17 / 7.4 },
-        uMode: { value: new THREE.Vector4(1, 0, 0, 0) },
-        uPalA: { value: new THREE.Color() },
-        uPalB: { value: new THREE.Color() },
-        uPalC: { value: new THREE.Color() },
-        uRipple: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 9, 0)) },
-      },
-      vertexShader:
-        'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-      fragmentShader: backdropFragment,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.backdrop);
-    quad.frustumCulled = false;
-    this.backdropScene.add(quad);
-    this.wall = new THREE.MeshBasicMaterial({ map: this.backdropTarget.texture });
-    mesh(stage, new THREE.PlaneGeometry(17, 7.4), this.wall, 0, 3.95, RIG.screenZ);
+    this.wall = new Wall(lowPower);
+    const wallMaterial = new THREE.MeshBasicMaterial({ map: this.wall.texture });
+    mesh(stage, new THREE.PlaneGeometry(17, 7.4), wallMaterial, 0, 3.95, RIG.screenZ);
     box(stage, 17.4, 7.8, 0.2, blackMat, 0, 3.95, RIG.screenZ - 0.12);
     // The lacquered deck picks up the wall as a soft smear of colour.
     const fade = document.createElement('canvas');
@@ -364,7 +233,7 @@ export class Venue {
     fctx.fillRect(0, 0, 4, 64);
     const fadeTexture = new THREE.CanvasTexture(fade);
     this.reflection = new THREE.MeshBasicMaterial({
-      map: this.backdropTarget.texture,
+      map: this.wall.texture,
       alphaMap: fadeTexture,
       transparent: true,
       opacity: 0.16,
@@ -521,38 +390,30 @@ export class Venue {
       box(c, 1.12, 0.03, 0.72, steel, 0, -h / 2 + 0.02, 0);
     }
 
-    // Sky dome and the field the crowd stands in.
-    this.sky = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uEnergy: { value: 0 },
-        uHue: { value: 0 },
-        uPalA: { value: new THREE.Color() },
-        uPalB: { value: new THREE.Color() },
-      },
-      vertexShader:
-        'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: skyFragment,
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-    });
-    const dome = mesh(scene, new THREE.SphereGeometry(160, 32, 20), this.sky);
-    dome.renderOrder = -10;
+    // The field the crowd stands in: flat out front, rising into a bowl, hills on the horizon.
     this.ground = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
         uKickAge: { value: 9 },
         uKickPower: { value: 0 },
         uEnergy: { value: 0 },
+        uWet: { value: 0 },
+        uNight: { value: 1 },
+        uFogDensity: { value: 0.012 },
         uPalA: { value: new THREE.Color() },
+        uAmbient: { value: new THREE.Color() },
+        uSpill: { value: new THREE.Color() },
+        uFogColor: { value: new THREE.Color() },
       },
-      vertexShader:
-        'varying vec3 vWorld; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+      vertexShader: groundVertex,
       fragmentShader: groundFragment,
     });
-    const field = mesh(scene, new THREE.CircleGeometry(110, 48), this.ground, 0, -0.74, 0);
-    field.rotation.x = -Math.PI / 2;
+    const fieldGeo = new THREE.PlaneGeometry(620, 620, lowPower ? 80 : 160, lowPower ? 80 : 160);
+    fieldGeo.rotateX(-Math.PI / 2);
+    const fieldPos = fieldGeo.attributes.position;
+    for (let i = 0; i < fieldPos.count; i++)
+      fieldPos.setY(i, terrainHeight(fieldPos.getX(i), fieldPos.getZ(i)) - GROUND);
+    mesh(scene, fieldGeo, this.ground, 0, GROUND, 0);
 
     // Haze: big soft sprites that catch whatever colour is in the air.
     const dot = softDot();
@@ -584,9 +445,7 @@ export class Venue {
 
   /** A musician's note pushes the wall from their side of the stage. */
   ripple(index: number, x: number, y: number, strength: number) {
-    const r = this.backdrop.uniforms.uRipple.value[index] as THREE.Vector4;
-    r.set(x, y, 0, strength);
-    this.rippleAges[index] = 0;
+    this.wall.ripple(index, x, y, strength);
   }
 
   update(
@@ -594,40 +453,12 @@ export class Venue {
     palette: [THREE.Color, THREE.Color, THREE.Color],
     renderer: THREE.WebGLRenderer,
     dt: number,
+    air: Atmosphere,
+    context: WallContext,
   ) {
-    const u = this.backdrop.uniforms;
     const live = sig.reduced ? 0 : 1;
-    u.uTime.value = sig.time;
-    u.uBeat.value = sig.beat;
-    u.uEnergy.value = sig.energy;
-    u.uKick.value = sig.kick * live;
-    u.uHue.value = sig.hue;
     const dark = sig.lighting.wash === 'blackout' ? 0.12 : 1;
-    u.uIntensity.value = damp(
-      u.uIntensity.value,
-      (sig.playing ? 0.3 + sig.lighting.intensity * 0.7 : 0.4) * dark,
-      1.5,
-      dt,
-    );
-    u.uSolo.value = damp(u.uSolo.value, sig.soloists.length ? 1 : 0, 1.2, dt);
-    (u.uMode.value as THREE.Vector4).set(...sig.modeMix);
-    (u.uPalA.value as THREE.Color).copy(palette[0]);
-    (u.uPalB.value as THREE.Color).copy(palette[1]);
-    (u.uPalC.value as THREE.Color).copy(palette[2]);
-    (u.uRipple.value as THREE.Vector4[]).forEach((r, i) => {
-      this.rippleAges[i] += dt;
-      r.z = this.rippleAges[i];
-    });
-    const previous = renderer.getRenderTarget();
-    renderer.setRenderTarget(this.backdropTarget);
-    renderer.render(this.backdropScene, this.backdropCamera);
-    renderer.setRenderTarget(previous);
-
-    const s = this.sky.uniforms;
-    s.uTime.value = sig.time;
-    s.uEnergy.value = sig.energySlow;
-    (s.uPalA.value as THREE.Color).copy(palette[0]);
-    (s.uPalB.value as THREE.Color).copy(palette[2]);
+    this.wall.update(sig, palette, renderer, dt, context);
     if (sig.kick > this.kickPower * Math.exp(-this.kickAge * 3) + 0.25 && this.kickAge > 0.18) {
       this.kickAge = 0;
       this.kickPower = sig.kick;
@@ -639,6 +470,16 @@ export class Venue {
     g.uKickPower.value = this.kickPower * live;
     g.uEnergy.value = sig.energy;
     (g.uPalA.value as THREE.Color).copy(palette[0]);
+    g.uWet.value = air.wet;
+    g.uNight.value = air.night;
+    g.uFogDensity.value = air.fogDensity;
+    (g.uFogColor.value as THREE.Color).copy(air.fogColor);
+    (g.uAmbient.value as THREE.Color).copy(air.ambient);
+    (g.uSpill.value as THREE.Color)
+      .copy(palette[0])
+      .multiplyScalar((0.25 + sig.lighting.intensity * 0.9) * dark);
+    // Rain lacquers the deck: sharper highlights and a stronger smear of the wall.
+    this.deckMaterial.roughness = damp(this.deckMaterial.roughness, 0.42 - air.wet * 0.3, 1, dt);
 
     // Cloth: slow billow, with a little extra lift from the low end.
     const pos = this.bannerMesh.geometry.attributes.position;
@@ -689,12 +530,10 @@ export class Venue {
       this.lip.setColorAt(i, this.lipColor.setHex(colors[zone]).multiplyScalar(0.05 + lit * 2.2));
     }
     this.lip.instanceColor!.needsUpdate = true;
-    this.reflection.opacity = 0.2;
+    this.reflection.opacity = 0.2 + air.wet * 0.25;
   }
 
   dispose() {
-    this.backdropTarget.dispose();
-    this.backdrop.dispose();
-    (this.backdropScene.children[0] as THREE.Mesh).geometry.dispose();
+    this.wall.dispose();
   }
 }

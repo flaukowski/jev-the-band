@@ -85,6 +85,7 @@ export default function App() {
   const stage = useRef<HTMLDivElement>(null);
   // The stage reads the same post-fader meters as the soundboard, so movement follows what is heard.
   const levels = useRef(() => audio.current.levels()).current;
+  const spectrum = useRef(() => audio.current.spectrum()).current;
   const running = !!room && room.status !== 'ended';
   const effectiveMode = running ? room.mode : mode;
   const currentTime = now + offset;
@@ -533,6 +534,8 @@ export default function App() {
                   frame={activeFrame}
                   upcoming={upcomingFrame}
                   levels={levels}
+                  spectrum={spectrum}
+                  traces={room?.traces}
                   playing={running && !!frame}
                   reduced={reduced}
                   onSelect={selectRole}
@@ -691,7 +694,13 @@ export default function App() {
                               : 'Listening · no notes'
                           : lit
                             ? role === 'lights'
-                              ? activeFrame?.lighting.wash
+                              ? [
+                                  activeFrame?.lighting.wash,
+                                  activeFrame?.lighting.visual,
+                                  activeFrame?.lighting.sky,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')
                               : part?.continued || part?.decision.action === 'hold'
                                 ? 'Holding the thread'
                                 : part?.decision.action

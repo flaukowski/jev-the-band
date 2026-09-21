@@ -44,6 +44,8 @@ interface Bus {
 export class BandAudio {
   context?: AudioContext;
   private master?: GainNode;
+  private scopeNode?: AnalyserNode;
+  private readonly scopeBins = new Uint8Array(1024);
   private masterRig?: { wet: GainNode; glue: DynamicsCompressorNode };
   private masterControls = defaultMasterControls();
   private audience?: AudiencePlayer;
@@ -132,6 +134,12 @@ export class BandAudio {
           effectsAtBeat(part, ((Date.now() + this.offset - frame.at) * frame.bpm) / 60000),
         );
   }
+  /** What this listener is actually hearing, as 1024 spectrum bins. Null while sound is off. */
+  spectrum(): Uint8Array | null {
+    if (!this.scopeNode || !this.enabled) return null;
+    this.scopeNode.getByteFrequencyData(this.scopeBins);
+    return this.scopeBins;
+  }
   levels(): Record<Musician, number> {
     return Object.fromEntries(
       musicians.map((role) => {
@@ -215,6 +223,11 @@ export class BandAudio {
     compressor.attack.value = 0.003;
     compressor.release.value = 0.15;
     master.connect(compressor).connect(c.destination);
+    // A listen-only tap for the projection wall's spectrum pictures. It feeds nothing.
+    const scope = (this.scopeNode = c.createAnalyser());
+    scope.fftSize = 2048;
+    scope.smoothingTimeConstant = 0.72;
+    compressor.connect(scope);
     this.noise = c.createBuffer(1, c.sampleRate, c.sampleRate);
     const samples = this.noise.getChannelData(0);
     let seed = 43;

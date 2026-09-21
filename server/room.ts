@@ -24,6 +24,9 @@ import { continuingSolo, continuingPhrase } from './solo.js';
 import { nextThemeFrame } from '../shared/setlist.js';
 import { sketchSolo } from './sketch.js';
 
+/** Eight two-bar frames: the shortest time one sky may stay up before Lux can change it. */
+const SKY_DWELL_FRAMES = 8;
+
 export class Room extends EventEmitter {
   state: Snapshot;
   private timer?: ReturnType<typeof setTimeout>;
@@ -37,6 +40,7 @@ export class Room extends EventEmitter {
   private due = new Map<Musician, number>();
   private votes = new Map<Musician, { d: Decision; frame: number }>();
   private engineerMix = defaultEngineerMix();
+  private skyChangedAt = -SKY_DWELL_FRAMES;
   private measurement?: { levels: ChannelLevels; at: number };
   private sketchesRequested = 0;
   private get provider(): JevProvider {
@@ -431,15 +435,30 @@ export class Room extends EventEmitter {
         continue;
       }
       if (trace.role === 'lights') {
+        const held = lighting;
         if (trace.source === 'jev') lighting = toLighting(trace.answers);
-        else if (trace.source === 'rehearsal')
+        else if (trace.source === 'rehearsal') {
+          // Rehearsal tours every wall picture, overlay and sky on a fixed rota. Not a Jev decision.
+          const visual = lightRecipes.visual[Math.floor(index / 2) % lightRecipes.visual.length];
+          const overlay =
+            index % 6 < 4
+              ? 'none'
+              : lightRecipes.visual[(Math.floor(index / 2) + 4) % lightRecipes.visual.length];
           lighting = {
             wash: lightRecipes.wash[Math.floor(index / 3) % 11],
             beam: lightRecipes.beam[index % 11],
             laser: lightRecipes.laser[Math.floor(index / 4) % 8],
             intensity: 0.4 + (index % 5) * 0.1,
             motion: 0.3,
+            visual,
+            overlay,
+            sky: lightRecipes.sky[Math.floor(index / SKY_DWELL_FRAMES) % lightRecipes.sky.length],
           };
+        }
+        // Weather has inertia. A new sky is accepted only after the last one has had time to arrive.
+        if ((lighting.sky ?? held.sky) !== held.sky && index - this.skyChangedAt < SKY_DWELL_FRAMES)
+          lighting = { ...lighting, sky: held.sky };
+        else if (lighting.sky !== held.sky) this.skyChangedAt = index;
         continue;
       }
     }

@@ -124,6 +124,13 @@ The independent privacy investigation's report is kept outside the repository. I
 
 Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.json`, `deployed-room-ended.json`, and the Railway screenshots. This is a short mechanics check, not a full ten-minute listening evaluation. Subsequent documentation-only release retains identical application/asset code; final HTTPS revision and asset verification is recorded in private release evidence.
 
+## 2026-09-20 — v0.7 wall pictures, festival field and weather
+
+- `npm run check`: 62 unit tests pass, including Lux's three new typed choices, the overlay-equals-picture rule, backward-compatible lighting frames and the eight-frame sky dwell across a rehearsal; TypeScript and the production build succeed.
+- Browser suite against an isolated second stack (ports 5188/4320): 9 passed, 1 skipped (the explicit paid audition). An intermediate build failed `performance.spec` and `stage.spec` on sample-load timeouts; the cause was a 26-second synchronous compile of a single all-pictures wall program. After splitting it into per-picture programs compiled asynchronously (about 2.5 s) the suite passes, and the first-frame main-thread stall matches the pre-change baseline (about 5–6 s on this machine; that pre-existing stall comes from the post chain and is not addressed here).
+- Headless Chromium with the D3D11 GPU path: every picture alone and with overlays, all eight skies, both new cameras, and close-ups of both fretting hands were captured and inspected. Steady-state frame cost stayed at 4–11 ms on this machine, draw calls about 520–700, against about the same before. The software-GL tier (SwiftShader) was exercised through camera feed, trails, stream, rain, snow and the saucer with no shader errors.
+- Not verified: a live paid Jev jam choosing these fields (rehearsal and mocked parsing only); Safari/Firefox rendering; phones; a human judgment of how Lux's choices feel over a whole performance.
+
 ## 2026-09-20 — v0.7 boredom, lead gestures and leadership
 
 - `npm run check`: 73 unit tests pass, TypeScript and production build clean. New tests cover heat sampling and its limits, option fatigue without shared-table mutation, left-hand mass decoding, lead gesture expansion (legato run into a held bend, range turnaround, slides, June's comp), the advisory sketch, 22 modes, key leadership and follow cue, drummer tempo/feel, five dynamics, guitar gain stages, and a scheduler regression test that was confirmed to fail against the old rule ("bass composed 1 times").

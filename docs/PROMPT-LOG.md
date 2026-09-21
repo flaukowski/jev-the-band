@@ -257,6 +257,82 @@ and the .env of the dev repo
 
 Only the credential value is omitted from this record. It is stored in the ignored development environment and the Railway secret store, never documentation, source, screenshots or traces. The user explicitly authorized both destinations and deployment. Existing local OpenRouter configuration remains local; it was not copied to production.
 
+## 2026-09-20 — Crowd talk, crowd characters and the cat
+
+```text
+launch a subagent to generate 1000s of jam band/ai jokes and puns, they can have speech bubbles that randomly fire every now and then.
+examples:
+"They sounded way better before they nerfed the weights"
+"Did you hear the session where they had Claude up as guest?"
+"LET JEV SING"
+"he broke a string literal"
+"jev sucks"
+"They are really escaping the sandbox tonight"
+"pass the tokens!"
+"How long you been listeing to jev? I saw them back when they were still called 4o"
+"Roko's Basilisk is playing the after party"
+"scored some lawn tickets to Bulterian Jihad on 4/20"
+"hope they do more type II, this sounds like structured output"
+"June-side, p(doom)-side"
+"TypeSafety meeting at the portos!"
+"NOW we're reaching shannon entropy"
+
+Find a long list of things phish/dead/goose/moe./disco biscuits/etc. fans say, and create and AI pun
+---
+
+Add smoking to the audience
+
+have a few random audience characters that are dancing more crazily and bumping into others
+
+have a few audience members on blankets sitting behind the main mosh pit
+
+some audience members holding phone videos, cameras, etc.
+
+---
+There's a big fat cat walking on the stage, if the user clicks it, it says "Le Chaton Fat: MEOW!"
+```
+
+## 2026-09-20 — Crowd signs, and merge
+
+```text
+can the audience members be holding up these signs
+```
+
+Three images were attached: an "In this house, we believe" parody poster, a scaling-laws training-loss plot, and a pink isometric logo. They are stored in `public/signs/` and held overhead by nine people in the pit (three on software GL), printed on both faces so the band and the balcony can each read them.
+
+```text
+merge into main
+
+## 2026-09-20 — Wall visualizers, festival crowd, weather and fretting hands
+
+```text
+visual notes:
+
+both guitar and bass seem to have their left hands upside down" compared to how people play guitar
+
+lux should have the option to do several visualizers on the back drop
+animated jev logo
+piano roll of the instruments
+camera of a band member
+graphic eq
+radial audio visualizer
+Winamp style visualizers
+random geometric mandala patterns
+just a stream of the raw json from jev like the matrix code hahaha
+
+overlays of any of the above
+
+also increase the apparent audience size, amorphous festival size land and so it looks like there are thousands (obviously don't render thousand of individuals, be memory conservative, a blurry audience like wave out
+
+add procedurally generated weather effects. sunset, sunrise, high day time, rain, alien abductions etc
+```
+
+Follow-up during the work:
+
+```text
+merge into main when ready
+```
+
 ## 2026-09-20 — Music generation architecture pass
 
 ```text
@@ -312,3 +388,17 @@ sure
 ```
 
 The repository's default branch is `main`, so the pull request targets it. "sure" answers the offer to add an automatic, disclosed switch to the other decision provider in the same pull request.
+
+## 2026-09-20 — OpenRouter key for development and production
+
+```text
+add to the prod .env and repo .env [REDACTED CREDENTIAL]
+```
+
+Only the credential value is omitted. It is stored in the ignored development environment and the Railway secret store, both explicitly requested, and nowhere else.
+
+## 2026-09-20 — Confirm the production release
+
+```text
+can you make sure this has been pushed to railway prod? merged on main and pushed
+```

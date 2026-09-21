@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultDecision, musicians, rhythms, roles, type Note } from '../shared/music.js';
+import {
+  defaultDecision,
+  lightRecipes,
+  lightingSchema,
+  musicians,
+  rhythms,
+  roles,
+  wallOverlays,
+  type Lighting,
+  type Note,
+} from '../shared/music.js';
 import {
   compile,
   endingPressure,
@@ -9,7 +19,7 @@ import {
   rehearsal,
   validateNotes,
 } from '../shared/score.js';
-import { bootstrapRequest, callJev, parseAnswers, requestFor } from '../server/jev.js';
+import { bootstrapRequest, callJev, parseAnswers, requestFor, toLighting } from '../server/jev.js';
 import { Room } from '../server/room.js';
 
 test('every instrument produces bounded notes for every action/rhythm over 120 evolving phrases', () => {
@@ -124,9 +134,82 @@ test('malformed responses cannot become accepted model decisions', () => {
       ];
     }),
   );
-  assert.equal(Object.keys(parseAnswers({ answers }, request)).length, 5);
+  assert.equal(Object.keys(parseAnswers({ answers }, request)).length, 8);
   answers.wash.choice = 'invented';
   assert.throws(() => parseAnswers({ answers }, request), /Invalid/);
+});
+test('Lux chooses the wall picture, an overlay and the sky in its one existing request', () => {
+  const room = new Room('test', 'rehearsal', '');
+  const request = requestFor('lights', room.view(), 0, 'test');
+  assert.deepEqual(Object.keys(request.questions.visual.criteria), [...lightRecipes.visual]);
+  assert.deepEqual(Object.keys(request.questions.overlay.criteria), [...wallOverlays]);
+  assert.deepEqual(Object.keys(request.questions.sky.criteria), [...lightRecipes.sky]);
+  const pick = (choice: string) => ({ choice, probabilities: { [choice]: 1 } });
+  const base = {
+    wash: pick('deep blue'),
+    beam: pick('off'),
+    laser: pick('off'),
+    intensity: pick('medium'),
+    motion: pick('slow'),
+  };
+  const look = toLighting({
+    ...base,
+    visual: pick('piano roll'),
+    overlay: pick('decision stream'),
+    sky: pick('alien abduction'),
+  });
+  assert.deepEqual(
+    [look.visual, look.overlay, look.sky],
+    ['piano roll', 'decision stream', 'alien abduction'],
+  );
+  // A picture laid over itself is just that picture.
+  assert.equal(
+    toLighting({ ...base, visual: pick('mandala'), overlay: pick('mandala'), sky: pick('rain') })
+      .overlay,
+    'none',
+  );
+  // Frames and traces from before these fields existed still validate.
+  assert.equal(toLighting(base).visual, undefined);
+  assert.ok(
+    lightingSchema.safeParse({
+      wash: 'deep blue',
+      beam: 'off',
+      laser: 'off',
+      intensity: 0.5,
+      motion: 0.2,
+    }).success,
+  );
+});
+test('rehearsal tours every wall picture and holds each sky for its dwell', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000000 });
+  const room = new Room('A tour of the desk', 'rehearsal', '');
+  const looks: Lighting[] = [];
+  let last = -1;
+  room.on('state', (state) => {
+    if (state.frame && state.frame.id !== last) {
+      last = state.frame.id;
+      looks.push(state.frame.lighting);
+    }
+  });
+  await room.start();
+  for (let i = 0; i < 120; i++) {
+    t.mock.timers.tick(1000);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  room.stop();
+  assert.ok(looks.length > 20);
+  assert.ok(looks.every((l) => l.visual && l.overlay && l.sky && l.overlay !== l.visual));
+  assert.ok(new Set(looks.map((l) => l.visual)).size >= 8);
+  assert.ok(new Set(looks.map((l) => l.sky)).size >= 2);
+  // Weather has inertia: once a sky arrives it stays for at least eight frames.
+  let run = 0;
+  for (let i = 1; i < looks.length; i++) {
+    run++;
+    if (looks[i].sky !== looks[i - 1].sky) {
+      assert.ok(run >= 8 || i === run, `sky changed after only ${run} frames`);
+      run = 0;
+    }
+  }
 });
 test('personas see peers and recent changes; the original prompt drops out after the opening', () => {
   const room = new Room('unique opening prompt', 'rehearsal', '');
