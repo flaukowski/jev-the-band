@@ -521,3 +521,9 @@ merge to main push to prod when ready
 ```text
 add band member dance moves? at least for rook and moss; jumping swaying, walking around stage, occasionally falling over etc
 ```
+
+## 2026-09-20 — The director should direct
+
+```text
+director needs to do more directoring, e.g. always move carmera every 30-90 seconds plus slow zooms and orbits
+```
