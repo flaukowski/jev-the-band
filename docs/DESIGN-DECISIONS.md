@@ -493,3 +493,17 @@ Fill, drop and build are moments: they sound once, the following repeat is the g
 **Accepted, and measured rather than assumed.** Grouping questions that share an option set buys latency and spends variety: mean top probability rises from 0.601 to 0.752 when grouped. A short batch is repaired by re-asking the missing questions singly rather than shipped, because a dropped key makes `parseAnswers` reject the whole set. A cold runtime blows the budget at 3.75 s, so the service warms on boot and sends `keep_alive` — a band between songs is idle, and Ollama evicts after five idle minutes. An unrecognised persona is forwarded rather than answered, and a local answer is validated by `parseAnswers` before it is sent, so a failure surfaces as a disclosed fallback instead of a quietly wrong look.
 
 **Not claimed:** the four musicians are not playable this way on this hardware, and nothing here is tuned for musical quality.
+
+## 2026-09-21 — The room can be hosted again, opt-in, because somebody else is carrying it
+
+**Before:** the open-room decision of 2026-09-20 removed `CONTROLLER_TOKEN` so any visitor could start, queue and stop a jam, with pacing rather than identity as the guard. For a demo somebody is watching, that is the right call and it is not being reversed here.
+
+**What changed is who is downstream.** Kannaka TV now carries this band as a scheduled format, which puts a jam's title on screen and into that channel's own public JSON under its own name. A title is free text. On 2026-09-21 the public archive held a jam titled with a repeated racial slur, one of nineteen ended jams — so a channel picking a jam at random would broadcast it about once every nineteen segments. Pacing does not help: six requests a minute is ample to write a title, and `song-input.ts` normalisation changes the bytes, not the meaning.
+
+**Now:** `JEV_HOST_TOKEN` optionally gates the three writes that can put words on a stage — `POST /api/room`, `/api/room/queue`, `/api/room/stop` — behind `Authorization: Bearer`. Everything else is untouched: reading, the SSE stream, the archive, chat, the mixer and `/api/room/levels`, because a spectator was never the problem. `/api/health` reports `hostedRoom` so an operator and a carrying channel can both see the door is shut without being told the key.
+
+**Opt-in on purpose.** With the variable unset the room behaves exactly as it does today. That keeps upstream's decision intact as the default, makes this safe to carry on a fork, and makes it offerable back rather than a unilateral reversal of somebody else's design.
+
+**Comparison is constant-time over SHA-256 digests** rather than raw bytes: `timingSafeEqual` throws on a length mismatch, and branching on length would leak how long the credential is. The 401 body names the variable and never quotes the credential.
+
+**Accepted:** this protects the title, not the taste. A host with the credential can still write anything; the gate moves the decision to someone accountable for it, which is all a gate can do. A carrying channel that wants a second layer should filter on its own side rather than trust ours.

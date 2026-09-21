@@ -606,3 +606,7 @@ Follow-up: “merge to master push to prod.” This repository's canonical produ
 ## 2026-09-21 — A local brain on the lighting desk
 
 User: "i think it could be interesting for us to build off of or integrate the jev into our kannaka-brain or something along those lines" — then, after the feasibility measurement: "build LUX then and we can go from there"
+
+## 2026-09-21 — Gate the room before another property carries it
+
+User: "deploy it to railway then, with the room gated"
