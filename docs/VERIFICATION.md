@@ -184,3 +184,11 @@ A physically muted browser loaded the deployed application and actual crowd reco
 - A live jam was playing when the release was ready. The upload waited until the room reported `ended`.
 - Railway deployment `c44b85d1-d4c0-4dc2-8456-a4e135cd165f` built from a clean checkout of that commit. HTTPS health reports v0.8.2, that revision, the Postgres archive writable, TypeSafe `jev-1.13.0` and protected host actions. The served bundle contains the liner-note text; an anonymous POST to `/api/room` returns 401.
 - Not verified: the hosted panel in a real browser, Safari/Firefox, a production jam on this release, and that `x.com/SethCronin` is the author's account (found by web search).
+
+## 2026-09-20 — Horizon places on Railway (v0.8.3)
+
+- Pull request #13 was merged into `main` as `559b1a45736a52048e8a26e9b23d42aae05b48bb` after merging `main` (the liner-notes release) into it; only the two append-only logs conflicted and both sides were kept. `npm run check` on the merged tree: 87 tests pass, production build clean.
+- Before the merge, headless Chromium (D3D11) rendered all six places under high noon, sunset and starry night from the balcony, front row, drone, from-the-stage and two level custom cameras with no shader or page errors. A demo-mode jam showed `mountains`, which is what `placeFor` gives for that song's `themeId`. First-frame cost was the same with the horizon disabled; shader precompile rose by about 0.1 s.
+- A live jam was starting when the release was ready. The upload waited about ten minutes until the room reported `ended`.
+- Railway deployment `5a59bda4-1e27-4f81-ae77-3e2a609d77b9` built from a clean archive of that commit. HTTPS health reports v0.8.3, that revision, the Postgres archive writable, TypeSafe `jev-1.13.0` and protected host actions. The served stage bundle contains the place shaders and the **Place** control; an anonymous POST to `/api/room` returns 401.
+- Not verified: the scenery change between two songs in one room (the sink-and-rise was only seen through the local Place override), the browser suite on this branch, software-GL/low-power rendering, phones, Safari/Firefox, and a production jam on this release.
