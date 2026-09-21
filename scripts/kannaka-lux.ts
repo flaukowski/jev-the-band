@@ -80,10 +80,12 @@ const complete: Complete = async (system, user, maxTokens) => {
   const choice = payload.choices?.[0];
   return {
     text: String(choice?.message?.content ?? ''),
-    tokens: (choice?.logprobs?.content ?? []).map((t: { token: string; top_logprobs?: unknown }) => ({
-      token: String(t.token ?? ''),
-      top_logprobs: (t.top_logprobs ?? []) as { token: string; logprob: number }[],
-    })),
+    tokens: (choice?.logprobs?.content ?? []).map(
+      (t: { token: string; top_logprobs?: unknown }) => ({
+        token: String(t.token ?? ''),
+        top_logprobs: (t.top_logprobs ?? []) as { token: string; logprob: number }[],
+      }),
+    ),
   };
 };
 
@@ -117,7 +119,9 @@ async function handle(req: express.Request, res: express.Response) {
         body: JSON.stringify(request),
       });
       const payload = await upstream.json();
-      console.log(`${who.padEnd(6)} → upstream  ${upstream.status}  ${Math.round(performance.now() - started)} ms`);
+      console.log(
+        `${who.padEnd(6)} → upstream  ${upstream.status}  ${Math.round(performance.now() - started)} ms`,
+      );
       res.status(upstream.status).json(payload);
     } catch (error) {
       console.error(`${who.padEnd(6)} → upstream FAILED: ${(error as Error).message}`);
@@ -168,7 +172,9 @@ async function warm(): Promise<void> {
     console.log(`  warm      ready in ${Math.round(performance.now() - started)} ms`);
   } catch (error) {
     console.warn(`  warm      FAILED: ${(error as Error).message}`);
-    console.warn(`            the first live decision will pay the load cost and may miss the 1.8 s abort`);
+    console.warn(
+      `            the first live decision will pay the load cost and may miss the 1.8 s abort`,
+    );
   }
 }
 

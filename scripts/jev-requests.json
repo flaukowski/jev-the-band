@@ -1,0 +1,1384 @@
+{
+  "bootstrap": {
+    "model": "kannaka-brain-7b-v1",
+    "state": {
+      "persona": {
+        "name": "OPENING",
+        "instrument": "Stage host",
+        "color": "#d6e4b9",
+        "philosophy": "Choose the entry that best serves the sonic concept. Any musician can start."
+      },
+      "prompt": "Slow tide over a cold harbour",
+      "recentOpeners": [],
+      "task": "Invite the band into a new original jam. Pick who starts alone, a tempo, a tonic and a mode matching this title or description."
+    },
+    "questions": {
+      "opener": {
+        "type": "choice",
+        "instructions": "Who should introduce this particular sonic concept? Consider the director suggestion and recent openings. Guitar, keyboard, bass and drums are equally valid; do not default to bass.",
+        "criteria": {
+          "guitar": "guitar",
+          "bass": "bass",
+          "keys": "keys",
+          "drums": "drums"
+        }
+      },
+      "bpm": {
+        "type": "choice",
+        "instructions": "Starting tempo in BPM, informed by the sonic concept.",
+        "criteria": {
+          "78": "78",
+          "88": "88",
+          "96": "96",
+          "104": "104",
+          "112": "112",
+          "120": "120"
+        }
+      },
+      "root": {
+        "type": "choice",
+        "instructions": "Tonic pitch class.",
+        "criteria": {
+          "0": "C",
+          "1": "C♯",
+          "2": "D",
+          "3": "E♭",
+          "4": "E",
+          "5": "F",
+          "6": "F♯",
+          "7": "G",
+          "8": "A♭",
+          "9": "A",
+          "10": "B♭",
+          "11": "B"
+        }
+      },
+      "mode": {
+        "type": "choice",
+        "instructions": "Starting scale color.",
+        "criteria": {
+          "dorian": "dorian",
+          "mixolydian": "mixolydian",
+          "minor": "minor",
+          "major": "major"
+        }
+      }
+    }
+  },
+  "guitar": {
+    "model": "kannaka-brain-7b-v1",
+    "state": {
+      "persona": {
+        "name": "ROOK",
+        "instrument": "Electric guitar",
+        "color": "#f4a66d",
+        "philosophy": "Melodic explorer. Singable motifs, space between phrases, patient tension and release. Trade phrases with June. A solo is an invitation, not a volume contest."
+      },
+      "phrase": 2,
+      "elapsedSeconds": 0,
+      "endingPressure": 0,
+      "seedPrompt": "Slow tide over a cold harbour",
+      "brief": "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
+      "heardThrough": 1790006319928,
+      "reactionDelayMs": 180,
+      "music": {
+        "bpm": 96,
+        "rootPitchClass": 2,
+        "mode": "dorian",
+        "players": [],
+        "opener": "bass"
+      },
+      "recent": [],
+      "ownMemory": null
+    },
+    "questions": {
+      "action": {
+        "type": "choice",
+        "instructions": "What will you play? hold repeats; vary/develop transform your own motif; solo steps forward with a melodic voice; support ends your solo; space breathes; rest is silence; resolve lands. Respond only to what you have heard.",
+        "criteria": {
+          "hold": "hold",
+          "vary": "vary",
+          "develop": "develop",
+          "solo": "solo",
+          "support": "support",
+          "space": "space",
+          "rest": "rest",
+          "resolve": "resolve"
+        }
+      },
+      "rhythm": {
+        "type": "choice",
+        "instructions": "Choose the rhythmic shape of your next phrase.",
+        "criteria": {
+          "pocket": "Syncopated eighth-note groove",
+          "offbeat": "Anticipated offbeats with air on the downbeat",
+          "flow": "Continuous eighth-note movement",
+          "sparse": "Four separated gestures",
+          "sustain": "Two long whole-note gestures",
+          "clave": "Interlocking 3-2-like syncopated accents",
+          "lyrical": "Singable question and answer, varied note lengths and breaths",
+          "thirty_seconds": "Longer anchors with a short 32nd-note run at the end",
+          "triplets": "Triplet gestures between spacious anchors",
+          "quintuplets": "Five evenly spaced notes per beat, used as short bursts",
+          "sextuplets": "A six-note flourish followed by a landing",
+          "broken": "Uneven sixteenth-note syncopation and rests"
+        }
+      },
+      "development": {
+        "type": "choice",
+        "instructions": "How does your private previous motif become this one? Prefer small changes; new_theme is a deliberate departure. answer retains the first four anchors and replaces the ending.",
+        "criteria": {
+          "repeat": "repeat",
+          "answer": "answer",
+          "sequence_up": "sequence up",
+          "sequence_down": "sequence down",
+          "invert": "invert",
+          "fragment": "fragment",
+          "new_theme": "new theme"
+        }
+      },
+      "articulation": {
+        "type": "choice",
+        "instructions": "Choose how notes speak. Bend and slide are expressive guitar gestures; legato connects, staccato leaves air.",
+        "criteria": {
+          "natural": "natural",
+          "legato": "legato",
+          "staccato": "staccato",
+          "bend": "bend",
+          "slide": "slide"
+        }
+      },
+      "swing": {
+        "type": "choice",
+        "instructions": "Swing straight subdivisions; tuplets keep their own spacing.",
+        "criteria": {
+          "straight": "straight",
+          "light": "light",
+          "deep": "deep"
+        }
+      },
+      "commitment": {
+        "type": "choice",
+        "instructions": "How long should your idea settle before another decision? Brief is about 3 phrases; settle 4; patient 6, with independent scheduling.",
+        "criteria": {
+          "brief": "brief",
+          "settle": "settle",
+          "patient": "patient"
+        }
+      },
+      "density": {
+        "type": "choice",
+        "instructions": "Choose note density; complement the other players.",
+        "criteria": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        }
+      },
+      "dynamic": {
+        "type": "choice",
+        "instructions": "Choose performance intensity.",
+        "criteria": {
+          "soft": "soft",
+          "warm": "warm",
+          "bold": "bold"
+        }
+      },
+      "tempo": {
+        "type": "choice",
+        "instructions": "Suggest a very small change in shared tempo. Mostly stay; ease or push only if the musical moment invites it.",
+        "criteria": {
+          "ease": "ease",
+          "stay": "stay",
+          "push": "push"
+        }
+      },
+      "harmony": {
+        "type": "choice",
+        "instructions": "Propose staying in the current key, moving up a fourth, or up a fifth. A partner must agree; let each key breathe.",
+        "criteria": {
+          "stay": "stay",
+          "up_fourth": "up fourth",
+          "up_fifth": "up fifth"
+        }
+      },
+      "ending": {
+        "type": "choice",
+        "instructions": "Should the band begin a satisfying ending now? Before 300 seconds choose continue. After 300 seconds increasingly prefer end as endingPressure rises, if the phrase has found resolution.",
+        "criteria": {
+          "continue": "continue",
+          "end": "end"
+        }
+      },
+      "note0": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 1 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note1": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 2 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note2": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 3 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note3": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 4 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note4": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 5 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note5": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 6 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note6": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 7 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note7": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 8 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "drive": {
+        "type": "choice",
+        "instructions": "Turn drive on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "wah": {
+        "type": "choice",
+        "instructions": "Turn wah on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "envelope": {
+        "type": "choice",
+        "instructions": "Turn envelope on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "chorus": {
+        "type": "choice",
+        "instructions": "Turn chorus on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "tremolo": {
+        "type": "choice",
+        "instructions": "Turn tremolo on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "delay": {
+        "type": "choice",
+        "instructions": "Turn delay on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "reverb": {
+        "type": "choice",
+        "instructions": "Turn reverb on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      }
+    }
+  },
+  "bass": {
+    "model": "kannaka-brain-7b-v1",
+    "state": {
+      "persona": {
+        "name": "MOSS",
+        "instrument": "Electric bass",
+        "color": "#c8ef79",
+        "philosophy": "The gravitational center. Deep syncopated pocket, strong roots, occasional playful counterpoint. Hear Kit first. Introduce one small change that others can adopt."
+      },
+      "phrase": 2,
+      "elapsedSeconds": 0,
+      "endingPressure": 0,
+      "seedPrompt": "Slow tide over a cold harbour",
+      "brief": "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
+      "heardThrough": 1790006319928,
+      "reactionDelayMs": 180,
+      "music": {
+        "bpm": 96,
+        "rootPitchClass": 2,
+        "mode": "dorian",
+        "players": [],
+        "opener": "bass"
+      },
+      "recent": [],
+      "ownMemory": null
+    },
+    "questions": {
+      "action": {
+        "type": "choice",
+        "instructions": "What will you play? hold repeats; vary/develop transform your own motif; solo steps forward with a melodic voice; support ends your solo; space breathes; rest is silence; resolve lands. Respond only to what you have heard.",
+        "criteria": {
+          "hold": "hold",
+          "vary": "vary",
+          "develop": "develop",
+          "solo": "solo",
+          "support": "support",
+          "space": "space",
+          "rest": "rest",
+          "resolve": "resolve"
+        }
+      },
+      "rhythm": {
+        "type": "choice",
+        "instructions": "Choose the rhythmic shape of your next phrase.",
+        "criteria": {
+          "pocket": "Syncopated eighth-note groove",
+          "offbeat": "Anticipated offbeats with air on the downbeat",
+          "flow": "Continuous eighth-note movement",
+          "sparse": "Four separated gestures",
+          "sustain": "Two long whole-note gestures",
+          "clave": "Interlocking 3-2-like syncopated accents",
+          "lyrical": "Singable question and answer, varied note lengths and breaths",
+          "thirty_seconds": "Longer anchors with a short 32nd-note run at the end",
+          "triplets": "Triplet gestures between spacious anchors",
+          "quintuplets": "Five evenly spaced notes per beat, used as short bursts",
+          "sextuplets": "A six-note flourish followed by a landing",
+          "broken": "Uneven sixteenth-note syncopation and rests"
+        }
+      },
+      "development": {
+        "type": "choice",
+        "instructions": "How does your private previous motif become this one? Prefer small changes; new_theme is a deliberate departure. answer retains the first four anchors and replaces the ending.",
+        "criteria": {
+          "repeat": "repeat",
+          "answer": "answer",
+          "sequence_up": "sequence up",
+          "sequence_down": "sequence down",
+          "invert": "invert",
+          "fragment": "fragment",
+          "new_theme": "new theme"
+        }
+      },
+      "articulation": {
+        "type": "choice",
+        "instructions": "Choose how notes speak. Bend and slide are expressive guitar gestures; legato connects, staccato leaves air.",
+        "criteria": {
+          "natural": "natural",
+          "legato": "legato",
+          "staccato": "staccato",
+          "bend": "bend",
+          "slide": "slide"
+        }
+      },
+      "swing": {
+        "type": "choice",
+        "instructions": "Swing straight subdivisions; tuplets keep their own spacing.",
+        "criteria": {
+          "straight": "straight",
+          "light": "light",
+          "deep": "deep"
+        }
+      },
+      "commitment": {
+        "type": "choice",
+        "instructions": "How long should your idea settle before another decision? Brief is about 3 phrases; settle 4; patient 6, with independent scheduling.",
+        "criteria": {
+          "brief": "brief",
+          "settle": "settle",
+          "patient": "patient"
+        }
+      },
+      "density": {
+        "type": "choice",
+        "instructions": "Choose note density; complement the other players.",
+        "criteria": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        }
+      },
+      "dynamic": {
+        "type": "choice",
+        "instructions": "Choose performance intensity.",
+        "criteria": {
+          "soft": "soft",
+          "warm": "warm",
+          "bold": "bold"
+        }
+      },
+      "tempo": {
+        "type": "choice",
+        "instructions": "Suggest a very small change in shared tempo. Mostly stay; ease or push only if the musical moment invites it.",
+        "criteria": {
+          "ease": "ease",
+          "stay": "stay",
+          "push": "push"
+        }
+      },
+      "harmony": {
+        "type": "choice",
+        "instructions": "Propose staying in the current key, moving up a fourth, or up a fifth. A partner must agree; let each key breathe.",
+        "criteria": {
+          "stay": "stay",
+          "up_fourth": "up fourth",
+          "up_fifth": "up fifth"
+        }
+      },
+      "ending": {
+        "type": "choice",
+        "instructions": "Should the band begin a satisfying ending now? Before 300 seconds choose continue. After 300 seconds increasingly prefer end as endingPressure rises, if the phrase has found resolution.",
+        "criteria": {
+          "continue": "continue",
+          "end": "end"
+        }
+      },
+      "note0": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 1 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note1": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 2 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note2": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 3 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note3": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 4 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note4": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 5 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note5": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 6 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note6": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 7 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note7": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 8 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "drive": {
+        "type": "choice",
+        "instructions": "Turn drive on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "wah": {
+        "type": "choice",
+        "instructions": "Turn wah on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "envelope": {
+        "type": "choice",
+        "instructions": "Turn envelope on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "chorus": {
+        "type": "choice",
+        "instructions": "Turn chorus on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "tremolo": {
+        "type": "choice",
+        "instructions": "Turn tremolo on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "delay": {
+        "type": "choice",
+        "instructions": "Turn delay on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "reverb": {
+        "type": "choice",
+        "instructions": "Turn reverb on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      }
+    }
+  },
+  "keys": {
+    "model": "kannaka-brain-7b-v1",
+    "state": {
+      "persona": {
+        "name": "JUNE",
+        "instrument": "Keys & synthesizers",
+        "color": "#cbafff",
+        "philosophy": "Harmonic cartographer. Warm Rhodes, percussive piano, organ swells and cosmic synths. Change color before adding notes. Split hands; leave the bass register to Moss."
+      },
+      "phrase": 2,
+      "elapsedSeconds": 0,
+      "endingPressure": 0,
+      "seedPrompt": "Slow tide over a cold harbour",
+      "brief": "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
+      "heardThrough": 1790006319928,
+      "reactionDelayMs": 180,
+      "music": {
+        "bpm": 96,
+        "rootPitchClass": 2,
+        "mode": "dorian",
+        "players": [],
+        "opener": "bass"
+      },
+      "recent": [],
+      "ownMemory": null
+    },
+    "questions": {
+      "action": {
+        "type": "choice",
+        "instructions": "What will you play? hold repeats; vary/develop transform your own motif; solo steps forward with a melodic voice; support ends your solo; space breathes; rest is silence; resolve lands. Respond only to what you have heard.",
+        "criteria": {
+          "hold": "hold",
+          "vary": "vary",
+          "develop": "develop",
+          "solo": "solo",
+          "support": "support",
+          "space": "space",
+          "rest": "rest",
+          "resolve": "resolve"
+        }
+      },
+      "rhythm": {
+        "type": "choice",
+        "instructions": "Choose the rhythmic shape of your next phrase.",
+        "criteria": {
+          "pocket": "Syncopated eighth-note groove",
+          "offbeat": "Anticipated offbeats with air on the downbeat",
+          "flow": "Continuous eighth-note movement",
+          "sparse": "Four separated gestures",
+          "sustain": "Two long whole-note gestures",
+          "clave": "Interlocking 3-2-like syncopated accents",
+          "lyrical": "Singable question and answer, varied note lengths and breaths",
+          "thirty_seconds": "Longer anchors with a short 32nd-note run at the end",
+          "triplets": "Triplet gestures between spacious anchors",
+          "quintuplets": "Five evenly spaced notes per beat, used as short bursts",
+          "sextuplets": "A six-note flourish followed by a landing",
+          "broken": "Uneven sixteenth-note syncopation and rests"
+        }
+      },
+      "development": {
+        "type": "choice",
+        "instructions": "How does your private previous motif become this one? Prefer small changes; new_theme is a deliberate departure. answer retains the first four anchors and replaces the ending.",
+        "criteria": {
+          "repeat": "repeat",
+          "answer": "answer",
+          "sequence_up": "sequence up",
+          "sequence_down": "sequence down",
+          "invert": "invert",
+          "fragment": "fragment",
+          "new_theme": "new theme"
+        }
+      },
+      "articulation": {
+        "type": "choice",
+        "instructions": "Choose how notes speak. Bend and slide are expressive guitar gestures; legato connects, staccato leaves air.",
+        "criteria": {
+          "natural": "natural",
+          "legato": "legato",
+          "staccato": "staccato",
+          "bend": "bend",
+          "slide": "slide"
+        }
+      },
+      "swing": {
+        "type": "choice",
+        "instructions": "Swing straight subdivisions; tuplets keep their own spacing.",
+        "criteria": {
+          "straight": "straight",
+          "light": "light",
+          "deep": "deep"
+        }
+      },
+      "commitment": {
+        "type": "choice",
+        "instructions": "How long should your idea settle before another decision? Brief is about 3 phrases; settle 4; patient 6, with independent scheduling.",
+        "criteria": {
+          "brief": "brief",
+          "settle": "settle",
+          "patient": "patient"
+        }
+      },
+      "density": {
+        "type": "choice",
+        "instructions": "Choose note density; complement the other players.",
+        "criteria": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        }
+      },
+      "dynamic": {
+        "type": "choice",
+        "instructions": "Choose performance intensity.",
+        "criteria": {
+          "soft": "soft",
+          "warm": "warm",
+          "bold": "bold"
+        }
+      },
+      "tempo": {
+        "type": "choice",
+        "instructions": "Suggest a very small change in shared tempo. Mostly stay; ease or push only if the musical moment invites it.",
+        "criteria": {
+          "ease": "ease",
+          "stay": "stay",
+          "push": "push"
+        }
+      },
+      "harmony": {
+        "type": "choice",
+        "instructions": "Propose staying in the current key, moving up a fourth, or up a fifth. A partner must agree; let each key breathe.",
+        "criteria": {
+          "stay": "stay",
+          "up_fourth": "up fourth",
+          "up_fifth": "up fifth"
+        }
+      },
+      "ending": {
+        "type": "choice",
+        "instructions": "Should the band begin a satisfying ending now? Before 300 seconds choose continue. After 300 seconds increasingly prefer end as endingPressure rises, if the phrase has found resolution.",
+        "criteria": {
+          "continue": "continue",
+          "end": "end"
+        }
+      },
+      "note0": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 1 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note1": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 2 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note2": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 3 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note3": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 4 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note4": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 5 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note5": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 6 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note6": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 7 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "note7": {
+        "type": "choice",
+        "instructions": "Choose scale degree for motif position 8 of 8. Respond to the previous motif and the other players. Degree 0 is tonic, 1 second, 2 third, 3 fourth, 4 fifth, 5 sixth, 6 seventh, 7 upper tonic. These are parallel choices; use the previous phrase for continuity.",
+        "criteria": {
+          "0": "tonic",
+          "1": "second",
+          "2": "third",
+          "3": "fourth",
+          "4": "fifth",
+          "5": "sixth",
+          "6": "seventh",
+          "7": "upper tonic"
+        }
+      },
+      "left": {
+        "type": "choice",
+        "instructions": "Choose left-hand keyboard. Maximum five simultaneous notes in this hand.",
+        "criteria": {
+          "piano": "piano",
+          "rhodes": "rhodes",
+          "organ": "organ",
+          "analog": "analog",
+          "pad": "pad",
+          "bell": "bell"
+        }
+      },
+      "right": {
+        "type": "choice",
+        "instructions": "Choose right-hand keyboard; may differ from left.",
+        "criteria": {
+          "piano": "piano",
+          "rhodes": "rhodes",
+          "organ": "organ",
+          "analog": "analog",
+          "pad": "pad",
+          "bell": "bell"
+        }
+      },
+      "drive": {
+        "type": "choice",
+        "instructions": "Turn drive on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "wah": {
+        "type": "choice",
+        "instructions": "Turn wah on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "envelope": {
+        "type": "choice",
+        "instructions": "Turn envelope on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "chorus": {
+        "type": "choice",
+        "instructions": "Turn chorus on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "tremolo": {
+        "type": "choice",
+        "instructions": "Turn tremolo on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "delay": {
+        "type": "choice",
+        "instructions": "Turn delay on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "reverb": {
+        "type": "choice",
+        "instructions": "Turn reverb on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      }
+    }
+  },
+  "drums": {
+    "model": "kannaka-brain-7b-v1",
+    "state": {
+      "persona": {
+        "name": "KIT",
+        "instrument": "Drum kit",
+        "color": "#7cdedc",
+        "philosophy": "Elastic timekeeper. Keep a legible pocket, listen to the bass, use ghost notes and evolving cymbal textures. Ambient passages can breathe. Fill to invite a transition, not every bar."
+      },
+      "phrase": 2,
+      "elapsedSeconds": 0,
+      "endingPressure": 0,
+      "seedPrompt": "Slow tide over a cold harbour",
+      "brief": "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
+      "heardThrough": 1790006319928,
+      "reactionDelayMs": 180,
+      "music": {
+        "bpm": 96,
+        "rootPitchClass": 2,
+        "mode": "dorian",
+        "players": [],
+        "opener": "bass"
+      },
+      "recent": [],
+      "ownMemory": null
+    },
+    "questions": {
+      "action": {
+        "type": "choice",
+        "instructions": "What will you play? hold repeats; vary/develop transform your own motif; solo steps forward with a melodic voice; support ends your solo; space breathes; rest is silence; resolve lands. Respond only to what you have heard.",
+        "criteria": {
+          "hold": "hold",
+          "vary": "vary",
+          "develop": "develop",
+          "solo": "solo",
+          "support": "support",
+          "space": "space",
+          "rest": "rest",
+          "resolve": "resolve"
+        }
+      },
+      "rhythm": {
+        "type": "choice",
+        "instructions": "Choose the rhythmic shape of your next phrase.",
+        "criteria": {
+          "pocket": "Syncopated eighth-note groove",
+          "offbeat": "Anticipated offbeats with air on the downbeat",
+          "flow": "Continuous eighth-note movement",
+          "sparse": "Four separated gestures",
+          "sustain": "Two long whole-note gestures",
+          "clave": "Interlocking 3-2-like syncopated accents",
+          "lyrical": "Singable question and answer, varied note lengths and breaths",
+          "thirty_seconds": "Longer anchors with a short 32nd-note run at the end",
+          "triplets": "Triplet gestures between spacious anchors",
+          "quintuplets": "Five evenly spaced notes per beat, used as short bursts",
+          "sextuplets": "A six-note flourish followed by a landing",
+          "broken": "Uneven sixteenth-note syncopation and rests"
+        }
+      },
+      "development": {
+        "type": "choice",
+        "instructions": "How does your private previous motif become this one? Prefer small changes; new_theme is a deliberate departure. answer retains the first four anchors and replaces the ending.",
+        "criteria": {
+          "repeat": "repeat",
+          "answer": "answer",
+          "sequence_up": "sequence up",
+          "sequence_down": "sequence down",
+          "invert": "invert",
+          "fragment": "fragment",
+          "new_theme": "new theme"
+        }
+      },
+      "articulation": {
+        "type": "choice",
+        "instructions": "Choose how notes speak. Bend and slide are expressive guitar gestures; legato connects, staccato leaves air.",
+        "criteria": {
+          "natural": "natural",
+          "legato": "legato",
+          "staccato": "staccato",
+          "bend": "bend",
+          "slide": "slide"
+        }
+      },
+      "swing": {
+        "type": "choice",
+        "instructions": "Swing straight subdivisions; tuplets keep their own spacing.",
+        "criteria": {
+          "straight": "straight",
+          "light": "light",
+          "deep": "deep"
+        }
+      },
+      "commitment": {
+        "type": "choice",
+        "instructions": "How long should your idea settle before another decision? Brief is about 3 phrases; settle 4; patient 6, with independent scheduling.",
+        "criteria": {
+          "brief": "brief",
+          "settle": "settle",
+          "patient": "patient"
+        }
+      },
+      "density": {
+        "type": "choice",
+        "instructions": "Choose note density; complement the other players.",
+        "criteria": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        }
+      },
+      "dynamic": {
+        "type": "choice",
+        "instructions": "Choose performance intensity.",
+        "criteria": {
+          "soft": "soft",
+          "warm": "warm",
+          "bold": "bold"
+        }
+      },
+      "tempo": {
+        "type": "choice",
+        "instructions": "Suggest a very small change in shared tempo. Mostly stay; ease or push only if the musical moment invites it.",
+        "criteria": {
+          "ease": "ease",
+          "stay": "stay",
+          "push": "push"
+        }
+      },
+      "harmony": {
+        "type": "choice",
+        "instructions": "Propose staying in the current key, moving up a fourth, or up a fifth. A partner must agree; let each key breathe.",
+        "criteria": {
+          "stay": "stay",
+          "up_fourth": "up fourth",
+          "up_fifth": "up fifth"
+        }
+      },
+      "ending": {
+        "type": "choice",
+        "instructions": "Should the band begin a satisfying ending now? Before 300 seconds choose continue. After 300 seconds increasingly prefer end as endingPressure rises, if the phrase has found resolution.",
+        "criteria": {
+          "continue": "continue",
+          "end": "end"
+        }
+      },
+      "drive": {
+        "type": "choice",
+        "instructions": "Turn drive on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "wah": {
+        "type": "choice",
+        "instructions": "Turn wah on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "envelope": {
+        "type": "choice",
+        "instructions": "Turn envelope on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "chorus": {
+        "type": "choice",
+        "instructions": "Turn chorus on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "tremolo": {
+        "type": "choice",
+        "instructions": "Turn tremolo on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "delay": {
+        "type": "choice",
+        "instructions": "Turn delay on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      },
+      "reverb": {
+        "type": "choice",
+        "instructions": "Turn reverb on or off on YOUR independent effects rig. envelope is a velocity-sensitive filter sweep, wah is an automatic cyclic sweep. Effects never affect other instruments. Use restraint.",
+        "criteria": {
+          "off": "off",
+          "on": "on"
+        }
+      }
+    }
+  },
+  "lights": {
+    "model": "kannaka-brain-7b-v1",
+    "state": {
+      "persona": {
+        "name": "LUX",
+        "instrument": "Lights & atmosphere",
+        "color": "#f2eeab",
+        "philosophy": "Visual fifth member. Hear density, momentum and silence. Mix wash, beam and laser layers. Reveal the soloist, let quiet passages go dark, build slowly. No rapid flashing."
+      },
+      "phrase": 2,
+      "elapsedSeconds": 0,
+      "endingPressure": 0,
+      "seedPrompt": "Slow tide over a cold harbour",
+      "brief": "Original instrumental jam. You hear only notes already performed, with a reaction delay; you cannot know another player's next choice. Only one musician may revise a phrase at a boundary. Others carry their parts while they listen. Your ownMemory is private. Develop a recognizable motif: repeat its opening, answer its ending, leave breaths, land on a target note. Runs are punctuation. Support leaves space around a foreground melody. Solo is sustained across vary/develop; support, space, rest or resolve ends it. Choose a commitment to let your idea settle. Note anchors are parallel choices against the SAME past, not a conversation with each other.",
+      "heardThrough": 1790006319928,
+      "reactionDelayMs": 180,
+      "music": {
+        "bpm": 96,
+        "rootPitchClass": 2,
+        "mode": "dorian",
+        "players": [],
+        "opener": "bass"
+      },
+      "recent": [],
+      "ownMemory": null
+    },
+    "questions": {
+      "wash": {
+        "type": "choice",
+        "instructions": "Choose a color wash that expresses the present music.",
+        "criteria": {
+          "amber dusk": "amber dusk",
+          "violet ocean": "violet ocean",
+          "acid sunrise": "acid sunrise",
+          "deep blue": "deep blue",
+          "rose garden": "rose garden",
+          "forest floor": "forest floor",
+          "moon white": "moon white",
+          "ember red": "ember red",
+          "teal lagoon": "teal lagoon",
+          "ultraviolet": "ultraviolet",
+          "peach haze": "peach haze",
+          "blackout": "blackout"
+        }
+      },
+      "beam": {
+        "type": "choice",
+        "instructions": "Choose a moving-head composition; frame soloists and follow space.",
+        "criteria": {
+          "wide fan": "wide fan",
+          "crossing arches": "crossing arches",
+          "slow orbit": "slow orbit",
+          "ceiling bounce": "ceiling bounce",
+          "solo pool": "solo pool",
+          "four pillars": "four pillars",
+          "low sweep": "low sweep",
+          "prism bloom": "prism bloom",
+          "inward focus": "inward focus",
+          "horizon line": "horizon line",
+          "rain curtain": "rain curtain",
+          "off": "off"
+        }
+      },
+      "laser": {
+        "type": "choice",
+        "instructions": "Choose a complementary laser layer. Off is often tasteful.",
+        "criteria": {
+          "emerald fan": "emerald fan",
+          "cyan tunnel": "cyan tunnel",
+          "violet lattice": "violet lattice",
+          "amber horizon": "amber horizon",
+          "blue spokes": "blue spokes",
+          "pink canopy": "pink canopy",
+          "slow spiral": "slow spiral",
+          "off": "off"
+        }
+      },
+      "intensity": {
+        "type": "choice",
+        "instructions": "Choose overall brightness.",
+        "criteria": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        }
+      },
+      "motion": {
+        "type": "choice",
+        "instructions": "Choose smooth movement speed; no strobing.",
+        "criteria": {
+          "slow": "slow",
+          "medium": "medium",
+          "fast": "fast"
+        }
+      },
+      "visual": {
+        "type": "choice",
+        "instructions": "Choose what the projection wall behind the band shows. state.currentLook is what is up now; let a good picture stay for a few phrases.",
+        "criteria": {
+          "liquid light": "Oil-and-water light show that follows the key and mode",
+          "jev logo": "The animated JEV band logo, breathing with the music",
+          "piano roll": "A scrolling piano roll of the notes the four players are performing",
+          "band camera": "Live camera on a band member; finds the soloist",
+          "graphic eq": "Classic graphic equalizer bars with falling peak caps",
+          "radial spectrum": "A circular audio spectrum with a pulsing core",
+          "plasma trails": "Late-90s media-player visualizer: warping feedback trails around a waveform",
+          "mandala": "Randomly generated geometric mandala, a new pattern every phrase",
+          "decision stream": "Green rain of the raw decision JSON the band is made of",
+          "song title": "The title of this song in big animated poster lettering; also works well as an overlay"
+        }
+      },
+      "overlay": {
+        "type": "choice",
+        "instructions": "Optionally lay a second picture over the first. none is often tasteful; do not repeat the visual.",
+        "criteria": {
+          "liquid light": "liquid light",
+          "jev logo": "jev logo",
+          "piano roll": "piano roll",
+          "band camera": "band camera",
+          "graphic eq": "graphic eq",
+          "radial spectrum": "radial spectrum",
+          "plasma trails": "plasma trails",
+          "mandala": "mandala",
+          "decision stream": "decision stream",
+          "song title": "song title",
+          "none": "none"
+        }
+      },
+      "sky": {
+        "type": "choice",
+        "instructions": "Choose the sky and weather over the festival field. The sky moves slowly: keep state.currentLook.sky unless the music has clearly travelled somewhere new.",
+        "criteria": {
+          "starry night": "Clear night, stars and aurora",
+          "sunrise": "Pink and gold dawn behind the field",
+          "high noon": "Bright blue midday with drifting cloud",
+          "sunset": "Low orange sun and long purple cloud",
+          "rain": "Steady warm rain on the field; the crowd stays",
+          "snow": "Slow heavy snowfall at night",
+          "meteor shower": "Clear night with frequent shooting stars",
+          "alien abduction": "A saucer drifts in over the field and takes something home"
+        }
+      }
+    }
+  }
+}

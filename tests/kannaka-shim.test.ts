@@ -26,7 +26,10 @@ const lights = (): JevRequest =>
   requestFor('lights', new Room('Slow tide over a cold harbour', 'live', '').view(), 2, 'test');
 
 /** A model that always names the Nth option, with a plausible spread behind it. */
-function fakeModel(pick: (n: number) => number, opts: { truncateBatchTo?: number } = {}): {
+function fakeModel(
+  pick: (n: number) => number,
+  opts: { truncateBatchTo?: number } = {},
+): {
   complete: Complete;
   calls: { user: string; maxTokens: number }[];
 } {
@@ -36,9 +39,10 @@ function fakeModel(pick: (n: number) => number, opts: { truncateBatchTo?: number
     calls.push({ user, maxTokens });
     // How many answers is this prompt asking for?
     const asked = maxTokens === 1 ? 1 : Math.max(1, Math.round(maxTokens / 3));
-    const emit = opts.truncateBatchTo !== undefined && asked > 1
-      ? Math.min(asked, opts.truncateBatchTo)
-      : asked;
+    const emit =
+      opts.truncateBatchTo !== undefined && asked > 1
+        ? Math.min(asked, opts.truncateBatchTo)
+        : asked;
     const tokens = [];
     for (let i = 0; i < emit; i++) {
       const index = pick(n++);
@@ -59,7 +63,7 @@ function fakeModel(pick: (n: number) => number, opts: { truncateBatchTo?: number
   return { complete, calls };
 }
 
-test('a full LUX request answered locally passes the band\'s own parseAnswers', async () => {
+test("a full LUX request answered locally passes the band's own parseAnswers", async () => {
   const request = lights();
   const { complete } = fakeModel(() => 0);
   const { answers, repaired } = await answerLocally(request, { complete, concurrency: 8 });
@@ -77,7 +81,11 @@ test('a full LUX request answered locally passes the band\'s own parseAnswers', 
 test('a short batch is repaired rather than shipped — the failure seen in measurement', async () => {
   // Force a group: eight questions offering the same options.
   const options = { a: 'first', b: 'second', c: 'third' };
-  const q = (instructions: string): ChoiceQuestion => ({ type: 'choice', instructions, criteria: { ...options } });
+  const q = (instructions: string): ChoiceQuestion => ({
+    type: 'choice',
+    instructions,
+    criteria: { ...options },
+  });
   const request: JevRequest = {
     model: 'test',
     state: { persona: { name: 'LUX' } },
@@ -178,7 +186,12 @@ test('routing: LUX is answered here, the musicians are forwarded', () => {
   // An unrecognised persona forwards rather than being answered by a model
   // that was never measured against its deadline.
   assert.equal(shouldAnswerLocally({ model: 'm', state: {}, questions: {} }, roles), false);
-  assert.ok(shouldAnswerLocally(requestFor('guitar', room, 2, 'test'), rolesFromEnv({ KANNAKA_ROLES: 'lux, rook' })));
+  assert.ok(
+    shouldAnswerLocally(
+      requestFor('guitar', room, 2, 'test'),
+      rolesFromEnv({ KANNAKA_ROLES: 'lux, rook' }),
+    ),
+  );
 });
 
 test('the endpoint override is opt-in, and the provider table is untouched without it', () => {
@@ -189,5 +202,8 @@ test('the endpoint override is opt-in, and the provider table is untouched witho
     'http://127.0.0.1:8088/v1/systemone',
   );
   // Blank means unset, not an empty address.
-  assert.equal(decisionEndpoint('typesafe', { JEV_DECISIONS_ENDPOINT: '   ' }), decisionEndpoints.typesafe);
+  assert.equal(
+    decisionEndpoint('typesafe', { JEV_DECISIONS_ENDPOINT: '   ' }),
+    decisionEndpoints.typesafe,
+  );
 });

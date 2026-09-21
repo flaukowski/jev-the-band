@@ -149,7 +149,10 @@ for (let i = 0; i < jobs.length; i += concurrency) {
 const wall = performance.now() - started;
 
 const answers = Object.fromEntries(
-  Object.entries(collected).map(([k, v]) => [k, { choice: v.choice, probabilities: v.probabilities }]),
+  Object.entries(collected).map(([k, v]) => [
+    k,
+    { choice: v.choice, probabilities: v.probabilities },
+  ]),
 );
 let accepted = true;
 let why = '';
@@ -169,7 +172,9 @@ console.log(`\n=== ${role} — grouped shim  (${Object.keys(questions).length} q
 console.log(
   `  calls:             ${jobs.length}  (${batched.length} batched of ${batched.map((b) => b.length).join('+')}, ${singles.length} single)`,
 );
-console.log(`  answered:          ${Object.keys(collected).length}/${Object.keys(questions).length}`);
+console.log(
+  `  answered:          ${Object.keys(collected).length}/${Object.keys(questions).length}`,
+);
 console.log(`  parseAnswers:      ${accepted ? 'ACCEPTED' : `REJECTED — ${why}`}`);
 console.log(
   `  wall clock:        ${(wall / 1000).toFixed(2)} s   [budget 1.80 s]   ${wall < 1800 ? 'WITHIN BUDGET' : `over by ${((wall - 1800) / 1000).toFixed(2)} s`}`,

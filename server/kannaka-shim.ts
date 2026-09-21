@@ -13,10 +13,11 @@
  * nothing in `server/room.ts` changes: Jev is pointed at one endpoint, and the
  * endpoint decides who answers.
  *
- * Measured on 2026-09-21 (7B q4_K_M, Ollama, concurrency 8): LUX answers its
- * eight questions in 1.17 s against Jev's 1.8 s abort, with room to spare.
- * The four musicians do not fit yet — 2.4 to 2.7 s — so the default route is
- * the lighting desk alone. Widen KANNAKA_ROLES when the hardware earns it.
+ * Measured on 2026-09-21 (7B q4_K_M, Ollama, concurrency 8) against Jev's
+ * 1.8 s abort: LUX answers its eight questions in about 0.93 s through the
+ * running service, 1.17 s in the bare harness. The four musicians do not fit
+ * yet — 2.4 to 2.7 s — so the default route is the lighting desk alone. Widen
+ * KANNAKA_ROLES when the hardware earns it.
  *
  * The distribution is READ from the model's own logprobs over the option
  * letters, never asked for in prose. A model asked to state its confidence
@@ -44,11 +45,7 @@ export interface Completion {
   tokens: CompletionToken[];
 }
 /** The one impure thing, injected so the shim is testable without a model. */
-export type Complete = (
-  system: string,
-  user: string,
-  maxTokens: number,
-) => Promise<Completion>;
+export type Complete = (system: string, user: string, maxTokens: number) => Promise<Completion>;
 
 export interface Distribution {
   probabilities: Record<string, number>;
@@ -90,7 +87,8 @@ export function distribute(top: TopLogprob[], options: string[]): Distribution {
   const probabilities: Record<string, number> = {};
   for (const option of options) probabilities[option] = (weights.get(option) ?? FLOOR) / total;
   let choice = options[0]!;
-  for (const option of options) if (probabilities[option]! > probabilities[choice]!) choice = option;
+  for (const option of options)
+    if (probabilities[option]! > probabilities[choice]!) choice = option;
   return { probabilities, choice };
 }
 

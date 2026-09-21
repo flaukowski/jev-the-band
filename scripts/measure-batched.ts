@@ -154,7 +154,8 @@ const [m, r] = await Promise.all([melody, rest]);
 const wall = performance.now() - started;
 
 const answers: Record<string, { choice: string; probabilities: Record<string, number> }> = {};
-for (const [k, v] of Object.entries(r)) answers[k] = { choice: v.choice, probabilities: v.probabilities };
+for (const [k, v] of Object.entries(r))
+  answers[k] = { choice: v.choice, probabilities: v.probabilities };
 for (const [k, v] of Object.entries(m.out))
   answers[k] = { choice: v.choice, probabilities: v.probabilities };
 
@@ -169,12 +170,22 @@ try {
 
 const tops = Object.values(answers).map((a) => Math.max(...Object.values(a.probabilities)));
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-const noteTops = noteKeys.filter((k) => answers[k]).map((k) => Math.max(...Object.values(answers[k]!.probabilities)));
+const noteTops = noteKeys
+  .filter((k) => answers[k])
+  .map((k) => Math.max(...Object.values(answers[k]!.probabilities)));
 
 console.log(`\n=== ${role}, melody batched  (${Object.keys(request.questions).length} questions)`);
-console.log(`  calls:             ${otherKeys.length} + 1 batched = ${otherKeys.length + 1}  (was ${Object.keys(request.questions).length})`);
-console.log(`  melody letters:    ${m.emitted}/${noteKeys.length} emitted   raw ${JSON.stringify(m.raw)}`);
+console.log(
+  `  calls:             ${otherKeys.length} + 1 batched = ${otherKeys.length + 1}  (was ${Object.keys(request.questions).length})`,
+);
+console.log(
+  `  melody letters:    ${m.emitted}/${noteKeys.length} emitted   raw ${JSON.stringify(m.raw)}`,
+);
 console.log(`  parseAnswers:      ${accepted ? 'ACCEPTED' : `REJECTED — ${why}`}`);
-console.log(`  wall clock:        ${(wall / 1000).toFixed(2)} s   [budget 1.80 s]  ${wall < 1800 ? 'WITHIN' : 'OVER'}`);
-console.log(`  top probability:   mean ${mean(tops).toFixed(3)}  melody mean ${noteTops.length ? mean(noteTops).toFixed(3) : 'n/a'}`);
+console.log(
+  `  wall clock:        ${(wall / 1000).toFixed(2)} s   [budget 1.80 s]  ${wall < 1800 ? 'WITHIN' : 'OVER'}`,
+);
+console.log(
+  `  top probability:   mean ${mean(tops).toFixed(3)}  melody mean ${noteTops.length ? mean(noteTops).toFixed(3) : 'n/a'}`,
+);
 console.log(`  degenerate(>=.97): ${tops.filter((t) => t >= 0.97).length} of ${tops.length}`);

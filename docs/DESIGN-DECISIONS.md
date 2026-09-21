@@ -480,3 +480,16 @@ Fill, drop and build are moments: they sound once, the following repeat is the g
 ## 2026-09-21 — Empty required title
 
 **User requirement:** do not prefill the title with a reusable default. Start with an empty required title and show “Title the next jam.” as the field prompt, so the jam action remains unavailable until the listener enters a title.
+## 2026-09-21 — A locally served brain on the lighting desk
+
+**Before:** every decision went to the configured provider at a hardcoded address, so running any part of Jev meant a metered account and a network round trip. The decision contract is already model-agnostic — closed questions in, a distribution over each question's own options out, five mechanical rules in `parseAnswers` — but nothing could take advantage of that.
+
+**Now:** `JEV_DECISIONS_ENDPOINT` optionally sends decisions to one address instead of the provider's own, and `scripts/kannaka-lux.ts` is a service that sits there. It answers the personas named in `KANNAKA_ROLES` (default `LUX`, matched on `state.persona.name`) from a locally served model, and forwards everything else upstream untouched using the band's own `Authorization` header. It holds no provider credential of its own. Nothing in `server/room.ts` changes; the room keeps one provider, one model id and one trace format.
+
+**Why the lighting desk and nothing else.** Measured against Jev's own 1.8 s abort on a 7B q4_K_M via Ollama: LUX answers its eight questions in about 0.93 s warm, drums 1.90 s, guitar 2.43 s, keys 2.72 s. Only LUX fits, and it also makes at most one call per round and holds its look when a call fails, so a late answer is the least musically damaging place to find out a local model is too slow. `KANNAKA_ROLES` is a config value rather than a default so a faster box can widen it without a code change.
+
+**The distribution is read, not asked for.** Each option is labelled and the model answers with one token; the distribution comes from its own top-k over those letters, softmaxed and renormalised over exactly the offered options. An option the model never considered gets a small floor rather than zero. Nothing in the answer set is templated or repeated, so these remain real decisions under the project's contract — and because the shim returns its own `model` field and its own address, `trace.responseModel` and `trace.endpoint` both disclose that a local brain answered.
+
+**Accepted, and measured rather than assumed.** Grouping questions that share an option set buys latency and spends variety: mean top probability rises from 0.601 to 0.752 when grouped. A short batch is repaired by re-asking the missing questions singly rather than shipped, because a dropped key makes `parseAnswers` reject the whole set. A cold runtime blows the budget at 3.75 s, so the service warms on boot and sends `keep_alive` — a band between songs is idle, and Ollama evicts after five idle minutes. An unrecognised persona is forwarded rather than answered, and a local answer is validated by `parseAnswers` before it is sent, so a failure surfaces as a disclosed fallback instead of a quietly wrong look.
+
+**Not claimed:** the four musicians are not playable this way on this hardware, and nothing here is tuned for musical quality.
