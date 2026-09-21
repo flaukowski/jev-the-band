@@ -170,3 +170,9 @@ Evidence is private under `artifacts/live-smoke.json`, `deployed-verification.js
 - Not verified: listening, browser playback across the tempo change, several queued songs in a row, and the hosted deployment.
 
 - End jam: 78 tests pass. A mocked live room keeps playing after End jam, plays a landing, closes three to six frames later with every part silent by choice and no error; a second press and demo mode stop at once. No live or browser run of this control yet.
+
+## 2026-09-20 — Crowd hosted verification
+
+PR #9 merged as `6f6b7ef525950d34d99d0a93bc5b3b5112db084b`, including the current archive and animated song-title changes. Railway deployment `2cd80498-7b0a-43c0-963b-e8ce157f6cbe` succeeded after the active jam ended. HTTPS health reports v0.8.1 at that exact revision, with PostgreSQL writable. All 24 served crowd files and the entry JavaScript/CSS match local SHA-256.
+
+A physically muted browser loaded the deployed application and actual crowd recordings, using an intercepted room-start response and delayed instrument manifest to isolate the check. The opening bed and cheer sound before instrument loading completes; manual applause works; audience mute peaks below 0.000001; failed startup reaches zero; mobile width has no overflow and there are no page errors. The test makes zero real room writes or paid music calls. Screenshots and measurements are in private `artifacts/audience-production-verification.json` and `audience-production-*.png`. Exact-key scans of staged files and all shipped audience/entry assets are clean. Repository visibility remains private; canonical uncommitted archive work is preserved.
