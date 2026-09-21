@@ -2001,27 +2001,30 @@ footer b {
   border-top: 1px solid #45503b;
   margin-top: 16px;
 }
-.archive-set {
-  padding: 14px 0;
+.archive-songs {
+  margin: 0;
+  padding: 0 0 0 2rem;
+}
+.archive-song {
+  padding: 16px 0 16px 8px;
   border-top: 1px solid #30392b;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
 }
-.archive-set > div {
-  flex: 1;
-  min-width: 180px;
+.archive-song::marker {
+  color: #a7b78c;
+  font: 12px var(--mono, monospace);
 }
-.archive-set h4 {
-  margin: 0 0 8px;
-  font-size: 20px;
+.archive-song h4 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
 }
-.archive-set ol {
-  width: 100%;
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+.archive-song small {
+  color: #a7b19c;
+}
+.archive-song p {
+  margin: 7px 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .replay-controls {
   padding: 20px;

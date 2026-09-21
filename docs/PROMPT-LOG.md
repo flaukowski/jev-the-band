@@ -522,6 +522,11 @@ merge to main push to prod when ready
 add band member dance moves? at least for rook and moss; jumping swaying, walking around stage, occasionally falling over etc
 ```
 
+
+## 2026-09-20 — One song list per archived day
+
+> actually no sets, just a replay show button and orgnaize all songs per day like one set essentially a buch of one song setrs don't look great...
+
 ## 2026-09-20 — The director should direct
 
 ```text

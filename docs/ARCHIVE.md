@@ -1,10 +1,10 @@
 # Jtb archive
 
-Every newly started performance is saved automatically, including instrument demos. A **set** is one continuous jam with its queued songs; a **show** contains everything recorded on a calendar day in `ARCHIVE_TIMEZONE` (default America/New_York). Sets crossing midnight appear in both days, with playback clipped to the selected day. Songs that were queued but never played are not replay buttons.
+Every newly started performance is saved automatically, including instrument demos. A **set** is one continuous jam with its queued songs; a **show** contains everything recorded on a calendar day in `ARCHIVE_TIMEZONE` (default America/New_York). Sets crossing midnight appear in both days, with playback clipped to the selected day. Queued songs that were never played are excluded from the daily song list.
 
 ## Local test
 
-Use Node 22.13 or newer. Run `npm install`, then `npm run dev`. With DATABASE_URL unset, recordings go to ignored `data/jtb.sqlite`. Enter a mandatory title and optional description. Their combined text follows the existing musical prompt path. Start an **Instrument demo** for a free test, end it after a few phrases, then open **Jtb archive**. Search title, description or date; replay a show, set or song. Pause, resume and seek are private to your browser. Return to live does not stop the shared room.
+Use Node 22.13 or newer. Run `npm install`, then `npm run dev`. With DATABASE_URL unset, recordings go to ignored `data/jtb.sqlite`. Enter a mandatory title and optional description. Their combined text follows the existing musical prompt path. Start an **Instrument demo** for a free test, end it after a few phrases, then open **Jtb archive**. Search title, description or date; use Replay show to play the whole day. Songs appear once in a single chronological list, without separate set cards. Pause, resume and seek are private to your browser. Return to live does not stop the shared room.
 
 SQLite's WAL and SHM sidecars belong to the database. Do not copy only the main file while the server writes; use SQLite's backup mechanism or stop the app gracefully before copying. Keep backups. The archive is append/upsert-only; there is no automatic retention deletion.
 

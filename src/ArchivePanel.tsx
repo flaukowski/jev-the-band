@@ -48,10 +48,18 @@ export function ArchivePanel({
       abort.abort();
     };
   }, [api, query]);
-  async function play(items: Entry[], song?: string) {
+  async function playShow(day: string) {
     setBusy(true);
     setError('');
     try {
+      // Search narrows the displayed songs; Replay show always plays the whole day.
+      let catalog = entries;
+      if (query) {
+        const response = await fetch(`${api}/api/archive?q=`);
+        if (!response.ok) throw new Error('Show could not load.');
+        catalog = await response.json();
+      }
+      const items = catalog.filter((entry) => entry.day === day);
       const sets = await Promise.all(
         items
           .sort((a, b) => a.startedAt - b.startedAt)
@@ -71,30 +79,14 @@ export function ArchivePanel({
       );
       const playable = sets.filter((s) => s.frames.length);
       if (!playable.length) throw new Error('No recorded phrases in this selection yet.');
-      const cue = song ? playable[0].setlist?.find((c) => c.id === song) : undefined;
-      const from = song ? playable[0].frames.find((f) => f.themeId === song)?.at : undefined;
-      if (from !== undefined) {
-        const recording = playable[0];
-        const end =
-          recording.frames.find((f) => f.at > from && f.themeId !== song)?.at ??
-          recording.endedAt ??
-          recording.frames.at(-1)!.at + recording.frames.at(-1)!.durationMs;
-        playable[0] = {
-          ...recording,
-          title: cue?.prompt.split('\n')[0] ?? recording.title,
-          startedAt: from,
-          endedAt: end,
-          frames: clipFrames(recording.frames, from, end),
-        };
-      }
-      await onPlay(playable, from);
+      await onPlay(playable);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Replay failed');
     } finally {
       setBusy(false);
     }
   }
-  const days = [...new Set(entries.map((e) => e.day))];
+  const days = [...new Set(entries.map((e) => e.day))].sort().reverse();
   return (
     <section className="archive-panel" aria-label="Jtb archive">
       <div className="archive-heading">
@@ -104,7 +96,7 @@ export function ArchivePanel({
         </div>
         <button onClick={onClose}>Close archive</button>
       </div>
-      <p>Replay shows, sets, and songs. Saved performances play without model calls.</p>
+      <p>One show per day. Every song in playing order, replayed without model calls.</p>
       <label>
         Search the archive
         <input
@@ -117,45 +109,71 @@ export function ArchivePanel({
       {busy && <p role="status">Loading recording and instruments…</p>}
       {error && <p role="alert">{error}</p>}
       {!entries.length && <p>No recordings found. Start a jam to make the first tape.</p>}
-      {days.map((day) => (
-        <section key={day} className="archive-show">
-          <div className="archive-heading">
-            <h3>{day} · Show</h3>
-            <button disabled={busy} onClick={() => void play(entries.filter((e) => e.day === day))}>
-              Replay {query ? 'matching sets' : 'show'}
-            </button>
-          </div>
-          {entries
-            .filter((e) => e.day === day)
-            .map((entry) => (
-              <article key={entry.id} className="archive-set">
-                <div>
-                  <h4>{entry.songs[0]?.prompt.split('\n')[0] || entry.title}</h4>
-                  <small>
-                    {new Date(entry.startedAt).toLocaleTimeString()} ·{' '}
-                    {entry.mode === 'live' ? 'Live Jev recording' : 'Instrument demo'} ·{' '}
-                    {entry.status === 'ended' ? 'Saved set' : 'Recording'}
-                  </small>
-                  <p>{entry.prompt.split('\n').slice(1).join('\n')}</p>
-                </div>
-                <button disabled={busy} onClick={() => void play([entry])}>
-                  Replay set
-                </button>
-                <ol>
-                  {entry.songs
-                    .filter((s) => s.appliedAt !== undefined)
-                    .map((song) => (
-                      <li key={song.id}>
-                        <button disabled={busy} onClick={() => void play([entry], song.id)}>
-                          {song.prompt.split('\n')[0]}
-                        </button>
-                      </li>
-                    ))}
-                </ol>
-              </article>
-            ))}
-        </section>
-      ))}
+      {days.map((day) => {
+        const songs = entries
+          .filter((entry) => entry.day === day)
+          .flatMap((entry) => {
+            const performed = entry.songs
+              .filter((song) => song.appliedAt !== undefined)
+              .sort((a, b) => a.appliedAt! - b.appliedAt!);
+            if (!performed.length)
+              return [
+                {
+                  key: entry.id,
+                  prompt: entry.prompt,
+                  at: entry.startedAt,
+                  mode: entry.mode,
+                  recording: entry.status !== 'ended',
+                },
+              ];
+            return performed
+              .filter((song, index) => {
+                const end = performed[index + 1]?.appliedAt ?? Infinity;
+                return end > (entry.from ?? -Infinity) && song.appliedAt! < (entry.to ?? Infinity);
+              })
+              .map((song) => ({
+                key: `${entry.id}:${song.id}`,
+                prompt: song.prompt,
+                at: Math.max(song.appliedAt!, entry.from ?? -Infinity),
+                mode: entry.mode,
+                recording: entry.status !== 'ended' && song.id === performed.at(-1)?.id,
+              }));
+          })
+          .sort((a, b) => a.at - b.at);
+        return (
+          <section key={day} className="archive-show" aria-label={`Show ${day}`}>
+            <div className="archive-heading">
+              <h3>
+                {day} · {songs.length} {songs.length === 1 ? 'song' : 'songs'}
+                {query ? ' matching' : ''}
+              </h3>
+              <button disabled={busy} onClick={() => void playShow(day)}>
+                Replay show
+              </button>
+            </div>
+            <ol className="archive-songs" aria-label={`Songs for ${day}`}>
+              {songs.map((song) => (
+                <li key={song.key} className="archive-song">
+                  <div>
+                    <h4>{song.prompt.split('\n')[0]}</h4>
+                    <small>
+                      {new Date(song.at).toLocaleTimeString([], {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}{' '}
+                      · {song.mode === 'live' ? 'Live Jev' : 'Instrument demo'}
+                      {song.recording ? ' · Recording' : ''}
+                    </small>
+                    {song.prompt.includes('\n') && (
+                      <p>{song.prompt.split('\n').slice(1).join('\n')}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        );
+      })}
     </section>
   );
 }
