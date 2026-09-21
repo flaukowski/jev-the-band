@@ -442,3 +442,7 @@ User requirement: implement MP3 streaming with the saved data needed for visuals
 ## 2026-09-20 — Compact archive modal
 
 User requirement: archive replay in a modal, with a day selector, one compact row per song, at most 20 rows per page, and full truncated descriptions on hover. Native dialog provides focus containment and Escape dismissal; closing retains playback. The current player appears inside the modal while open and remains on the page after closing. Titles/descriptions use ellipsis with native hover tooltips and accessible full text. Search filters the selected day; playback still uses the complete daily queue across all pages.
+
+## 2026-09-20 — Site title cleanup
+
+**User requirement:** the browser title is exactly `Jev the Band`. Remove the crowd-audio attribution from the title; audience-audio provenance remains documented in the appropriate product and licensing surfaces.

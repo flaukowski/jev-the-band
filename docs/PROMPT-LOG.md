@@ -575,3 +575,7 @@ show (see through) chat in full screen mode so you can chat while watching the f
 ## 2026-09-20 — Compact archive modal
 
 User: "replay needs to be a modal; select day, one row pers song so you can fit more on a page, (max 20) and hover to see full text for truncated descriptions. ship to prod"
+
+## 2026-09-20 — Site title cleanup
+
+User: "change the site title to just Jev the Band in railway (drop the crow audio...) crap"
