@@ -526,3 +526,13 @@ add band member dance moves? at least for rook and moss; jumping swaying, walkin
 ## 2026-09-20 — One song list per archived day
 
 > actually no sets, just a replay show button and orgnaize all songs per day like one set essentially a buch of one song setrs don't look great...
+
+## 2026-09-20 — The director should direct
+
+```text
+director needs to do more directoring, e.g. always move carmera every 30-90 seconds plus slow zooms and orbits
+```
+
+```text
+the crowd cam get's swallowed by a sign lol
+```

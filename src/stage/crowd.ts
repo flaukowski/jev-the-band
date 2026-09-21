@@ -447,7 +447,8 @@ export class Crowd {
     return i;
   }
 
-  update(sig: Signals, dt: number) {
+  /** `eye` is the lens: nobody holds a sign up right in front of it. */
+  update(sig: Signals, dt: number, eye?: THREE.Vector3) {
     const live = sig.playing && !sig.reduced;
     const still = sig.reduced;
     const energy = sig.energy;
@@ -601,9 +602,16 @@ export class Crowd {
         } else if (f.item === Item.Sign) {
           const sign = this.signs[f.slot];
           point.set(0.2, -0.62 - 0.34, 0).applyMatrix4(arm.matrix);
+          // Within a few metres of the camera the cardboard comes down, as it does for a real
+          // camera operator with a real glare. It goes back up once the shot has moved on.
+          const clear = eye
+            ? THREE.MathUtils.smoothstep(Math.hypot(point.x - eye.x, point.z - eye.z), 3.2, 5.8)
+            : 1;
+          sign.visible = clear > 0.01;
           sign.position.copy(point);
-          sign.rotation.set(-0.12, yaw, sway * 1.5, 'YXZ');
-          sign.scale.setScalar(S);
+          sign.position.y -= (1 - clear) * 1.5;
+          sign.rotation.set(-0.12 - (1 - clear) * 1.1, yaw, sway * 1.5, 'YXZ');
+          sign.scale.setScalar(S * (0.25 + 0.75 * clear));
         } else if (f.item === Item.Smoke) {
           tip.updateMatrix();
           this.cherries.setMatrixAt(f.slot, tip.matrix);

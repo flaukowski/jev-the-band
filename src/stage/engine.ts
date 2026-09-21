@@ -16,6 +16,7 @@ import { Cat } from './cat';
 import { Chatter } from './chatter';
 import { Crowd } from './crowd';
 import { CrowdField } from './crowdfield';
+import { Director, type Move } from './director';
 import { Horizon, type Place } from './horizon';
 import { LightRig } from './lightrig';
 import { Particles } from './particles';
@@ -74,17 +75,19 @@ type Shot = {
   position: [number, number, number];
   target: [number, number, number];
   drift?: number;
+  /** 0..1: how far the director may travel from here before the camera meets scenery. */
+  freedom?: number;
 };
 const shots: Record<string, Shot> = {
-  wide: { position: [13, 11, 24.5], target: [1.2, 3.3, -1.5], drift: 0.6 },
-  front: { position: [0, 2.4, 14.5], target: [0, 2.6, -1.5], drift: 0.5 },
-  overhead: { position: [0, 25, 3.5], target: [0, 0, -0.8], drift: 0.2 },
-  crowd: { position: [-3.5, 1.35, 12.5], target: [0.5, 3.2, -2], drift: 0.35 },
-  lux: { position: [-8.6, 2.6, 12.2], target: [-1, 3.4, -2], drift: 0.25 },
-  wing: { position: [-8.0, 2.7, -3.9], target: [1.5, 1.4, 0.6], drift: 0.3 },
+  wide: { position: [13, 11, 24.5], target: [1.2, 3.3, -1.5], drift: 0.6, freedom: 0.9 },
+  front: { position: [0, 2.4, 14.5], target: [0, 2.6, -1.5], drift: 0.5, freedom: 0.7 },
+  overhead: { position: [0, 25, 3.5], target: [0, 0, -0.8], drift: 0.2, freedom: 1 },
+  crowd: { position: [-3.5, 1.35, 12.5], target: [0.5, 3.2, -2], drift: 0.35, freedom: 0.35 },
+  lux: { position: [-8.6, 2.6, 12.2], target: [-1, 3.4, -2], drift: 0.25, freedom: 0.35 },
+  wing: { position: [-8.0, 2.7, -3.9], target: [1.5, 1.4, 0.6], drift: 0.3, freedom: 0.2 },
   // The two shots that show how many people came.
-  drone: { position: [-16, 27, 80], target: [0, 2, 6], drift: 1.2 },
-  stage: { position: [2.6, 4.6, -4.9], target: [-1, 2.2, 34], drift: 0.25 },
+  drone: { position: [-16, 27, 80], target: [0, 2, 6], drift: 1.2, freedom: 1 },
+  stage: { position: [2.6, 4.6, -4.9], target: [-1, 2.2, 34], drift: 0.25, freedom: 0.25 },
 };
 const memberShot = (role: Musician): Shot => {
   const [x, y, z, yaw] = stagePositions[role];
@@ -101,9 +104,10 @@ const memberShot = (role: Musician): Shot => {
       z + (role === 'keys' ? 0.45 : 0.15),
     ],
     drift: 0.18,
+    freedom: 0.5,
   };
 };
-const directorCycle = [
+const directorShots = [
   'wide',
   'guitar',
   'front',
@@ -299,9 +303,18 @@ export function createStage(
   let lastDraw = 0;
   let slow = 0;
   let followed = '';
-  let directed = '';
-  let directorIndex = 0;
-  let directorPhrase = -99;
+  const director = new Director(
+    directorShots,
+    (name) =>
+      ((musicians as string[]).includes(name) ? memberShot(name as Musician) : shots[name])
+        ?.freedom ?? 0.5,
+  );
+  let directing = false;
+  let directorClock = 0;
+  let directorPhrase = -1;
+  let move: Move | null = null;
+  let moved = 0;
+  const arm = new THREE.Vector3();
 
   function draw(now: number) {
     raf = requestAnimationFrame(draw);
@@ -322,22 +335,34 @@ export function createStage(
     // Camera direction.
     const soloist = sig.soloists[0] ?? 'wide';
     if (input.director) {
-      const phraseTurn = sig.phrase - directorPhrase >= 2 || sig.phrase < directorPhrase;
-      const want = sig.soloists[0];
-      if (want && directed !== want) {
-        directed = want;
-        directorPhrase = sig.phrase;
-        view(want);
-        callbacks.onView(want);
-      } else if (!want && phraseTurn) {
-        directorPhrase = sig.phrase;
-        directorIndex = (directorIndex + 1) % directorCycle.length;
-        directed = directorCycle[directorIndex];
-        view(directed);
-        callbacks.onView(directed);
+      if (!directing) director.reset();
+      directorClock += dt;
+      const cut = director.update(
+        directorClock,
+        sig.soloists[0],
+        sig.phrase !== directorPhrase,
+        sig.playing,
+      );
+      if (cut) {
+        view(cut.shot);
+        callbacks.onView(cut.shot);
+        move = cut.move;
+        moved = 0;
+      }
+      // The slow move: the goal itself travels, and the camera follows it on the usual damping.
+      if (move && moved < move.over && !sig.reduced) {
+        moved += dt;
+        arm.copy(cameraGoal).sub(targetGoal);
+        arm.applyAxisAngle(THREE.Object3D.DEFAULT_UP, (move.arc * dt) / move.over);
+        arm.multiplyScalar(Math.pow(move.zoom, dt / move.over));
+        arm.setLength(Math.max(orbit.minDistance, Math.min(orbit.maxDistance, arm.length())));
+        cameraGoal.copy(targetGoal).add(arm);
+        // Low shots open out along the ground, never into it.
+        cameraGoal.y = Math.max(cameraGoal.y, 1.25);
+        movingCamera = true;
       }
     } else {
-      directed = '';
+      move = null;
       if (input.follow && followed !== soloist) {
         followed = soloist;
         view(soloist);
@@ -345,6 +370,8 @@ export function createStage(
       }
       if (!input.follow) followed = '';
     }
+    directing = input.director;
+    directorPhrase = sig.phrase;
     if (movingCamera) {
       const k = sig.reduced ? 1 : 1 - Math.exp(-dt * 2.6);
       camera.position.lerp(cameraGoal, k);
@@ -408,7 +435,7 @@ export function createStage(
     crowdTick = !crowdTick;
     crowdDt += dt;
     if (crowdTick || lowPower) {
-      crowd.update(sig, crowdDt);
+      crowd.update(sig, crowdDt, camera.position);
       crowdDt = 0;
     }
     particles.update(sig, dt, emitters, feet, rig.palette, lowPower);
@@ -552,6 +579,9 @@ export function createStage(
       const offset = camera.position.clone().sub(orbit.target).multiplyScalar(factor);
       offset.setLength(Math.max(orbit.minDistance, Math.min(orbit.maxDistance, offset.length())));
       camera.position.copy(orbit.target).add(offset);
+      // Under the director the move carries on from the new distance instead of undoing it.
+      cameraGoal.copy(camera.position);
+      targetGoal.copy(orbit.target);
       orbit.update();
     },
     dispose() {

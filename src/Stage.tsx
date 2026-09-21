@@ -151,7 +151,7 @@ export function Stage({
         </button>
         <button
           aria-pressed={director}
-          title="Cuts between cameras every two phrases and finds the soloist"
+          title="Cuts to a new camera every 30 to 90 seconds with slow zooms and orbits, and finds the soloist"
           onClick={() => {
             setFollow(false);
             setDirector(!director);
