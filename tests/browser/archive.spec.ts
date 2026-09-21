@@ -40,12 +40,14 @@ test('title/description, archive search and replay are isolated from live writes
   await expect(page.getByRole('button', { name: 'Play demo', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Jtb archive', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recorded dawn' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Replay set' })).toHaveCount(0);
+  await expect(page.locator('.archive-song')).toHaveCount(1);
   await page.getByRole('searchbox').fill('missing');
   await expect(page.getByText('No recordings found.', { exact: false })).toBeVisible({
     timeout: 15000,
   });
   await page.getByRole('searchbox').fill('');
-  await page.getByRole('button', { name: 'Replay set', exact: true }).click();
+  await page.getByRole('button', { name: 'Replay show', exact: true }).click();
   await expect(page.getByLabel('Recording playback')).toBeVisible({ timeout: 30000 });
   await expect(page.locator('.generation-status')).toContainText('ARCHIVE REPLAY');
   await page.getByRole('button', { name: 'Pause replay', exact: true }).click();

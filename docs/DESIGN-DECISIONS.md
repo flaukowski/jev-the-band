@@ -400,3 +400,10 @@ Measured on the development machine: shader precompile rose by about 0.1 s and s
 **The fall** is a stroll that goes wrong: the player walks to a spot with clear deck behind it (never onto an amp), the feet shoot out, they go over backwards, keep playing flat on their back with heels kicking in time for two to five seconds, then roll up. At most one per player every 75 seconds, never in the first 25 seconds, never during their own solo, and not chosen while the song is landing.
 
 **Truthfulness:** this is showmanship owned by the stage, not a Jev decision and not recorded in traces. It reads only signals the stage already has (beat, tempo, energy, solo, ending). When the music stops or the song is ending the players walk back to their marks; *Less movement* puts them there immediately. A pedal change while a player is off the mark still lights the pedal but is not mimed, rather than stretching a leg across the stage. Guitar and bass leads are longer (slack 1.5 to 1.9) to allow the wandering. **Assumption to revisit:** light pools and "four pillars" still aim at the marks, not the wandering players.
+
+
+## 2026-09-20 — Flatten the archive into daily shows
+
+**User requirement:** remove the set presentation and use one Replay show button with all songs organized per day.
+
+Each day now has one chronological numbered song list, displaying each title and description once. There are no nested set cards, Saved set labels, or individual playback buttons. Replay show plays the whole day even when search has narrowed the visible recordings. Existing stored recordings remain unchanged.
