@@ -12,7 +12,7 @@
 
 References: [Railway Express guide](https://docs.railway.com/guides/express), [Vercel Function limits](https://vercel.com/docs/functions/limitations). The Sites assessment comes from the installed hosting workflow inspected during this task, not an actual Sites deployment.
 
-**Deployed 2026-09-20:** [JEV the band](https://jev-the-band-production.up.railway.app). Direct TypeSafe is configured with the dedicated key and protected host actions. HTTPS health, actual JS/CSS hashes, instrument assets, shared spectators and a real live performance have been verified. The optional OpenRouter/Luna director is not configured in production; Jev uses the raw theme. Git history remains private; hosting this demo does not publish it. Exact release evidence is in `VERIFICATION.md`.
+**Deployed 2026-09-20:** [JEV the band](https://jev-the-band-production.up.railway.app). Direct TypeSafe is configured with the dedicated key and protected host actions. HTTPS health, actual JS/CSS hashes, instrument assets, shared spectators and a real live performance have been verified. Since the v0.7 release the same day, production also has a dedicated OpenRouter key: the Luna director and solo arranger are available and OpenRouter is the disclosed one-time fallback for Jev decisions. Git history remains private; hosting this demo does not publish it. Exact release evidence is in `VERIFICATION.md`.
 
 ## Runtime configuration
 
