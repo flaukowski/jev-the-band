@@ -437,3 +437,8 @@ User requirement: implement MP3 streaming with the saved data needed for visuals
 **Chat** (`server/chat.ts`, `src/Chat.tsx`): one room-wide conversation over the existing SSE stream, the last 60 lines held in memory and sent on connect, 280 characters a line, one line a second per address. Nothing is archived. Names are lot names drawn in the browser from `shared/chat.ts` ("Spun Box of RAG"), kept in localStorage, rerolled with the dice; they are labels, not identities, and two people can hold the same one.
 
 **Chat in full screen.** Only the stage element goes full screen, so the chat under it used to vanish. While the stage is full screen the same chat is drawn inside it instead: bottom right above the sound button, about a third see-through with older lines fading out at the top, firming up on hover or while typing. A minus button folds it to a small "Chat" pill. It is not shown over archive playback, matching the page.
+
+
+## 2026-09-20 — Compact archive modal
+
+User requirement: archive replay in a modal, with a day selector, one compact row per song, at most 20 rows per page, and full truncated descriptions on hover. Native dialog provides focus containment and Escape dismissal; closing retains playback. The current player appears inside the modal while open and remains on the page after closing. Titles/descriptions use ellipsis with native hover tooltips and accessible full text. Search filters the selected day; playback still uses the complete daily queue across all pages.
