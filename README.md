@@ -34,7 +34,7 @@ For live music, configure either provider in the server's ignored `.env`:
 - Queue another prompt while playing: the band brings the current song to a natural close, falls silent, and starts the new one from nothing. Players develop their own phrases, negotiate tempo/harmony, and can overlap solos. Ending pressure grows after five minutes; ten minutes is the hard maximum.
 - Explore camera views, orbit/zoom, automatic direction, solo following, lens effects and reduced movement. Open **Under the hood** for provenance.
 
-The 162 bundled recordings are individual notes, not backing loops. Other voices use synthesis. The crowd uses 24 generated festival recordings: murmurs, cheers and applause, with an entrance on Start and manual sound-desk cues. These free-plan ElevenLabs recordings are noncommercial with attribution, separate from the MIT code license; see [audience credits](public/audience/CREDITS.md). Musical taste, guitar realism and long-run variation remain listening and tuning goals, not guarantees.
+The 162 bundled recordings are individual notes, not backing loops. Other voices use synthesis. The crowd uses 24 generated festival recordings: murmurs, cheers and applause, with an entrance on Start and manual sound-desk cues. These ElevenLabs recordings were generated on a paid Creator plan and may be published commercially under the provider's terms; they remain separate from the MIT code license. See [audience credits](public/audience/CREDITS.md). Musical taste, guitar realism and long-run variation remain listening and tuning goals, not guarantees.
 
 ## Verify and contribute
 
