@@ -5,6 +5,25 @@ export const decisionEndpoints: Record<JevProvider, string> = {
   typesafe: 'https://api.typesafe.ai/v1/systemone',
 };
 
+/**
+ * Where a decision request actually goes.
+ *
+ * `JEV_DECISIONS_ENDPOINT` sends every decision to one address instead of the
+ * provider's own. It exists so a local shim can stand in front of the band and
+ * answer the roles it can while forwarding the rest — the whole of Jev keeps
+ * one provider, one model id and one trace format, and only the address moves.
+ *
+ * The override is disclosed, not hidden: `callJev` records the address it used
+ * in `trace.endpoint`, so a room running against a shim says so in every trace
+ * it publishes, exactly as it does when it switches provider.
+ */
+export function decisionEndpoint(
+  provider: JevProvider,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return env.JEV_DECISIONS_ENDPOINT?.trim() || decisionEndpoints[provider];
+}
+
 export interface JevConfig {
   provider: JevProvider;
   apiKey: string;

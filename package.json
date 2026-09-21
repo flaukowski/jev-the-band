@@ -26,7 +26,8 @@
     "audit:transition": "tsx scripts/audit-transition.ts",
     "generate:audience": "tsx scripts/generate-audience.ts",
     "promote:audience": "tsx scripts/promote-audience.ts",
-    "archive:migrate": "tsx scripts/migrate-archive.ts"
+    "archive:migrate": "tsx scripts/migrate-archive.ts",
+    "lux": "tsx scripts/kannaka-lux.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.0",

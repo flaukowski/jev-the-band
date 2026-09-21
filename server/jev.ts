@@ -30,7 +30,7 @@ import {
 import { endingPressure } from '../shared/score.js';
 import { listeningState } from './listening.js';
 import type { SonicConcept } from '../shared/concept.js';
-import { decisionEndpoints } from './provider.js';
+import { decisionEndpoint } from './provider.js';
 
 export const choice = (
   instructions: string,
@@ -322,7 +322,7 @@ export async function callJev(
   const start = performance.now();
   const trace: Trace = {
     provider,
-    endpoint: decisionEndpoints[provider],
+    endpoint: decisionEndpoint(provider),
     id: randomUUID(),
     role,
     frame,
@@ -335,7 +335,7 @@ export async function callJev(
     cost: null,
   };
   try {
-    const response = await fetch(decisionEndpoints[provider], {
+    const response = await fetch(decisionEndpoint(provider), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
