@@ -82,7 +82,8 @@ const durations = [0.125, 1 / 6, 0.2, 0.25, 1 / 3, 0.5, 2 / 3, 0.75, 1, 1.5, 2, 
 const pitchLabel = (midi: number) =>
   `${noteNames[midi % 12]}${Math.floor(midi / 12) - 1} (MIDI ${midi})`;
 function context(role: Musician, room: Snapshot, phrase: number) {
-  const elapsed = Math.max(0, (Date.now() - room.startedAt) / 1000);
+  // Musical time belongs to the current song, not to the whole night.
+  const elapsed = Math.max(0, (Date.now() - (room.themeStartedAt ?? room.startedAt)) / 1000);
   return {
     persona: personas[role],
     phrase,
@@ -193,7 +194,6 @@ export function phrasePlanRequest(
           : actions.filter(
               (a) =>
                 (!entryDue || !['rest', 'hold'].includes(a)) &&
-                (!room.themeTransition || !['rest', 'hold'].includes(a)) &&
                 !(own?.solo && a === 'hold') &&
                 (a !== 'hold' || (own && !releaseDue && (own.performance?.motifAge ?? 0) < 3)),
             ),
@@ -338,7 +338,47 @@ export function phrasePlanRequest(
         '. Effects should be used generously as a musical voice; keep a color while it serves the groove or change it to answer, build or release. A separate decision will choose every pedal after seeing this intention.',
       timbresFor(role),
     );
-  const retired = fatigue(own, room, phrase, questions);
+  const retired = room.windDown ? {} : fatigue(own, room, phrase, questions);
+  if (room.windDown) {
+    // A new song is waiting. The only question is how this one ends.
+    const left = room.windDown.framesIn;
+    const only = (key: string, values: Record<string, string>) => {
+      if (questions[key]) questions[key] = choice(questions[key].instructions, values);
+    };
+    only(
+      'action',
+      left >= 4
+        ? { rest: 'Stop. Your part in this song is over' }
+        : {
+            resolve:
+              'Play a final landing: home chord tones, slower, softer, with a clear last note',
+            ...(left < 2 ? { space: 'Thin out to a few long tones on the way to stopping' } : {}),
+            // Everyone plays the first closing phrase together; dropping out comes after it.
+            ...(left >= 1
+              ? { rest: 'Stop now and let the others finish. Once you stop you stay silent' }
+              : {}),
+          },
+    );
+    only('arc', { release: arcs.release, space: arcs.space });
+    only('phraseBars', { '2': 'These two bars' });
+    only('keyMove', { stay: keyMoves.stay });
+    only('tempo', {
+      ease: 'Let the time relax into the ending',
+      stay: 'Hold the tempo to the end',
+    });
+    only('intent', {
+      release_tension: 'Resolve what is unresolved',
+      thin_out: 'Remove notes until nothing is left',
+      sustain_texture: 'Let a last sound ring out',
+    });
+    only(
+      'volume',
+      Object.fromEntries(
+        (['whisper', 'soft', 'warm'] as const).map((name) => [name, volumes[name].color]),
+      ),
+    );
+    only('density', { low: 'Few notes' });
+  }
   if (phraseContinues && !invitedSolo) {
     // Continue an established idea; new notes and rhythm do not require a new theme.
     // A bandmate's key change outranks a private commitment: follow it mid-phrase.
@@ -366,6 +406,9 @@ export function phrasePlanRequest(
     state: {
       ...context(role, room, phrase),
       restingChoices: Object.keys(retired).length ? retired : undefined,
+      ending: room.windDown
+        ? 'The band is bringing this song to a natural close. Land it together: simplify, soften, arrive home and stop. Players drop out one by one. When you stop, stay stopped. Do not start new ideas.'
+        : undefined,
       task:
         'You compose actual note events after this plan. There is no lick catalog. ' +
         (noveltyPressure(own, room) < 0.55

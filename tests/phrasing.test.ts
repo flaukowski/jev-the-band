@@ -213,11 +213,12 @@ test('theme queue stays in musical time, is FIFO, and rejects invalid room state
     { role: 'bass', notes: [], decision: {} as any, solo: false, repeated: 0, source: 'jev' },
     10,
   );
-  assert.equal(nextThemeFrame(room.view(), Date.now()), 15);
+  // Frame 10 is sounding: wind-down may begin at 11 and takes at most five frames plus a silent one.
+  assert.equal(nextThemeFrame(room.view(), Date.now()), 17);
   const a = room.queueTheme('A new world');
   const b = room.queueTheme('Then another');
-  assert.equal(a.atFrame, 15);
-  assert.equal(b.atFrame, 19);
+  assert.equal(a.atFrame, 17);
+  assert.equal(b.atFrame, 31, 'the first queued song gets sixteen bars before it is asked to end');
   room.queueTheme('Third');
   room.queueTheme('Fourth');
   assert.throws(() => room.queueTheme('Fifth'), /Four themes/);
@@ -225,18 +226,26 @@ test('theme queue stays in musical time, is FIFO, and rejects invalid room state
   assert.throws(() => room.queueTheme('Late'), /Start a live/);
 });
 
-test('the live scheduler delivers queued transitions, streams independent phrases, and invites a proper solo by three minutes', async (t) => {
+test('a queued song waits for a natural ending and silence, then starts from nothing; phrases stream and a solo arrives by three minutes', async (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000000 });
   let serial = 0;
+  const requests: { state: Record<string, any>; questions: Record<string, any> }[] = [];
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const request = JSON.parse(init.body as string);
+    requests.push(request);
     const name = request.state.persona?.name ?? request.state.context?.persona?.name;
     const role: Musician =
       name === 'JUNE' ? 'keys' : name === 'KIT' ? 'drums' : name === 'MOSS' ? 'bass' : 'guitar';
     const trace = fixture(
       request,
       role,
-      { phraseBars: '4', opener: 'keys', bpm: '96', action: 'vary', intent: 'answer_peer' },
+      {
+        phraseBars: '4',
+        opener: request.state.prompt === 'A new sunlit chapter' ? 'drums' : 'keys',
+        bpm: request.state.prompt === 'A new sunlit chapter' ? '120' : '96',
+        action: 'vary',
+        intent: 'answer_peer',
+      },
       serial++,
     );
     return new Response(JSON.stringify({ answers: trace.answers, usage: { cost: 0 } }));
@@ -249,22 +258,47 @@ test('the live scheduler delivers queued transitions, streams independent phrase
   });
   await room.start();
   let cue: ReturnType<Room['queueTheme']> | undefined;
-  for (let second = 0; second < 205; second++) {
+  for (let second = 0; second < 275; second++) {
     t.mock.timers.tick(1000);
     await new Promise<void>((resolve) => setImmediate(resolve));
     if (second === 25) cue = room.queueTheme('A new sunlit chapter');
   }
   room.stop();
   assert.ok(cue);
-  assert.equal(frames.find((f) => f.themeId === cue.id)?.id, cue.atFrame);
-  assert.equal(frames.find((f) => f.id === cue.atFrame - 1)?.themeTitle, 'Opening theme');
-  assert.equal(
-    frames.find((f) => f.id === cue.atFrame)?.parts.filter((p) => !p.continued).length,
-    4,
+  const first = frames.find((f) => f.themeId === cue.id)!;
+  assert.equal(first.id, cue.atFrame, 'the cue records where the song really began');
+  const closing = frames.filter((f) => f.chapter === 'Bringing it home');
+  assert.ok(closing.length >= 2, 'the band winds the old song down over several frames');
+  assert.ok(closing.every((f) => f.themeTitle === 'Opening theme'));
+  const silence = frames.find((f) => f.id === first.id - 1)!;
+  assert.ok(
+    silence.parts.every((p) => !p.notes.length && !p.cutForNextSong),
+    'everyone stopped by choice before the next song',
+  );
+  // The new song starts exactly like a first song: its own opening decision, one player, a new tempo.
+  assert.deepEqual(
+    first.parts.map((p) => p.role),
+    ['drums'],
+  );
+  assert.ok(first.bpm > 110, 'the new song has its own tempo, not the old 96');
+  assert.equal(frames.find((f) => f.id === first.id + 3)?.parts.length, 4, 'staggered entrances');
+  const opening = requests.find(
+    (r) => r.state.currentTheme === 'A new sunlit chapter' && r.questions.phraseBars,
+  )!;
+  assert.equal(opening.state.phrase, 0);
+  assert.equal(opening.state.ownMemory, null, 'no memory of the previous song');
+  assert.deepEqual(opening.state.recent, []);
+  assert.equal(opening.state.seedPrompt, 'A new sunlit chapter');
+  assert.ok(opening.state.elapsedSeconds < 5, 'musical time restarts with the song');
+  const ending = requests.find((r) => r.state.ending)!;
+  assert.ok(
+    !('vary' in ending.questions.action.criteria) &&
+      'resolve' in ending.questions.action.criteria &&
+      !('rest' in ending.questions.action.criteria),
   );
   const solo = frames.find((f) => f.parts.some((p) => p.solo && p.performance?.soloBars));
   assert.ok(solo, 'scheduled real solo');
-  assert.ok(solo.at - room.state.startedAt <= 181000);
+  assert.ok(solo.at - solo.themeStartedAt! <= 181000);
   assert.ok(
     frames.some((f) => f.parts.filter((p) => !p.continued).length > 1),
     'independent phrase continuations stream concurrently',

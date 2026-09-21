@@ -22,6 +22,7 @@
     "audit:director": "tsx scripts/audit-director.ts",
     "format": "prettier --write src server shared scripts tests *.json *.ts",
     "audit:solos": "tsx scripts/audit-solos.ts",
+    "audit:transition": "tsx scripts/audit-transition.ts",
     "generate:audience": "tsx scripts/generate-audience.ts",
     "promote:audience": "tsx scripts/promote-audience.ts",
     "archive:migrate": "tsx scripts/migrate-archive.ts"

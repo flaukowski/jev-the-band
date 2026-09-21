@@ -149,25 +149,27 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
           else has been played. After 48 bars in one key, “stay” gets tired too.
         </p>
         <p>
-          <b>Heat.</b> Each player has a novelty pressure from 0 to 1 that rises with elapsed time
-          and with every two-bar chunk its direction has not changed. Rook bores fastest (×1.25),
-          then June (×1.1), Moss (×0.8), and Kit, who could play that beat until Tuesday (×0.7).
-          Pressure warms the dice: sampling temperature climbs from 0.6 to 2.2, the nucleus widens
-          from the top 70% of probability to 98%, and a player’s own recent picks are penalised. The
-          second and third most likely answers become live options. They are still Jev’s answers,
-          from Jev’s distribution; we just stop always taking the first one. Change two audible
-          things at once and it counts as a departure, and the player cools back down. Moving the
-          whole band’s key or tempo stays locked until a player is properly restless.
+          <b>Heat.</b> Each player has a novelty pressure from 0 to 1 that rises with time into the
+          song and with every two-bar chunk its direction has not changed. Rook bores fastest
+          (×1.25), then June (×1.1), Moss (×0.8), and Kit, who could play that beat until Tuesday
+          (×0.7). Pressure warms the dice: sampling temperature climbs from 0.6 to 2.2, the nucleus
+          widens from the top 70% of probability to 98%, and a player’s own recent picks are
+          penalised. The second and third most likely answers become live options. They are still
+          Jev’s answers, from Jev’s distribution; we just stop always taking the first one. Change
+          two audible things at once and it counts as a departure, and the player cools back down.
+          Moving the whole band’s key or tempo stays locked until a player is properly restless.
         </p>
         <p>
           <b>LLM themes.</b> One language model is allowed near the band, and only as a songwriter’s
           napkin. When you type a prompt, a director model (gpt-5.6-luna) turns it into a sonic
           concept and a loose chart of four to six sections with ideas for each player. It never
           writes a note or touches a pedal. Players see the prompt itself only for their first four
-          phrases; after that, what they hear matters more than what you said. Send another prompt
-          mid-jam and it queues as a new theme with an eight-bar lead-in (up to four can wait). Luna
-          can also sketch a 16-bar solo story, off the clock, as advice. If Luna is late or down,
-          the band plays from your raw words and says so.
+          phrases; after that, what they hear matters more than what you said. Queue another prompt
+          mid-jam and the band lands the current song on its own, each player choosing how to
+          resolve or stop. Once the stage is silent the next song starts from nothing, with a fresh
+          opener, tempo and key and no memory of the last one. Luna can also sketch a 16-bar solo
+          story, off the clock, as advice. If Luna is late or down, the band plays from your raw
+          words and says so.
         </p>
         <p>
           The console shows both layers for every decision: the raw answer with its probabilities,
