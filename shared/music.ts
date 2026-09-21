@@ -173,6 +173,7 @@ export const lightRecipes = {
     'plasma trails',
     'mandala',
     'decision stream',
+    'song title',
   ],
   /** Procedural sky and weather over the festival field. */
   sky: [
