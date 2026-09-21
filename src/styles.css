@@ -842,6 +842,17 @@ footer {
   font: 9px var(--mono);
   letter-spacing: 0.9px;
 }
+.footer-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--acid);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 footer b {
   font-size: 17px;
   color: var(--acid);
@@ -862,8 +873,9 @@ footer b {
   position: relative;
   border: 1px solid #53613d;
   background: #1b2216;
-  max-width: 530px;
+  max-width: 640px;
   max-height: 90vh;
+  scroll-behavior: smooth;
   overflow: auto;
   border-radius: 6px;
   padding: 40px;
@@ -891,12 +903,113 @@ footer b {
   color: #d3e7b7;
 }
 .about-modal a {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--acid);
   font-size: 12px;
-  margin-top: 25px;
+}
+.about-modal .about-lede {
+  font-size: 15px;
+  line-height: 1.65;
+  color: #d3dcc4;
+}
+.about-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 22px 0 6px;
+}
+.about-toc a {
+  font: 10px var(--mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1px solid #53613d;
+  border-radius: 99px;
+  padding: 5px 10px;
+}
+.about-toc a:hover {
+  background: var(--acid);
+  color: #1b2216;
+}
+.about-modal h3 {
+  font: 500 27px/1.05 var(--display);
+  text-transform: uppercase;
+  color: #e9e9dd;
+  margin: 38px 0 12px;
+  padding-top: 18px;
+  border-top: 1px solid #53613d;
+}
+.about-modal h3 i {
+  font: normal 10px var(--mono);
+  letter-spacing: 1px;
+  color: var(--acid);
+  vertical-align: 9px;
+  margin-right: 6px;
+}
+.about-modal p b,
+.about-steps b {
+  color: #e9e9dd;
+  font-weight: 500;
+}
+.about-modal code {
+  font: 11px var(--mono);
+  color: #d3e7b7;
+  background: #10150d;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.about-exhibit {
+  font: 11px/1.7 var(--mono);
+  color: #d3e7b7;
+  background: #10150d;
+  border-left: 2px solid var(--acid);
+  padding: 12px 14px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+.about-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #b1bda2;
+}
+.about-steps li {
+  margin-bottom: 9px;
+}
+.about-steps li::marker {
+  font-family: var(--mono);
+  color: var(--acid);
+}
+.about-credits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+.about-credits li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #3d4830;
+  color: #e9e9dd;
+}
+.about-credits b {
+  font-weight: 500;
+}
+.about-credits span {
+  font: 11px var(--mono);
+  color: #929985;
+  text-align: right;
+}
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 14px;
 }
 .sr-only {
   position: absolute;
