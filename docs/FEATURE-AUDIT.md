@@ -46,4 +46,3 @@
 4. Continue varied-prompt and longer-session listening. Freshness and solo constraints improve behavior without guaranteeing compelling melodies.
 
 Durable replay, MIDI/stem export, brush kits, arbitrary phrase boundaries, large-audience scaling and server-mixed audio remain roadmap possibilities. See `VERIFICATION.md` for dated evidence and limits.
-
