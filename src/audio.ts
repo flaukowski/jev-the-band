@@ -611,14 +611,51 @@ export class BandAudio {
         osc.connect(gain);
         osc.start(at);
         this.track(osc, at + 0.32, [gain, ...extraNodes]);
+      } else if (note.midi === 53) {
+        // Ride bell: a short inharmonic ping. Voices added after v0.8 never occur in older recordings.
+        gain.gain.setValueAtTime(1, at);
+        const partials = [
+          [1, 0.22],
+          [1.51, 0.14],
+          [2.27, 0.08],
+        ];
+        partials.forEach(([ratio, level], index) => {
+          const osc = c.createOscillator();
+          const partial = c.createGain();
+          osc.frequency.value = 880 * ratio;
+          partial.gain.setValueAtTime(note.velocity * level, at);
+          partial.gain.exponentialRampToValueAtTime(0.0001, at + 0.5);
+          osc.connect(partial).connect(gain);
+          osc.start(at);
+          this.track(osc, at + 0.52, [
+            partial,
+            ...(index === partials.length - 1 ? [gain, ...extraNodes] : []),
+          ]);
+        });
       } else {
         const source = c.createBufferSource();
         source.buffer = this.noise!;
         const filter = c.createBiquadFilter();
-        filter.type = note.midi === 38 ? 'bandpass' : 'highpass';
-        filter.frequency.value = note.midi === 38 ? 1800 : 6800;
-        const decay = note.midi === 38 ? 0.16 : note.midi === 42 ? 0.045 : 0.65;
-        gain.gain.setValueAtTime(note.velocity * (note.midi === 38 ? 0.48 : 0.17), at);
+        const rim = note.midi === 37;
+        filter.type = note.midi === 38 || rim ? 'bandpass' : 'highpass';
+        filter.frequency.value = note.midi === 38 ? 1800 : rim ? 2600 : 6800;
+        if (rim) filter.Q.value = 6;
+        const decay =
+          note.midi === 38
+            ? 0.16
+            : rim
+              ? 0.035
+              : note.midi === 42
+                ? 0.045
+                : note.midi === 44
+                  ? 0.03
+                  : note.midi === 55
+                    ? 0.28
+                    : 0.65;
+        gain.gain.setValueAtTime(
+          note.velocity * (note.midi === 38 ? 0.48 : rim ? 0.4 : note.midi === 44 ? 0.11 : 0.17),
+          at,
+        );
         gain.gain.exponentialRampToValueAtTime(0.0001, at + decay);
         source.connect(filter).connect(gain);
         source.start(at);

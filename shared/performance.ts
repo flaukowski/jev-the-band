@@ -80,6 +80,12 @@ export type Performance = {
   soloEnergy?: string;
   volume?: keyof typeof volumes;
   feel?: string;
+  // Drum groove memory. Absent on parts recorded before the groove harness.
+  drumPulse?: number;
+  drumSwing?: number;
+  drumMove?: string;
+  grooveAge?: number;
+  pendingLanding?: string;
   /** Set when this player led the band to a new key or mode in this chunk. */
   keyLead?: { root: number; mode: string; move: string };
   leadGestures?: string[];

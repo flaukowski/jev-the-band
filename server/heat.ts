@@ -46,6 +46,7 @@ export const heatedFields = [
   'volume',
   'feel',
   'keyMove',
+  'move',
 ] as const;
 
 // Personas get bored at different speeds: the guitarist first, the rhythm section last.
@@ -168,8 +169,8 @@ export const patience: Record<string, number> = {
   chord: 4,
   arc: 3,
   palette: 5,
-  pulse: 5,
-  feel: 5,
+  // The drum grid and feel change only through a deliberate move; the kinds of move are rested
+  // by the groove grammar in groove.ts, not by chance.
   style: 6,
   // Only the drummer's tempo choice is remembered, so only the drummer tires of one tempo.
   tempo: 6,

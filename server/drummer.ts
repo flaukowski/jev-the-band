@@ -30,12 +30,28 @@ export function drumRequest(
     questions['s' + i] = choice(
       placement +
         'choose snare/tom or rest. A legible backbeat belongs in groove styles; reserve tom fills for a transition.',
-      { rest: 'No snare or tom', 38: 'Snare', 45: 'Low tom', 47: 'Middle tom', 50: 'High tom' },
+      {
+        rest: 'No snare or tom',
+        38: 'Snare',
+        37: 'Cross-stick rim click: a quiet, woody backbeat',
+        45: 'Low tom',
+        47: 'Middle tom',
+        50: 'High tom',
+      },
     );
     questions['c' + i] = choice(
       placement +
         'choose cymbal or rest. Maintain a continuous pulse appropriate to your chosen style; a crash is a punctuation.',
-      { rest: 'No cymbal', 42: 'Closed hi-hat', 46: 'Open hi-hat', 51: 'Ride', 49: 'Crash' },
+      {
+        rest: 'No cymbal',
+        42: 'Closed hi-hat',
+        46: 'Open hi-hat',
+        44: 'Pedal hi-hat chick',
+        51: 'Ride',
+        53: 'Ride bell',
+        49: 'Crash',
+        55: 'Splash',
+      },
     );
     questions['v' + i] = choice(placement + 'choose accent level, including soft ghost notes.', {
       '0.25': 'Ghost',

@@ -264,6 +264,11 @@ export interface Part {
   repeated: number;
   source: 'jev' | 'rehearsal' | 'fallback';
   updatedAtFrame?: number;
+  /**
+   * Drums: what this part plays on its next repeats, first to last; the last entry is the groove
+   * it settles back into. Set after a one-shot fill, drop or build so the moment is not looped.
+   */
+  upNext?: Note[][];
   /** The harness silenced this part because the wind-down ran out of time. Not a Jev choice. */
   cutForNextSong?: boolean;
   continued?: boolean;

@@ -452,3 +452,27 @@ User requirement: archive replay in a modal, with a day selector, one compact ro
 **User requirement:** investigate recurring `Sonic director unavailable` reports, increase the timeout, merge the fix to the production branch and ship it.
 
 **Production evidence and decision:** the stored archive contained 19 Luna director calls: 12 ready and seven failed. Six failures completed at 25,003–25,061 ms, matching the application's 25-second abort, while successful structured responses commonly took 19–25 seconds and reached 24,771 ms. The OpenRouter credential and director configuration were present and successful calls used the same deployment. Increase the one-shot director timeout to 45 seconds, leaving its single-request behavior, strict schema validation and raw-prompt fallback unchanged. This trades up to 20 seconds of additional startup or queued-song planning latency for materially more room for the configured model to return a valid brief; it does not add retries or alter Jev's performance-decision timing.
+
+## 2026-09-21 — The groove is the theme: drum moves
+
+**User questions and request:** is there a premade set of drum grooves; why does the kit go to a tuplet feel every eight bars; expand Kit's palette while keeping it groove-oriented, with theme and variation, fills and beat drops; keep the tuplet feel as one option; keep previous songs playable.
+
+**How drums worked.** There was no premade set. Kit chose a grid (quarters, eighths, triplets, sixteenths) and then, step by step across both bars, whether the kick sounds, snare or tom or rest, which cymbal or rest, and an accent level. Every drum turn rewrote all of it from nothing. The predictable tuplet was the v0.7 boredom rule, not Jev: `pulse` had a patience of five turns, so "sixteenths" was rested on a timer and Jev's next-best grid, triplets, won. Kit composes roughly every fourth boundary, hence "every eight bars".
+
+**Decision.** The groove is a persistent object and each drum turn is one **move** on it:
+
+| Move | What Jev decides | What stays |
+|---|---|---|
+| keep | nothing further | the whole groove |
+| vary cymbals / kick / snare | every step of that one limb, shown what the groove plays there now | the other limbs, and the accent of any unchanged hit |
+| fill | length (1, 2 or 4 beats), grid (sixteenths, triplets, sextuplets, eighths), idea, then every hit and accent, and how the groove lands afterwards | the groove up to the fill |
+| drop | what falls silent, for how long (up to both bars), and the landing | Jev's own remaining hits |
+| build | drum, acceleration shape, what continues underneath, landing | the groove before the build |
+| change subdivision | a new groove on another grid: the tuplet feel, or back to straight | nothing |
+| new groove | everything, as before | nothing; offered only after four drum turns on a groove |
+
+Fill, drop and build are moments: they sound once, the following repeat is the groove with the chosen landing (crash, splash, ride bell or none), and later repeats are the plain groove. A **groove grammar** keeps the kinds of move from repeating: no moment directly after a moment, at most two variations or two keeps in a row, and a new grid must settle before the next. This replaces timed fatigue for `pulse` and `feel`, which now change only through a deliberate move. The drum feel bandmates hear changes only when the groove was actually rewritten. The palette gains cross-stick, pedal hi-hat, ride bell and splash, plus flams inside fills.
+
+**Provenance.** Every kick, snare, tom and cymbal is still a Jev answer. Two things are harness arithmetic and are labelled as such: a build's rhythm is expanded from Jev's chosen drum, shape and span (slot `build`), and a landing cymbal is placed on the downbeat Jev chose it for (slot `landing`). Unasked steps are Jev's own earlier hits, kept.
+
+**Backwards compatibility.** Recordings store finished frames and replay them; nothing about stored notes changes. All new fields (`upNext`, `drumPulse`, `drumMove`, `grooveAge`, `pendingLanding`, `cutForNextSong`) are optional. Existing drum pitches render and animate exactly as before; the four new pitches never occur in older recordings. A drum part recorded or carried over without grid memory is simply offered `new_groove`.
