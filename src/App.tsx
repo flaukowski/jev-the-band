@@ -370,7 +370,7 @@ export default function App() {
                 <div className="playing-controls">
                   <span className="current-prompt">“{themeTitle}”</span>
                   <button className="end-button" onClick={stop}>
-                    <Square size={15} /> End jam
+                    <Square size={15} /> {room.finishing ? 'Landing… press to cut' : 'End jam'}
                   </button>
                 </div>
                 {room.mode === 'live' && (

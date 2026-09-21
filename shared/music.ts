@@ -304,6 +304,8 @@ export interface Snapshot {
   themeId?: string;
   themeStartedAt?: number;
   soloInvitation?: { role: Musician; urgency: number; required: boolean };
+  /** The host asked the band to end; it is landing the song before the room closes. */
+  finishing?: boolean;
   /** First frame of the current song; musical time restarts there. */
   themeFrame0?: number;
   /** Set while the band is closing the current song for a queued one. */

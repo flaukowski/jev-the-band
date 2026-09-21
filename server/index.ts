@@ -152,7 +152,8 @@ app.post('/api/room', (req, res) => {
   void room.start();
 });
 app.post('/api/room/stop', (_req, res) => {
-  room?.stop();
+  // A natural ending first; a second request while the band is landing stops immediately.
+  room?.endSong();
   res.json({ ok: true });
 });
 app.post('/api/room/queue', (req, res) => {

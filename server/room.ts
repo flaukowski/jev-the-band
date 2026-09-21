@@ -105,6 +105,24 @@ export class Room extends EventEmitter {
     this.state.initialMode = this.scale;
   }
   private windDown?: { cueId: string; startFrame: number };
+  private finishing = false;
+  /**
+   * End the jam the way a band does: the same wind-down a queued song uses, then stop once
+   * everyone is silent. Asking again, or asking when there is no live music to land, stops at once.
+   */
+  endSong() {
+    const sounding = this.state.frame?.parts.some((p) => p.notes.length);
+    if (
+      this.state.mode !== 'live' ||
+      this.state.status !== 'playing' ||
+      this.finishing ||
+      !sounding
+    )
+      return this.stop();
+    this.finishing = true;
+    this.state.finishing = true;
+    this.publish();
+  }
   private get provider(): JevProvider {
     return this.state.provider ?? this.options.provider ?? 'openrouter';
   }
@@ -308,7 +326,20 @@ export class Room extends EventEmitter {
       this.state.mode === 'live'
         ? this.state.setlist?.find((c) => c.appliedAt === undefined)
         : undefined;
-    if (cue && this.windDown && lastFrame && !lastFrame.parts.some((p) => p.notes.length)) {
+    if (
+      this.finishing &&
+      this.windDown &&
+      lastFrame &&
+      !lastFrame.parts.some((p) => p.notes.length)
+    ) {
+      // Everyone has stopped. Let the last tails ring into the silence, then close the room.
+      this.timer = setTimeout(() => this.stop(), Math.max(0, lastFrame.at + 1500 - Date.now()));
+      return;
+    } else if (this.finishing && !this.windDown) {
+      this.windDown = { cueId: 'end', startFrame: index };
+    } else if (this.finishing) {
+      // Already winding down for a queued song: that wind-down now ends the jam instead.
+    } else if (cue && this.windDown && lastFrame && !lastFrame.parts.some((p) => p.notes.length)) {
       // Everyone has stopped. The next song starts from nothing.
       await this.beginTheme(cue, index, at);
       if (this.abort.signal.aborted) return;

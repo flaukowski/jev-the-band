@@ -416,3 +416,11 @@ The production jam had ended and the release was already live; this authorizes r
 ```text
 transitions dont work as intended... jev seems too stuck on the last song. maybe when the user queues a song description, it cues the jevs to end the jam naturally, when all instruments are silent the start the next sequience as if it was the first submitted prompt (no residual memory from the previous prompts
 ```
+
+## 2026-09-20 — End jam lands the song
+
+```text
+cool "End Song" should have the same effect, natural band windown over 8 bars not hard cut.
+```
+
+The control is labelled **End jam** in the interface; the request is applied to it.
