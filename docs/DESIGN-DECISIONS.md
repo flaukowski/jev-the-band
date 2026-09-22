@@ -480,3 +480,42 @@ Fill, drop and build are moments: they sound once, the following repeat is the g
 ## 2026-09-21 — Empty required title
 
 **User requirement:** do not prefill the title with a reusable default. Start with an empty required title and show “Title the next jam.” as the field prompt, so the jam action remains unavailable until the listener enters a title.
+## 2026-09-21 — A locally served brain on the lighting desk
+
+**Before:** every decision went to the configured provider at a hardcoded address, so running any part of Jev meant a metered account and a network round trip. The decision contract is already model-agnostic — closed questions in, a distribution over each question's own options out, five mechanical rules in `parseAnswers` — but nothing could take advantage of that.
+
+**Now:** `JEV_DECISIONS_ENDPOINT` optionally sends decisions to one address instead of the provider's own, and `scripts/kannaka-lux.ts` is a service that sits there. It answers the personas named in `KANNAKA_ROLES` (default `LUX`, matched on `state.persona.name`) from a locally served model, and forwards everything else upstream untouched using the band's own `Authorization` header. It holds no provider credential of its own. Nothing in `server/room.ts` changes; the room keeps one provider, one model id and one trace format.
+
+**Why the lighting desk and nothing else.** Measured against Jev's own 1.8 s abort on a 7B q4_K_M via Ollama: LUX answers its eight questions in about 0.93 s warm, drums 1.90 s, guitar 2.43 s, keys 2.72 s. Only LUX fits, and it also makes at most one call per round and holds its look when a call fails, so a late answer is the least musically damaging place to find out a local model is too slow. `KANNAKA_ROLES` is a config value rather than a default so a faster box can widen it without a code change.
+
+**The distribution is read, not asked for.** Each option is labelled and the model answers with one token; the distribution comes from its own top-k over those letters, softmaxed and renormalised over exactly the offered options. An option the model never considered gets a small floor rather than zero. Nothing in the answer set is templated or repeated, so these remain real decisions under the project's contract — and because the shim returns its own `model` field and its own address, `trace.responseModel` and `trace.endpoint` both disclose that a local brain answered.
+
+**Accepted, and measured rather than assumed.** Grouping questions that share an option set buys latency and spends variety: mean top probability rises from 0.601 to 0.752 when grouped. A short batch is repaired by re-asking the missing questions singly rather than shipped, because a dropped key makes `parseAnswers` reject the whole set. A cold runtime blows the budget at 3.75 s, so the service warms on boot and sends `keep_alive` — a band between songs is idle, and Ollama evicts after five idle minutes. An unrecognised persona is forwarded rather than answered, and a local answer is validated by `parseAnswers` before it is sent, so a failure surfaces as a disclosed fallback instead of a quietly wrong look.
+
+**Not claimed:** the four musicians are not playable this way on this hardware, and nothing here is tuned for musical quality.
+
+## 2026-09-21 — The room can be hosted again, opt-in, because somebody else is carrying it
+
+**Before:** the open-room decision of 2026-09-20 removed `CONTROLLER_TOKEN` so any visitor could start, queue and stop a jam, with pacing rather than identity as the guard. For a demo somebody is watching, that is the right call and it is not being reversed here.
+
+**What changed is who is downstream.** Kannaka TV now carries this band as a scheduled format, which puts a jam's title on screen and into that channel's own public JSON under its own name. A title is free text. On 2026-09-21 the public archive held a jam titled with a repeated racial slur, one of nineteen ended jams — so a channel picking a jam at random would broadcast it about once every nineteen segments. Pacing does not help: six requests a minute is ample to write a title, and `song-input.ts` normalisation changes the bytes, not the meaning.
+
+**Now:** `JEV_HOST_TOKEN` optionally gates the three writes that can put words on a stage — `POST /api/room`, `/api/room/queue`, `/api/room/stop` — behind `Authorization: Bearer`. Everything else is untouched: reading, the SSE stream, the archive, chat, the mixer and `/api/room/levels`, because a spectator was never the problem. `/api/health` reports `hostedRoom` so an operator and a carrying channel can both see the door is shut without being told the key.
+
+**Opt-in on purpose.** With the variable unset the room behaves exactly as it does today. That keeps upstream's decision intact as the default, makes this safe to carry on a fork, and makes it offerable back rather than a unilateral reversal of somebody else's design.
+
+**Comparison is constant-time over SHA-256 digests** rather than raw bytes: `timingSafeEqual` throws on a length mismatch, and branching on length would leak how long the credential is. The 401 body names the variable and never quotes the credential.
+
+**Accepted:** this protects the title, not the taste. A host with the credential can still write anything; the gate moves the decision to someone accountable for it, which is all a gate can do. A carrying channel that wants a second layer should filter on its own side rather than trust ours.
+
+## 2026-09-21 — The local decision shim must miss its deadline loudly
+
+**What was tried:** the deployed band on Railway was pointed at `JEV_DECISIONS_ENDPOINT` on a Cloudflare tunnel to a laptop, so `kannaka-brain` on Ollama could answer LUX while the musicians stayed upstream. Routing worked exactly as designed — the shim's log showed MOSS, JUNE, ROOK and KIT forwarded, the opener forwarded (its persona is absent, so it is not claimed), and LUX answered locally.
+
+**It still failed, and the way it failed is the finding.** Every one of Jev's nine lighting traces came back `source: fallback`, `latencyMs: 1800`, "Decision request timed out". The shim's own log for the same calls: 17 s, 24 s, 31 s, 38 s, 45 s, 52 s, 59 s — climbing about seven seconds each time. Jev had abandoned each request at 1.8 s and moved on; the shim did not know, kept computing an answer nobody would read, and the next request queued behind the last. Latency grew without bound while the band played on with the previous look. **Nothing looked broken.** That is the failure mode this project keeps warning about, arriving in the one component built to avoid it.
+
+Measured alone the same call was 0.93 s. What was never measured: the same process simultaneously proxying the whole band's traffic — about 470 upstream requests in that run — plus a tunnel round trip on each of the eight sub-requests. A measurement taken without the load it will run under is a measurement of something else.
+
+**Now:** the shim takes a deadline (`KANNAKA_DEADLINE_MS`, default 1500 ms, inside Jev's 1800) and an abort signal threaded to every model call, and it also aborts when the caller hangs up. Past the deadline it stops work and answers 503 immediately. **Refusing fast is the feature:** Jev falls back at once, the queue stays empty, and the next request starts from nothing instead of from the wreck of the last one.
+
+**Not fixed, and not claimed:** this does not make LUX fit over a tunnel. It makes the failure clean, bounded and visible rather than unbounded and silent. A local brain on the lighting desk needs the band and the shim on the same side of the network, and the endpoint override has been unset in production until that is true.

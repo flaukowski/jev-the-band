@@ -10,6 +10,7 @@ import { Room } from './room.js';
 import { Chat, chatInput } from './chat.js';
 import { levelsSchema } from '../shared/engineer.js';
 import { jevConfig } from './provider.js';
+import { hostOnly, hostToken } from './host-gate.js';
 import { readFileSync } from 'node:fs';
 const app = express();
 const host = process.env.HOST || '127.0.0.1';
@@ -92,6 +93,9 @@ app.get('/api/health', (_req, res) =>
       format: 1,
     },
     serverTime: Date.now(),
+    // Whether this room is hosted, never the credential. A carrying channel and
+    // an operator both need to know the door is shut without being told the key.
+    hostedRoom: hostToken() !== null,
     liveAvailable: !!provider.apiKey,
     model: provider.model,
     provider: provider.provider,
@@ -149,6 +153,9 @@ app.get('/api/archive/:id', async (req, res) => {
 });
 // The room is open to everyone, so song requests are paced per address.
 const requests = new Map<string, number[]>();
+/** Hosted-room guard. A no-op unless JEV_HOST_TOKEN is set. */
+const gate = hostOnly();
+
 const paced: express.RequestHandler = (req, res, next) => {
   const now = Date.now();
   const key = req.ip ?? '';
@@ -161,7 +168,7 @@ const paced: express.RequestHandler = (req, res, next) => {
   if (requests.size > 5000) requests.clear();
   next();
 };
-app.post('/api/room', paced, async (req, res) => {
+app.post('/api/room', paced, gate, async (req, res) => {
   const parsed = songInput.extend({ mode: z.enum(['live', 'rehearsal']) }).safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -257,12 +264,12 @@ app.post('/api/room', paced, async (req, res) => {
   res.status(201).json(room.view());
   void room.start();
 });
-app.post('/api/room/stop', paced, (_req, res) => {
+app.post('/api/room/stop', paced, gate, (_req, res) => {
   // A natural ending first; a second request while the band is landing stops immediately.
   room?.endSong();
   res.json({ ok: true });
 });
-app.post('/api/room/queue', paced, (req, res) => {
+app.post('/api/room/queue', paced, gate, (req, res) => {
   const parsed = songInput.extend({ roomId: z.string().max(64) }).safeParse(req.body);
   if (!parsed.success || parsed.data.roomId !== room?.state.id) {
     res.status(400).json({ error: 'Enter a theme for the current room.' });
